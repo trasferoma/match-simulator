@@ -1,0 +1,478 @@
+{
+  "source": {
+    "name": "StatsBomb Open Data",
+    "url": "https://github.com/statsbomb/open-data",
+    "licence": "StatsBomb Public Data User Agreement (2023-09-08): no redistribution of the data, no commercial exploitation of the data or derived analysis, publications must credit StatsBomb",
+    "commit": "4b73468fc5b0f1950f9f66fada70ad3a4f9327cb",
+    "attribution": "Data: StatsBomb"
+  },
+  "population": {
+    "season": "2015-16",
+    "competitions": [
+      "English Premier League",
+      "French Ligue 1",
+      "Spanish La Liga",
+      "Italian Serie A"
+    ],
+    "excluded": {
+      "German Bundesliga": "only 34 matches (one team) in the open data"
+    },
+    "matches_per_competition": {
+      "English Premier League": 380,
+      "French Ligue 1": 377,
+      "Spanish La Liga": 380,
+      "Italian Serie A": 380
+    },
+    "matches": 1517
+  },
+  "definitions": {
+    "possession_pass_share": "team passes / all passes in the match (the convention used by broadcast statistics)",
+    "possession_time_share": "time between consecutive events assigned to the team in possession, dead-ball time included",
+    "possession_chain": "a StatsBomb possession: a sequence of events while one team controls the ball",
+    "possession_duration": "seconds between the first and last event of a possession; one span per match that straddles half-time is an artefact and is excluded; the mean is omitted because dead-ball stoppages inside a possession make it unreliable",
+    "shot_on_target": "shot outcome Goal, Saved or Saved To Post (blocked shots are not on target)",
+    "spreads": "p10/p25/median/p75/p90/mean computed over team-matches (or over shots / possessions where stated)"
+  },
+  "all_leagues": {
+    "matches": 1517,
+    "possession": {
+      "pass_share_per_team_match": {
+        "p10": 36.2445,
+        "p25": 42.5568,
+        "median": 50,
+        "p75": 57.4432,
+        "p90": 63.7555,
+        "mean": 50
+      },
+      "time_share_per_team_match": {
+        "p10": 34.7134,
+        "p25": 41.7875,
+        "median": 50,
+        "p75": 58.2125,
+        "p90": 65.2866,
+        "mean": 50
+      },
+      "home_pass_share_mean": 51.4288,
+      "team_matches_at_or_above_60_pct": 17.996,
+      "team_matches_at_or_above_65_pct": 8.0092,
+      "team_matches_at_or_above_70_pct": 1.9446,
+      "team_with_more_ball": {
+        "win_pct": 38.3498,
+        "draw_pct": 26.5347,
+        "loss_pct": 35.1155
+      }
+    },
+    "possession_chains": {
+      "possessions_per_team_match": {
+        "p10": 85,
+        "p25": 91,
+        "median": 98,
+        "p75": 105,
+        "p90": 112,
+        "mean": 98.1523
+      },
+      "duration_seconds": {
+        "p10": 1.89,
+        "p25": 4.73,
+        "median": 11.489,
+        "p75": 23.307,
+        "p90": 40.3138
+      },
+      "ending_with_shot_pct": 11.5986,
+      "ending_with_goal_pct": 1.2794
+    },
+    "passing": {
+      "passes_per_team_match": {
+        "p10": 348,
+        "p25": 405,
+        "median": 478,
+        "p75": 562,
+        "p90": 637,
+        "mean": 488.4024
+      },
+      "completion_pct": 76.7092
+    },
+    "shots": {
+      "shots_per_game": 24.9756,
+      "on_target_pct": 33.3932,
+      "xg_per_game": 2.4699,
+      "xg_per_shot": {
+        "p10": 0.014,
+        "p25": 0.0266,
+        "median": 0.0506,
+        "p75": 0.1015,
+        "p90": 0.2338,
+        "mean": 0.0989
+      },
+      "shots_with_xg_at_least_0_3_pct": 7.216,
+      "xg_per_team_match": {
+        "p10": 0.4212,
+        "p25": 0.6709,
+        "median": 1.0915,
+        "p75": 1.6356,
+        "p90": 2.2147,
+        "mean": 1.235
+      }
+    },
+    "discipline": {
+      "fouls_per_game": 30.0046,
+      "yellow_cards_per_game": 4.4047,
+      "red_cards_per_game": 0.2722,
+      "corners_per_game": 10.2011
+    }
+  },
+  "per_league": {
+    "English Premier League": {
+      "matches": 380,
+      "possession": {
+        "pass_share_per_team_match": {
+          "p10": 36.0973,
+          "p25": 42.8461,
+          "median": 50,
+          "p75": 57.1539,
+          "p90": 63.9027,
+          "mean": 50
+        },
+        "time_share_per_team_match": {
+          "p10": 32.1635,
+          "p25": 39.8542,
+          "median": 50,
+          "p75": 60.1458,
+          "p90": 67.8365,
+          "mean": 50
+        },
+        "home_pass_share_mean": 51.7104,
+        "team_matches_at_or_above_60_pct": 16.8421,
+        "team_matches_at_or_above_65_pct": 7.6316,
+        "team_matches_at_or_above_70_pct": 1.8421,
+        "team_with_more_ball": {
+          "win_pct": 36.8421,
+          "draw_pct": 28.1579,
+          "loss_pct": 35
+        }
+      },
+      "possession_chains": {
+        "possessions_per_team_match": {
+          "p10": 81,
+          "p25": 88,
+          "median": 95,
+          "p75": 102,
+          "p90": 108,
+          "mean": 94.5842
+        },
+        "duration_seconds": {
+          "p10": 1.827,
+          "p25": 4.717,
+          "median": 11.708,
+          "p75": 24.0725,
+          "p90": 42.0934
+        },
+        "ending_with_shot_pct": 12.4464,
+        "ending_with_goal_pct": 1.3536
+      },
+      "passing": {
+        "passes_per_team_match": {
+          "p10": 347,
+          "p25": 408,
+          "median": 476.5,
+          "p75": 556,
+          "p90": 625,
+          "mean": 485.025
+        },
+        "completion_pct": 76.6046
+      },
+      "shots": {
+        "shots_per_game": 26.0737,
+        "on_target_pct": 32.2669,
+        "xg_per_game": 2.5563,
+        "xg_per_shot": {
+          "p10": 0.0171,
+          "p25": 0.029,
+          "median": 0.0529,
+          "p75": 0.1011,
+          "p90": 0.2211,
+          "mean": 0.098
+        },
+        "shots_with_xg_at_least_0_3_pct": 6.7723,
+        "xg_per_team_match": {
+          "p10": 0.4607,
+          "p25": 0.7376,
+          "median": 1.154,
+          "p75": 1.72,
+          "p90": 2.2611,
+          "mean": 1.2781
+        }
+      },
+      "discipline": {
+        "fouls_per_game": 25.0316,
+        "yellow_cards_per_game": 3.1658,
+        "red_cards_per_game": 0.1553,
+        "corners_per_game": 10.8079
+      }
+    },
+    "French Ligue 1": {
+      "matches": 377,
+      "possession": {
+        "pass_share_per_team_match": {
+          "p10": 35.9997,
+          "p25": 42.6831,
+          "median": 50,
+          "p75": 57.3169,
+          "p90": 64.0003,
+          "mean": 50
+        },
+        "time_share_per_team_match": {
+          "p10": 37.6248,
+          "p25": 43.251,
+          "median": 50,
+          "p75": 56.749,
+          "p90": 62.3752,
+          "mean": 50
+        },
+        "home_pass_share_mean": 51.5197,
+        "team_matches_at_or_above_60_pct": 18.5676,
+        "team_matches_at_or_above_65_pct": 8.4881,
+        "team_matches_at_or_above_70_pct": 2.2546,
+        "team_with_more_ball": {
+          "win_pct": 36.4362,
+          "draw_pct": 28.7234,
+          "loss_pct": 34.8404
+        }
+      },
+      "possession_chains": {
+        "possessions_per_team_match": {
+          "p10": 87,
+          "p25": 93,
+          "median": 99,
+          "p75": 105,
+          "p90": 111,
+          "mean": 99.1631
+        },
+        "duration_seconds": {
+          "p10": 2.0961,
+          "p25": 5.0037,
+          "median": 11.764,
+          "p75": 23.473,
+          "p90": 39.8677
+        },
+        "ending_with_shot_pct": 10.8066,
+        "ending_with_goal_pct": 1.2077
+      },
+      "passing": {
+        "passes_per_team_match": {
+          "p10": 352.3,
+          "p25": 410,
+          "median": 484,
+          "p75": 568,
+          "p90": 655,
+          "mean": 496.3382
+        },
+        "completion_pct": 77.0227
+      },
+      "shots": {
+        "shots_per_game": 23.3793,
+        "on_target_pct": 34.865,
+        "xg_per_game": 2.3207,
+        "xg_per_shot": {
+          "p10": 0.0113,
+          "p25": 0.0258,
+          "median": 0.0513,
+          "p75": 0.1042,
+          "p90": 0.2366,
+          "mean": 0.0993
+        },
+        "shots_with_xg_at_least_0_3_pct": 7.091,
+        "xg_per_team_match": {
+          "p10": 0.3919,
+          "p25": 0.6237,
+          "median": 1.0021,
+          "p75": 1.4972,
+          "p90": 2.1081,
+          "mean": 1.1604
+        }
+      },
+      "discipline": {
+        "fouls_per_game": 29.7268,
+        "yellow_cards_per_game": 3.8912,
+        "red_cards_per_game": 0.3103,
+        "corners_per_game": 9.5172
+      }
+    },
+    "Spanish La Liga": {
+      "matches": 380,
+      "possession": {
+        "pass_share_per_team_match": {
+          "p10": 36.6714,
+          "p25": 42.8369,
+          "median": 50,
+          "p75": 57.1631,
+          "p90": 63.3286,
+          "mean": 50
+        },
+        "time_share_per_team_match": {
+          "p10": 32.6798,
+          "p25": 40.1471,
+          "median": 50,
+          "p75": 59.8529,
+          "p90": 67.3202,
+          "mean": 50
+        },
+        "home_pass_share_mean": 51.5989,
+        "team_matches_at_or_above_60_pct": 17.1053,
+        "team_matches_at_or_above_65_pct": 7.6316,
+        "team_matches_at_or_above_70_pct": 1.3158,
+        "team_with_more_ball": {
+          "win_pct": 37.7309,
+          "draw_pct": 24.2744,
+          "loss_pct": 37.9947
+        }
+      },
+      "possession_chains": {
+        "possessions_per_team_match": {
+          "p10": 85,
+          "p25": 91.75,
+          "median": 99,
+          "p75": 107,
+          "p90": 114,
+          "mean": 99.3566
+        },
+        "duration_seconds": {
+          "p10": 1.667,
+          "p25": 4.32,
+          "median": 10.911,
+          "p75": 22.42,
+          "p90": 39.386
+        },
+        "ending_with_shot_pct": 11.1136,
+        "ending_with_goal_pct": 1.323
+      },
+      "passing": {
+        "passes_per_team_match": {
+          "p10": 343.9,
+          "p25": 398,
+          "median": 474,
+          "p75": 549,
+          "p90": 629.1,
+          "mean": 480.6421
+        },
+        "completion_pct": 75.7657
+      },
+      "shots": {
+        "shots_per_game": 24.1263,
+        "on_target_pct": 35.2312,
+        "xg_per_game": 2.5784,
+        "xg_per_shot": {
+          "p10": 0.0145,
+          "p25": 0.0279,
+          "median": 0.0535,
+          "p75": 0.1124,
+          "p90": 0.2643,
+          "mean": 0.1069
+        },
+        "shots_with_xg_at_least_0_3_pct": 8.377,
+        "xg_per_team_match": {
+          "p10": 0.4104,
+          "p25": 0.6728,
+          "median": 1.134,
+          "p75": 1.691,
+          "p90": 2.3369,
+          "mean": 1.2892
+        }
+      },
+      "discipline": {
+        "fouls_per_game": 31.9368,
+        "yellow_cards_per_game": 5.4842,
+        "red_cards_per_game": 0.2868,
+        "corners_per_game": 10.1079
+      }
+    },
+    "Italian Serie A": {
+      "matches": 380,
+      "possession": {
+        "pass_share_per_team_match": {
+          "p10": 36.1712,
+          "p25": 41.9574,
+          "median": 50,
+          "p75": 58.0426,
+          "p90": 63.8288,
+          "mean": 50
+        },
+        "time_share_per_team_match": {
+          "p10": 37.4707,
+          "p25": 42.906,
+          "median": 50,
+          "p75": 57.094,
+          "p90": 62.5293,
+          "mean": 50
+        },
+        "home_pass_share_mean": 50.887,
+        "team_matches_at_or_above_60_pct": 19.4737,
+        "team_matches_at_or_above_65_pct": 8.2895,
+        "team_matches_at_or_above_70_pct": 2.3684,
+        "team_with_more_ball": {
+          "win_pct": 42.3684,
+          "draw_pct": 25,
+          "loss_pct": 32.6316
+        }
+      },
+      "possession_chains": {
+        "possessions_per_team_match": {
+          "p10": 87,
+          "p25": 92,
+          "median": 100,
+          "p75": 106,
+          "p90": 113,
+          "mean": 99.5132
+        },
+        "duration_seconds": {
+          "p10": 2.002,
+          "p25": 4.8772,
+          "median": 11.564,
+          "p75": 23.2548,
+          "p90": 39.9181
+        },
+        "ending_with_shot_pct": 12.06,
+        "ending_with_goal_pct": 1.2363
+      },
+      "passing": {
+        "passes_per_team_match": {
+          "p10": 348,
+          "p25": 405,
+          "median": 480,
+          "p75": 568.25,
+          "p90": 643.2,
+          "mean": 491.6671
+        },
+        "completion_pct": 77.4208
+      },
+      "shots": {
+        "shots_per_game": 26.3105,
+        "on_target_pct": 31.5263,
+        "xg_per_game": 2.4231,
+        "xg_per_shot": {
+          "p10": 0.0126,
+          "p25": 0.0245,
+          "median": 0.0452,
+          "p75": 0.0897,
+          "p90": 0.2152,
+          "mean": 0.0921
+        },
+        "shots_with_xg_at_least_0_3_pct": 6.7013,
+        "xg_per_team_match": {
+          "p10": 0.4114,
+          "p25": 0.6504,
+          "median": 1.082,
+          "p75": 1.6274,
+          "p90": 2.201,
+          "mean": 1.2116
+        }
+      },
+      "discipline": {
+        "fouls_per_game": 33.3211,
+        "yellow_cards_per_game": 5.0737,
+        "red_cards_per_game": 0.3368,
+        "corners_per_game": 10.3658
+      }
+    }
+  }
+}

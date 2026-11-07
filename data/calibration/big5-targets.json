@@ -1,0 +1,638 @@
+{
+  "source": {
+    "name": "openfootball/football.json",
+    "url": "https://github.com/openfootball/football.json",
+    "licence": "CC0-1.0",
+    "commit": "e6744429ee395bc86f247348c6184bb08d4eb361",
+    "commit_date": "2026-09-22T09:33:49Z"
+  },
+  "population": {
+    "competitions": [
+      "English Premier League",
+      "Spanish La Liga",
+      "German Bundesliga",
+      "Italian Serie A",
+      "French Ligue 1"
+    ],
+    "seasons": [
+      "2014-15",
+      "2015-16",
+      "2016-17",
+      "2017-18",
+      "2018-19",
+      "2021-22",
+      "2022-23",
+      "2023-24"
+    ],
+    "excluded_seasons": {
+      "2010-11..2013-14": "not all five leagues present in the dataset",
+      "2019-20": "played behind closed doors; Ligue 1 abandoned at 279/380",
+      "2020-21": "played largely behind closed doors",
+      "2024-25": "incomplete in the dataset (La Liga and Serie A 370/380 results)",
+      "2025-26": "incomplete in the dataset in all five leagues"
+    },
+    "league_seasons": 40,
+    "matches": 14534
+  },
+  "band_rule": "low/high = 10th-90th percentile of the per-league-season values (linear interpolation). pooled = value over all matches together.",
+  "metrics": [
+    {
+      "key": "goals_per_game",
+      "label": "Goals per game",
+      "unit": "per_game",
+      "low": 2.5547,
+      "high": 3.1232,
+      "observed": {
+        "min": 2.4921,
+        "p10": 2.5547,
+        "median": 2.7092,
+        "p90": 3.1232,
+        "max": 3.2789,
+        "pooled": 2.7555
+      },
+      "per_league": {
+        "en": {
+          "median": 2.8092,
+          "min": 2.5658,
+          "max": 3.2789
+        },
+        "es": {
+          "median": 2.65,
+          "min": 2.5026,
+          "max": 2.9421
+        },
+        "de": {
+          "median": 2.9918,
+          "min": 2.7549,
+          "max": 3.219
+        },
+        "it": {
+          "median": 2.6789,
+          "min": 2.5632,
+          "max": 2.9553
+        },
+        "fr": {
+          "median": 2.6536,
+          "min": 2.4921,
+          "max": 2.8079
+        }
+      }
+    },
+    {
+      "key": "home_goals_per_game",
+      "label": "Home goals per game",
+      "unit": "per_game",
+      "low": 1.4366,
+      "high": 1.7644,
+      "observed": {
+        "min": 1.4105,
+        "p10": 1.4366,
+        "median": 1.5303,
+        "p90": 1.7644,
+        "max": 1.8562,
+        "pooled": 1.5508
+      },
+      "per_league": {
+        "en": {
+          "median": 1.55,
+          "min": 1.4737,
+          "max": 1.8
+        },
+        "es": {
+          "median": 1.5105,
+          "min": 1.4211,
+          "max": 1.6632
+        },
+        "de": {
+          "median": 1.7092,
+          "min": 1.5654,
+          "max": 1.8562
+        },
+        "it": {
+          "median": 1.4776,
+          "min": 1.4132,
+          "max": 1.6605
+        },
+        "fr": {
+          "median": 1.4803,
+          "min": 1.4105,
+          "max": 1.5816
+        }
+      }
+    },
+    {
+      "key": "away_goals_per_game",
+      "label": "Away goals per game",
+      "unit": "per_game",
+      "low": 1.0863,
+      "high": 1.3569,
+      "observed": {
+        "min": 1.0579,
+        "p10": 1.0863,
+        "median": 1.1961,
+        "p90": 1.3569,
+        "max": 1.4789,
+        "pooled": 1.2046
+      },
+      "per_league": {
+        "en": {
+          "median": 1.2132,
+          "min": 1.0921,
+          "max": 1.4789
+        },
+        "es": {
+          "median": 1.1303,
+          "min": 1.0579,
+          "max": 1.2789
+        },
+        "de": {
+          "median": 1.2908,
+          "min": 1.1667,
+          "max": 1.4118
+        },
+        "it": {
+          "median": 1.1961,
+          "min": 1.1053,
+          "max": 1.3632
+        },
+        "fr": {
+          "median": 1.1395,
+          "min": 1.0605,
+          "max": 1.3184
+        }
+      }
+    },
+    {
+      "key": "home_win_pct",
+      "label": "Home wins",
+      "unit": "percent",
+      "low": 41.7895,
+      "high": 48.4211,
+      "observed": {
+        "min": 38.9474,
+        "p10": 41.7895,
+        "median": 45.1806,
+        "p90": 48.4211,
+        "max": 49.2105,
+        "pooled": 44.9635
+      },
+      "per_league": {
+        "en": {
+          "median": 45.7895,
+          "min": 41.3158,
+          "max": 49.2105
+        },
+        "es": {
+          "median": 46.0526,
+          "min": 43.4211,
+          "max": 48.1579
+        },
+        "de": {
+          "median": 46.0784,
+          "min": 43.7908,
+          "max": 49.0196
+        },
+        "it": {
+          "median": 42.7632,
+          "min": 38.9474,
+          "max": 48.4211
+        },
+        "fr": {
+          "median": 43.0263,
+          "min": 39.2157,
+          "max": 48.9474
+        }
+      }
+    },
+    {
+      "key": "draw_pct",
+      "label": "Draws",
+      "unit": "percent",
+      "low": 22.0789,
+      "high": 28.9474,
+      "observed": {
+        "min": 18.6842,
+        "p10": 22.0789,
+        "median": 24.7549,
+        "p90": 28.9474,
+        "max": 31.5789,
+        "pooled": 25.2236
+      },
+      "per_league": {
+        "en": {
+          "median": 23.0263,
+          "min": 18.6842,
+          "max": 28.1579
+        },
+        "es": {
+          "median": 24.0789,
+          "min": 22.6316,
+          "max": 29.2105
+        },
+        "de": {
+          "median": 24.3464,
+          "min": 23.2026,
+          "max": 27.1242
+        },
+        "it": {
+          "median": 26.0526,
+          "min": 21.0526,
+          "max": 31.5789
+        },
+        "fr": {
+          "median": 25.8669,
+          "min": 23.1579,
+          "max": 28.9474
+        }
+      }
+    },
+    {
+      "key": "away_win_pct",
+      "label": "Away wins",
+      "unit": "percent",
+      "low": 27.3158,
+      "high": 33.7105,
+      "observed": {
+        "min": 25.817,
+        "p10": 27.3158,
+        "median": 29.2105,
+        "p90": 33.7105,
+        "max": 35.2632,
+        "pooled": 29.8129
+      },
+      "per_league": {
+        "en": {
+          "median": 30.3947,
+          "min": 28.4211,
+          "max": 33.9474
+        },
+        "es": {
+          "median": 28.2895,
+          "min": 26.8421,
+          "max": 31.0526
+        },
+        "de": {
+          "median": 28.7582,
+          "min": 25.817,
+          "max": 32.6797
+        },
+        "it": {
+          "median": 29.7368,
+          "min": 27.8947,
+          "max": 35.2632
+        },
+        "fr": {
+          "median": 29.3421,
+          "min": 26.0526,
+          "max": 34.3137
+        }
+      }
+    },
+    {
+      "key": "both_teams_scored_pct",
+      "label": "Both teams scored",
+      "unit": "percent",
+      "low": 48.3158,
+      "high": 59.183,
+      "observed": {
+        "min": 46.3158,
+        "p10": 48.3158,
+        "median": 51.4474,
+        "p90": 59.183,
+        "max": 61.7647,
+        "pooled": 52.5114
+      },
+      "per_league": {
+        "en": {
+          "median": 51.0526,
+          "min": 48.9474,
+          "max": 61.5789
+        },
+        "es": {
+          "median": 49.8684,
+          "min": 46.5789,
+          "max": 56.0526
+        },
+        "de": {
+          "median": 57.0261,
+          "min": 49.3464,
+          "max": 61.7647
+        },
+        "it": {
+          "median": 52.8947,
+          "min": 49.4737,
+          "max": 57.3684
+        },
+        "fr": {
+          "median": 50.1316,
+          "min": 46.3158,
+          "max": 58.1579
+        }
+      }
+    },
+    {
+      "key": "clean_sheets_home_pct",
+      "label": "Clean sheets (home)",
+      "unit": "percent",
+      "low": 27.2133,
+      "high": 35.838,
+      "observed": {
+        "min": 23.4211,
+        "p10": 27.2133,
+        "median": 32.1973,
+        "p90": 35.838,
+        "max": 38.4211,
+        "pooled": 31.8632
+      },
+      "per_league": {
+        "en": {
+          "median": 32.6316,
+          "min": 23.4211,
+          "max": 35.7895
+        },
+        "es": {
+          "median": 33.9474,
+          "min": 28.1579,
+          "max": 37.6316
+        },
+        "de": {
+          "median": 28.4314,
+          "min": 24.5098,
+          "max": 36.2745
+        },
+        "it": {
+          "median": 30.9211,
+          "min": 27.3684,
+          "max": 33.6842
+        },
+        "fr": {
+          "median": 33.4494,
+          "min": 25,
+          "max": 38.4211
+        }
+      }
+    },
+    {
+      "key": "clean_sheets_away_pct",
+      "label": "Clean sheets (away)",
+      "unit": "percent",
+      "low": 18.268,
+      "high": 25,
+      "observed": {
+        "min": 16.6667,
+        "p10": 18.268,
+        "median": 23.2895,
+        "p90": 25,
+        "max": 26.5789,
+        "pooled": 22.7329
+      },
+      "per_league": {
+        "en": {
+          "median": 23.4211,
+          "min": 17.8947,
+          "max": 24.4737
+        },
+        "es": {
+          "median": 24.3421,
+          "min": 21.5789,
+          "max": 25.5263
+        },
+        "de": {
+          "median": 19.1176,
+          "min": 16.6667,
+          "max": 24.183
+        },
+        "it": {
+          "median": 23.0263,
+          "min": 20.2632,
+          "max": 26.5789
+        },
+        "fr": {
+          "median": 23.6068,
+          "min": 22.1053,
+          "max": 25
+        }
+      }
+    },
+    {
+      "key": "goalless_draw_pct",
+      "label": "Goalless draws (0-0)",
+      "unit": "percent",
+      "low": 5.2059,
+      "high": 8.9474,
+      "observed": {
+        "min": 2.8947,
+        "p10": 5.2059,
+        "median": 7.2368,
+        "p90": 8.9474,
+        "max": 11.3158,
+        "pooled": 7.1075
+      },
+      "per_league": {
+        "en": {
+          "median": 6.5789,
+          "min": 2.8947,
+          "max": 8.4211
+        },
+        "es": {
+          "median": 7.3684,
+          "min": 6.5789,
+          "max": 11.3158
+        },
+        "de": {
+          "median": 5.8824,
+          "min": 4.2484,
+          "max": 9.1503
+        },
+        "it": {
+          "median": 7.6316,
+          "min": 5,
+          "max": 8.9474
+        },
+        "fr": {
+          "median": 8.1579,
+          "min": 5.5263,
+          "max": 8.9474
+        }
+      }
+    },
+    {
+      "key": "over_2_5_pct",
+      "label": "Matches with 3+ goals",
+      "unit": "percent",
+      "low": 46,
+      "high": 58.6928,
+      "observed": {
+        "min": 44.2105,
+        "p10": 46,
+        "median": 51.8421,
+        "p90": 58.6928,
+        "max": 64.7368,
+        "pooled": 52.016
+      },
+      "per_league": {
+        "en": {
+          "median": 53.2895,
+          "min": 48.4211,
+          "max": 64.7368
+        },
+        "es": {
+          "median": 48.0263,
+          "min": 44.4737,
+          "max": 56.3158
+        },
+        "de": {
+          "median": 57.1895,
+          "min": 51.3072,
+          "max": 62.4183
+        },
+        "it": {
+          "median": 51.1842,
+          "min": 45.5263,
+          "max": 58.1579
+        },
+        "fr": {
+          "median": 49.3421,
+          "min": 44.2105,
+          "max": 56.3158
+        }
+      }
+    },
+    {
+      "key": "first_half_goals_share_pct",
+      "label": "Share of goals scored in the first half",
+      "unit": "percent",
+      "low": 41.5182,
+      "high": 46.3369,
+      "observed": {
+        "min": 40.2263,
+        "p10": 41.5182,
+        "median": 44.4528,
+        "p90": 46.3369,
+        "max": 47.3846,
+        "pooled": 44.1104
+      },
+      "per_league": {
+        "en": {
+          "median": 44.4724,
+          "min": 41.4928,
+          "max": 47.3846
+        },
+        "es": {
+          "median": 44.0704,
+          "min": 40.8952,
+          "max": 45.4458
+        },
+        "de": {
+          "median": 44.3439,
+          "min": 41.5211,
+          "max": 47.0051
+        },
+        "it": {
+          "median": 44.3934,
+          "min": 41.875,
+          "max": 46.0938
+        },
+        "fr": {
+          "median": 44.4063,
+          "min": 40.2263,
+          "max": 46.5792
+        }
+      }
+    }
+  ],
+  "distributions_pct": {
+    "note": "Pooled over all matches, percentage of matches.",
+    "home_goals": {
+      "0": 22.7329,
+      "1": 32.3724,
+      "2": 24.3154,
+      "3": 12.5705,
+      "4": 5.0365,
+      "5": 1.9884,
+      "6+": 0.9839
+    },
+    "away_goals": {
+      "0": 31.8632,
+      "1": 35.042,
+      "2": 20.0908,
+      "3": 8.6074,
+      "4": 3.0893,
+      "5": 0.9151,
+      "6+": 0.3922
+    },
+    "total_goals": {
+      "0": 7.1075,
+      "1": 16.9809,
+      "2": 23.8957,
+      "3": 21.9761,
+      "4": 15.2745,
+      "5": 8.3597,
+      "6": 4.0526,
+      "7": 1.4931,
+      "8+": 0.8601
+    },
+    "top_scorelines": [
+      {
+        "score": "1-1",
+        "pct": 11.7999
+      },
+      {
+        "score": "1-0",
+        "pct": 9.6463
+      },
+      {
+        "score": "2-1",
+        "pct": 8.7037
+      },
+      {
+        "score": "2-0",
+        "pct": 7.5203
+      },
+      {
+        "score": "0-1",
+        "pct": 7.3345
+      },
+      {
+        "score": "0-0",
+        "pct": 7.1075
+      },
+      {
+        "score": "1-2",
+        "pct": 6.5914
+      },
+      {
+        "score": "2-2",
+        "pct": 5.181
+      },
+      {
+        "score": "0-2",
+        "pct": 4.5755
+      },
+      {
+        "score": "3-1",
+        "pct": 4.4035
+      },
+      {
+        "score": "3-0",
+        "pct": 4.4035
+      },
+      {
+        "score": "1-3",
+        "pct": 2.7934
+      },
+      {
+        "score": "3-2",
+        "pct": 2.415
+      },
+      {
+        "score": "0-3",
+        "pct": 2.2774
+      },
+      {
+        "score": "2-3",
+        "pct": 1.9816
+      }
+    ]
+  }
+}

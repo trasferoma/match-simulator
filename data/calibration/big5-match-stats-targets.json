@@ -1,0 +1,581 @@
+{
+  "source": {
+    "name": "football-data.co.uk, via the datasets/football-datasets mirror (DataHub)",
+    "url": "https://github.com/datasets/football-datasets",
+    "original": "https://www.football-data.co.uk/",
+    "licence": "PDDL-1.0 as declared by the mirror; terms of the original site not verified",
+    "commit": "436a51f15258e7d0c6042c231227202b70a5a0ae",
+    "commit_date": "2026-06-23T04:55:43Z"
+  },
+  "population": {
+    "competitions": [
+      "English Premier League",
+      "Spanish La Liga",
+      "German Bundesliga",
+      "Italian Serie A",
+      "French Ligue 1"
+    ],
+    "seasons": [
+      "2014-15",
+      "2015-16",
+      "2016-17",
+      "2017-18",
+      "2018-19",
+      "2021-22",
+      "2022-23",
+      "2023-24"
+    ],
+    "league_seasons": 40,
+    "matches": 14532,
+    "matches_skipped_for_missing_stats": 2
+  },
+  "band_rule": "low/high = 10th-90th percentile of the per-league-season values (linear interpolation). pooled = value over all matches together.",
+  "metrics": [
+    {
+      "key": "shots_per_game",
+      "label": "Shots per game (both teams)",
+      "unit": "per_game",
+      "low": 23.7347,
+      "high": 26.3793,
+      "observed": {
+        "min": 20.4184,
+        "p10": 23.7347,
+        "median": 25.2711,
+        "p90": 26.3793,
+        "max": 27.5842,
+        "pooled": 24.9458
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 25.5408,
+          "min": 24.4474,
+          "max": 27.5842
+        },
+        "la-liga": {
+          "median": 23.9803,
+          "min": 23.55,
+          "max": 24.6237
+        },
+        "bundesliga": {
+          "median": 25.6765,
+          "min": 24.8954,
+          "max": 27.1797
+        },
+        "serie-a": {
+          "median": 25.6921,
+          "min": 20.4184,
+          "max": 26.4921
+        },
+        "ligue-1": {
+          "median": 24.2764,
+          "min": 22.8158,
+          "max": 25.5294
+        }
+      }
+    },
+    {
+      "key": "home_shots_per_game",
+      "label": "Home shots per game",
+      "unit": "per_game",
+      "low": 13.0361,
+      "high": 14.5938,
+      "observed": {
+        "min": 11.2342,
+        "p10": 13.0361,
+        "median": 13.9474,
+        "p90": 14.5938,
+        "max": 15.4026,
+        "pooled": 13.8009
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 14.0737,
+          "min": 13.5895,
+          "max": 15.4026
+        },
+        "la-liga": {
+          "median": 13.55,
+          "min": 13.0289,
+          "max": 13.9421
+        },
+        "bundesliga": {
+          "median": 14.0556,
+          "min": 13.4935,
+          "max": 15.2614
+        },
+        "serie-a": {
+          "median": 14.0855,
+          "min": 11.2342,
+          "max": 14.5937
+        },
+        "ligue-1": {
+          "median": 13.2543,
+          "min": 12.7763,
+          "max": 13.9935
+        }
+      }
+    },
+    {
+      "key": "away_shots_per_game",
+      "label": "Away shots per game",
+      "unit": "per_game",
+      "low": 10.4297,
+      "high": 11.871,
+      "observed": {
+        "min": 9.1842,
+        "p10": 10.4297,
+        "median": 11.2987,
+        "p90": 11.871,
+        "max": 12.2549,
+        "pooled": 11.1449
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 11.3395,
+          "min": 10.8579,
+          "max": 12.1816
+        },
+        "la-liga": {
+          "median": 10.5066,
+          "min": 10.3895,
+          "max": 10.6816
+        },
+        "bundesliga": {
+          "median": 11.5915,
+          "min": 11.1863,
+          "max": 12.2549
+        },
+        "serie-a": {
+          "median": 11.6539,
+          "min": 9.1842,
+          "max": 12.0105
+        },
+        "ligue-1": {
+          "median": 10.9589,
+          "min": 10.0395,
+          "max": 11.5359
+        }
+      }
+    },
+    {
+      "key": "shots_on_target_per_game",
+      "label": "Shots on target per game (both teams)",
+      "unit": "per_game",
+      "low": 8.2743,
+      "high": 9.5879,
+      "observed": {
+        "min": 7.9553,
+        "p10": 8.2743,
+        "median": 8.664,
+        "p90": 9.5879,
+        "max": 10.4737,
+        "pooled": 8.7839
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 8.6882,
+          "min": 8.3947,
+          "max": 9.8684
+        },
+        "la-liga": {
+          "median": 8.4934,
+          "min": 7.9553,
+          "max": 8.9132
+        },
+        "bundesliga": {
+          "median": 9.5,
+          "min": 8.8431,
+          "max": 9.902
+        },
+        "serie-a": {
+          "median": 8.6996,
+          "min": 8.1789,
+          "max": 10.4737
+        },
+        "ligue-1": {
+          "median": 8.3789,
+          "min": 7.9789,
+          "max": 9.1373
+        }
+      }
+    },
+    {
+      "key": "shots_on_target_pct",
+      "label": "Shots on target / shots",
+      "unit": "percent",
+      "low": 32.811,
+      "high": 37.0058,
+      "observed": {
+        "min": 32.2206,
+        "p10": 32.811,
+        "median": 35.05,
+        "p90": 37.0058,
+        "max": 51.2953,
+        "pooled": 35.2118
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 34.3926,
+          "min": 32.4396,
+          "max": 35.7756
+        },
+        "la-liga": {
+          "median": 35.2289,
+          "min": 33.7803,
+          "max": 37.1953
+        },
+        "bundesliga": {
+          "median": 36.3456,
+          "min": 35.5211,
+          "max": 37.878
+        },
+        "serie-a": {
+          "median": 33.5031,
+          "min": 32.2206,
+          "max": 51.2953
+        },
+        "ligue-1": {
+          "median": 35.05,
+          "min": 33.7707,
+          "max": 36.9969
+        }
+      }
+    },
+    {
+      "key": "goals_per_shot_pct",
+      "label": "Goals / shots",
+      "unit": "percent",
+      "low": 10.2181,
+      "high": 11.9105,
+      "observed": {
+        "min": 9.9025,
+        "p10": 10.2181,
+        "median": 10.9989,
+        "p90": 11.9105,
+        "max": 13.1331,
+        "pooled": 11.0468
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 10.9989,
+          "min": 9.9025,
+          "max": 11.887
+        },
+        "la-liga": {
+          "median": 10.9943,
+          "min": 10.2063,
+          "max": 12.2776
+        },
+        "bundesliga": {
+          "median": 11.6775,
+          "min": 10.5878,
+          "max": 12.5485
+        },
+        "serie-a": {
+          "median": 10.3445,
+          "min": 9.9847,
+          "max": 13.1331
+        },
+        "ligue-1": {
+          "median": 10.9386,
+          "min": 10.368,
+          "max": 11.706
+        }
+      }
+    },
+    {
+      "key": "goals_per_shot_on_target_pct",
+      "label": "Goals / shots on target",
+      "unit": "percent",
+      "low": 29.929,
+      "high": 32.8853,
+      "observed": {
+        "min": 25.603,
+        "p10": 29.929,
+        "median": 31.5248,
+        "p90": 32.8853,
+        "max": 33.3229,
+        "pooled": 31.3725
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 32.1261,
+          "min": 30.526,
+          "max": 33.2267
+        },
+        "la-liga": {
+          "median": 31.4639,
+          "min": 29.9467,
+          "max": 33.0086
+        },
+        "bundesliga": {
+          "median": 32.4589,
+          "min": 29.1999,
+          "max": 33.1286
+        },
+        "serie-a": {
+          "median": 31.239,
+          "min": 25.603,
+          "max": 32.2476
+        },
+        "ligue-1": {
+          "median": 31.094,
+          "min": 29.5422,
+          "max": 33.3229
+        }
+      }
+    },
+    {
+      "key": "fouls_per_game",
+      "label": "Fouls per game (both teams)",
+      "unit": "per_game",
+      "low": 21.5282,
+      "high": 28.6605,
+      "observed": {
+        "min": 20.2132,
+        "p10": 21.5282,
+        "median": 25.875,
+        "p90": 28.6605,
+        "max": 30.5359,
+        "pooled": 25.3791
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 21.525,
+          "min": 20.2132,
+          "max": 22.7211
+        },
+        "la-liga": {
+          "median": 27.1395,
+          "min": 25.8553,
+          "max": 28.4447
+        },
+        "bundesliga": {
+          "median": 25.2467,
+          "min": 22.3758,
+          "max": 30.5359
+        },
+        "serie-a": {
+          "median": 26.3289,
+          "min": 24.0605,
+          "max": 30.3947
+        },
+        "ligue-1": {
+          "median": 25.5908,
+          "min": 23.3158,
+          "max": 27.5316
+        }
+      }
+    },
+    {
+      "key": "corners_per_game",
+      "label": "Corners per game (both teams)",
+      "unit": "per_game",
+      "low": 9.3895,
+      "high": 10.69,
+      "observed": {
+        "min": 9.1242,
+        "p10": 9.3895,
+        "median": 9.744,
+        "p90": 10.69,
+        "max": 10.8421,
+        "pooled": 9.9188
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 10.4184,
+          "min": 10.1079,
+          "max": 10.8368
+        },
+        "la-liga": {
+          "median": 9.5645,
+          "min": 9.3658,
+          "max": 10.2395
+        },
+        "bundesliga": {
+          "median": 9.6961,
+          "min": 9.1242,
+          "max": 10.0654
+        },
+        "serie-a": {
+          "median": 10.3816,
+          "min": 9.4,
+          "max": 10.8421
+        },
+        "ligue-1": {
+          "median": 9.5605,
+          "min": 9.25,
+          "max": 9.8474
+        }
+      }
+    },
+    {
+      "key": "yellow_cards_per_game",
+      "label": "Yellow cards per game (both teams)",
+      "unit": "per_game",
+      "low": 3.3498,
+      "high": 5.0308,
+      "observed": {
+        "min": 3.0447,
+        "p10": 3.3498,
+        "median": 3.9184,
+        "p90": 5.0308,
+        "max": 5.2868,
+        "pooled": 4.1075
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 3.4921,
+          "min": 3.0447,
+          "max": 4.1737
+        },
+        "la-liga": {
+          "median": 5.0803,
+          "min": 4.7684,
+          "max": 5.2868
+        },
+        "bundesliga": {
+          "median": 3.6797,
+          "min": 3.3824,
+          "max": 4.1405
+        },
+        "serie-a": {
+          "median": 4.5789,
+          "min": 4.0711,
+          "max": 4.8658
+        },
+        "ligue-1": {
+          "median": 3.7158,
+          "min": 3.3008,
+          "max": 3.9447
+        }
+      }
+    },
+    {
+      "key": "red_cards_per_game",
+      "label": "Red cards per game (both teams)",
+      "unit": "per_game",
+      "low": 0.1126,
+      "high": 0.2889,
+      "observed": {
+        "min": 0.0737,
+        "p10": 0.1126,
+        "median": 0.2066,
+        "p90": 0.2889,
+        "max": 0.3553,
+        "pooled": 0.2063
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 0.1184,
+          "min": 0.0737,
+          "max": 0.1868
+        },
+        "la-liga": {
+          "median": 0.2316,
+          "min": 0.1895,
+          "max": 0.3553
+        },
+        "bundesliga": {
+          "median": 0.1405,
+          "min": 0.0784,
+          "max": 0.183
+        },
+        "serie-a": {
+          "median": 0.2355,
+          "min": 0.1737,
+          "max": 0.3395
+        },
+        "ligue-1": {
+          "median": 0.2596,
+          "min": 0.2053,
+          "max": 0.3079
+        }
+      }
+    },
+    {
+      "key": "matches_with_red_card_pct",
+      "label": "Matches with at least one red card",
+      "unit": "percent",
+      "low": 11,
+      "high": 25.0594,
+      "observed": {
+        "min": 6.8421,
+        "p10": 11,
+        "median": 18.2293,
+        "p90": 25.0594,
+        "max": 28.6842,
+        "pooled": 17.9535
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 11.3158,
+          "min": 6.8421,
+          "max": 17.3684
+        },
+        "la-liga": {
+          "median": 20.7895,
+          "min": 16.8421,
+          "max": 28.6842
+        },
+        "bundesliga": {
+          "median": 13.5621,
+          "min": 7.8431,
+          "max": 16.0131
+        },
+        "serie-a": {
+          "median": 19.8684,
+          "min": 15,
+          "max": 27.3684
+        },
+        "ligue-1": {
+          "median": 21.7393,
+          "min": 18.1579,
+          "max": 26.0526
+        }
+      }
+    },
+    {
+      "key": "yellow_cards_per_foul_pct",
+      "label": "Yellow cards / fouls",
+      "unit": "percent",
+      "low": 13.0615,
+      "high": 18.9124,
+      "observed": {
+        "min": 11.8686,
+        "p10": 13.0615,
+        "median": 15.9577,
+        "p90": 18.9124,
+        "max": 19.4505,
+        "pooled": 16.1845
+      },
+      "per_league": {
+        "premier-league": {
+          "median": 15.9017,
+          "min": 14.4167,
+          "max": 18.8922
+        },
+        "la-liga": {
+          "median": 18.8404,
+          "min": 17.9185,
+          "max": 19.4505
+        },
+        "bundesliga": {
+          "median": 13.9206,
+          "min": 11.8686,
+          "max": 18.4721
+        },
+        "serie-a": {
+          "median": 16.8719,
+          "min": 15.7557,
+          "max": 18.3424
+        },
+        "ligue-1": {
+          "median": 14.0033,
+          "min": 12.187,
+          "max": 16.9187
+        }
+      }
+    }
+  ]
+}
