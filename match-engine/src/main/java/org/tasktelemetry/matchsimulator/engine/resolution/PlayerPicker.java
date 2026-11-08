@@ -45,7 +45,7 @@ public final class PlayerPicker {
         return player.attributes().movementAverage();
     }
 
-    private static Role sectorOf(ZoneRole zoneRole) {
+    public static Role sectorOf(ZoneRole zoneRole) {
         return switch (zoneRole) {
             case OWN_BOX, DEFENCE -> Role.DEFENDER;
             case MIDFIELD -> Role.MIDFIELDER;

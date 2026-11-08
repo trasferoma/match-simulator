@@ -8,9 +8,17 @@ import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.config.ExpectedGoalsConfig;
+import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
+import org.tasktelemetry.matchsimulator.engine.config.ShotConfig;
+import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
+import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsModel;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
+import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
@@ -23,6 +31,9 @@ class PlayerAttributeInfluenceTest {
 
     private final PossessionActionResolver resolver = newResolver();
     private final CrossResolver crossResolver = newCrossResolver();
+    private final CounterAttackResolver counterAttackResolver = newCounterAttackResolver();
+    private final FoulResolver foulResolver = newFoulResolver();
+    private final ExpectedGoalsModel goalsModel = new ExpectedGoalsModel(ShotConfig.defaults());
 
     @Test
     void passingRaisesTheProbabilityOfACompletedPass() {
@@ -88,70 +99,201 @@ class PlayerAttributeInfluenceTest {
         assertThat(dribbleProbability).isCloseTo(10.0 / 100.0, within(EXACT));
     }
 
-@Test
-void aerialRaisesTheProbabilityOfWinningTheAerialDuel() {
-    Player defender = aerialPlayer(BASE);
-    Player average = aerialPlayer(BASE);
-    Player better = aerialPlayer(RAISED);
+    @Test
+    void aerialRaisesTheProbabilityOfWinningTheAerialDuel() {
+        Player defender = aerialPlayer(BASE);
+        Player average = aerialPlayer(BASE);
+        Player better = aerialPlayer(RAISED);
 
-    double base = crossResolver.aerialDuel(average, defender).attackerWinProbability();
-    double raised = crossResolver.aerialDuel(better, defender).attackerWinProbability();
+        double base = crossResolver.aerialDuel(average, defender).attackerWinProbability();
+        double raised = crossResolver.aerialDuel(better, defender).attackerWinProbability();
 
-    assertThat(raised).isGreaterThan(base);
-    assertThat(raised).isCloseTo(70.0 / 120.0, within(EXACT));
-}
+        assertThat(raised).isGreaterThan(base);
+        assertThat(raised).isCloseTo(70.0 / 120.0, within(EXACT));
+    }
 
-@Test
-void aerialOfTheDefenderLowersTheProbabilityOfWinningTheAerialDuel() {
-    Player attacker = aerialPlayer(BASE);
-    Player average = aerialPlayer(BASE);
-    Player better = aerialPlayer(RAISED);
+    @Test
+    void aerialOfTheDefenderLowersTheProbabilityOfWinningTheAerialDuel() {
+        Player attacker = aerialPlayer(BASE);
+        Player average = aerialPlayer(BASE);
+        Player better = aerialPlayer(RAISED);
 
-    double base = crossResolver.aerialDuel(attacker, average).attackerWinProbability();
-    double raised = crossResolver.aerialDuel(attacker, better).attackerWinProbability();
+        double base = crossResolver.aerialDuel(attacker, average).attackerWinProbability();
+        double raised = crossResolver.aerialDuel(attacker, better).attackerWinProbability();
 
-    assertThat(raised).isLessThan(base);
-    assertThat(raised).isCloseTo(50.0 / 120.0, within(EXACT));
-}
+        assertThat(raised).isLessThan(base);
+        assertThat(raised).isCloseTo(50.0 / 120.0, within(EXACT));
+    }
 
-@Test
-void passingRaisesTheProbabilityThatACrossReachesTheBox() {
-    Player average = playerWith(BASE, BASE, BASE, BASE);
-    Player better = playerWith(RAISED, BASE, BASE, BASE);
-    double difficulty = EngineConfig.defaults().cross().crossDifficulty();
+    @Test
+    void passingRaisesTheProbabilityThatACrossReachesTheBox() {
+        Player average = playerWith(BASE, BASE, BASE, BASE);
+        Player better = playerWith(RAISED, BASE, BASE, BASE);
+        double difficulty = EngineConfig.defaults().cross().crossDifficulty();
 
-    double base = crossResolver.crossDuel(average).attackerWinProbability();
-    double raised = crossResolver.crossDuel(better).attackerWinProbability();
+        double base = crossResolver.crossDuel(average).attackerWinProbability();
+        double raised = crossResolver.crossDuel(better).attackerWinProbability();
 
-    assertThat(raised).isGreaterThan(base);
-    assertThat(raised).isCloseTo(RAISED / (RAISED + difficulty), within(EXACT));
-}
+        assertThat(raised).isGreaterThan(base);
+        assertThat(raised).isCloseTo(RAISED / (RAISED + difficulty), within(EXACT));
+    }
 
-private Player aerialPlayer(int aerial) {
-    PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, BASE, aerial, BASE);
-    return TestTeams.player("P", Role.FORWARD, attributes);
-}
+    @Test
+    void paceRaisesTheProbabilityOfAdvancingInACounterAttack() {
+        Player chaser = pacePlayer(BASE);
+        Player average = pacePlayer(BASE);
+        Player better = pacePlayer(RAISED);
 
-private Player playerWith(int passing, int dribbling, int tackling, int positioning) {
+        double base = counterAttackResolver.paceDuel(average, chaser).attackerWinProbability();
+        double raised = counterAttackResolver.paceDuel(better, chaser).attackerWinProbability();
+
+        assertThat(raised).isGreaterThan(base);
+        assertThat(raised).isCloseTo(70.0 / 120.0, within(EXACT));
+    }
+
+    @Test
+    void paceOfTheChaserLowersTheProbabilityOfAdvancingInACounterAttack() {
+        Player runner = pacePlayer(BASE);
+        Player average = pacePlayer(BASE);
+        Player better = pacePlayer(RAISED);
+
+        double base = counterAttackResolver.paceDuel(runner, average).attackerWinProbability();
+        double raised = counterAttackResolver.paceDuel(runner, better).attackerWinProbability();
+
+        assertThat(raised).isLessThan(base);
+        assertThat(raised).isCloseTo(50.0 / 120.0, within(EXACT));
+    }
+
+    @Test
+    void aLowerTacklingRaisesTheProbabilityOfAFoul() {
+        FoulConfig foul = FoulConfig.defaults();
+        Player neutral = tacklingPlayer(foul.neutralTackling());
+        Player clumsy = tacklingPlayer(foul.neutralTackling() - 20);
+        Player skilled = tacklingPlayer(foul.neutralTackling() + 20);
+
+        double base = foulResolver.foulProbability(neutral);
+        double clumsyProbability = foulResolver.foulProbability(clumsy);
+        double skilledProbability = foulResolver.foulProbability(skilled);
+
+        assertThat(base).isCloseTo(foul.baseFoulProbability(), within(EXACT));
+        assertThat(clumsyProbability).isGreaterThan(base);
+        assertThat(skilledProbability).isLessThan(base);
+        assertThat(clumsyProbability)
+                .isCloseTo(oddsShifted(foul.baseFoulProbability(), foul.tacklingSlope() * 20), within(EXACT));
+        assertThat(skilledProbability)
+                .isCloseTo(oddsShifted(foul.baseFoulProbability(), -foul.tacklingSlope() * 20), within(EXACT));
+    }
+
+    @Test
+    void theFoulProbabilityReadsTacklingAndNoOtherAttribute() {
+        PlayerAttributes tacklingOnly = new PlayerAttributes(10, 10, 10, 40, 10, 10, 10, 10);
+        PlayerAttributes everythingButTackling = new PlayerAttributes(100, 100, 100, 40, 100, 100, 100, 100);
+        Player weak = TestTeams.player("Weak", Role.DEFENDER, tacklingOnly);
+        Player strong = TestTeams.player("Strong", Role.DEFENDER, everythingButTackling);
+
+        double weakProbability = foulResolver.foulProbability(weak);
+        double strongProbability = foulResolver.foulProbability(strong);
+
+        assertThat(strongProbability).isCloseTo(weakProbability, within(EXACT));
+    }
+
+    @Test
+    void shootingRaisesTheExpectedGoalsOfAShotAndOfAPenalty() {
+        ExpectedGoalsConfig expectedGoals = ShotConfig.defaults().expectedGoals();
+        Player average = shootingPlayer(expectedGoals.neutralShooting());
+        Player better = shootingPlayer(expectedGoals.neutralShooting() + 20);
+        double base = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, average);
+        double raised = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, better);
+        double penaltyBase = goalsModel.penaltyExpectedGoals(shootingPlayer(expectedGoals.penaltyNeutralShooting()));
+        double penaltyRaised = goalsModel.penaltyExpectedGoals(shootingPlayer(
+                expectedGoals.penaltyNeutralShooting() + 20));
+
+        assertThat(raised).isGreaterThan(base);
+        assertThat(raised).isCloseTo(oddsShifted(base, expectedGoals.shootingSlope() * 20), within(EXACT));
+        assertThat(penaltyRaised).isGreaterThan(penaltyBase);
+        assertThat(penaltyRaised)
+                .isCloseTo(oddsShifted(penaltyBase, expectedGoals.penaltyShootingSlope() * 20), within(EXACT));
+    }
+
+    @Test
+    void goalkeepingLowersTheProbabilityOfAGoal() {
+        ShotConfig shotConfig = ShotConfig.defaults();
+        Player average = keeperPlayer(shotConfig.neutralGoalkeeping());
+        Player better = keeperPlayer(shotConfig.neutralGoalkeeping() + 20);
+        double expectedGoals = 0.30;
+
+        double base = goalsModel.goalProbability(expectedGoals, average);
+        double raised = goalsModel.goalProbability(expectedGoals, better);
+
+        assertThat(base).isCloseTo(expectedGoals, within(EXACT));
+        assertThat(raised).isLessThan(base);
+        assertThat(raised).isCloseTo(oddsShifted(expectedGoals, -shotConfig.goalkeepingSlope() * 20),
+                within(EXACT));
+    }
+
+    private double oddsShifted(double probability, double shift) {
+        double odds = probability / (1.0 - probability);
+        double shiftedOdds = odds * StrictMath.exp(shift);
+        return shiftedOdds / (1.0 + shiftedOdds);
+    }
+
+    private Player tacklingPlayer(int tackling) {
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, tackling, BASE, BASE, BASE, BASE);
+        return TestTeams.player("P", Role.DEFENDER, attributes);
+    }
+
+    private Player shootingPlayer(int shooting) {
+        PlayerAttributes attributes = TestTeams.withShootingAndGoalkeeping(shooting, BASE);
+        return TestTeams.player("P", Role.FORWARD, attributes);
+    }
+
+    private Player keeperPlayer(int goalkeeping) {
+        PlayerAttributes attributes = TestTeams.withShootingAndGoalkeeping(BASE, goalkeeping);
+        return TestTeams.player("K", Role.GOALKEEPER, attributes);
+    }
+
+    private Player pacePlayer(int pace) {
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, pace, BASE, BASE);
+        return TestTeams.player("P", Role.MIDFIELDER, attributes);
+    }
+
+    private Player aerialPlayer(int aerial) {
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, BASE, aerial, BASE);
+        return TestTeams.player("P", Role.FORWARD, attributes);
+    }
+
+    private Player playerWith(int passing, int dribbling, int tackling, int positioning) {
         PlayerAttributes attributes = TestTeams.withDuelAttributes(passing, dribbling, tackling, positioning);
         return TestTeams.player("P", Role.MIDFIELDER, attributes);
     }
 
-private CrossResolver newCrossResolver() {
-    MatchRandom random = new MatchRandom(1L);
-    EngineConfig config = EngineConfig.defaults();
-    PitchLayout layout = PitchLayout.standard();
-    ShotResolver shotResolver = TestResolvers.shotResolver(config, layout, random);
-    return TestResolvers.crossResolver(config, layout, random, shotResolver);
-}
-
-private PossessionActionResolver newResolver() {
+    private CrossResolver newCrossResolver() {
         MatchRandom random = new MatchRandom(1L);
-        PlayerPicker picker = new PlayerPicker(random);
         EngineConfig config = EngineConfig.defaults();
         PitchLayout layout = PitchLayout.standard();
         ShotResolver shotResolver = TestResolvers.shotResolver(config, layout, random);
-        CrossResolver crossResolver = TestResolvers.crossResolver(config, layout, random, shotResolver);
-        return new PossessionActionResolver(config, layout, random, picker, shotResolver, crossResolver);
+        return TestResolvers.crossResolver(config, layout, random, shotResolver);
+    }
+
+    private PossessionActionResolver newResolver() {
+        MatchRandom random = new MatchRandom(1L);
+        EngineConfig config = EngineConfig.defaults();
+        PitchLayout layout = PitchLayout.standard();
+        return TestResolvers.possessionResolver(config, layout, random);
+    }
+
+    private CounterAttackResolver newCounterAttackResolver() {
+        MatchRandom random = new MatchRandom(1L);
+        EngineConfig config = EngineConfig.defaults();
+        PitchLayout layout = PitchLayout.standard();
+        ShotResolver shotResolver = TestResolvers.shotResolver(config, layout, random);
+        return TestResolvers.counterAttackResolver(config, layout, random, shotResolver);
+    }
+
+    private FoulResolver newFoulResolver() {
+        MatchRandom random = new MatchRandom(1L);
+        EngineConfig config = EngineConfig.defaults();
+        PitchLayout layout = PitchLayout.standard();
+        return new FoulResolver(config.foul(), layout, random);
     }
 }

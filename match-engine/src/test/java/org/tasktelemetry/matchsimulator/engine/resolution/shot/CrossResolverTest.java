@@ -29,6 +29,7 @@ import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
@@ -49,16 +50,13 @@ class CrossResolverTest {
     private final TeamOnPitch home = TeamOnPitch.startingWith(TestTeams.uniformTeam("Home", 60));
     private final TeamOnPitch away = TeamOnPitch.startingWith(TestTeams.uniformTeam("Away", 60));
 
-    @Test
-    void theProbabilityOfACrossIsTheConfiguredOneTimesTheStyleMultiplier() {
-        CrossConfig styled = new CrossConfig(0.20, 1.15, config.crossDifficulty(), config.clearedToCornerShare(),
-                config.crossDuration(), config.clearanceDuration());
+    @ParameterizedTest
+    @CsvSource({"BALANCED, 0.20", "ATTACKING, 0.23", "DEFENSIVE, 0.20", "POSSESSION, 0.17", "COUNTER_ATTACK, 0.20"})
+    void theProbabilityOfACrossIsTheConfiguredOneTimesThePropensityOfTheStyleOfTheAttackers(PlayStyle style,
+            double expected) {
+        double probability = resolverWith(config).crossProbability(style);
 
-        double neutral = resolverWith(config).crossProbability();
-        double styledProbability = resolverWith(styled).crossProbability();
-
-        assertThat(neutral).isCloseTo(config.crossProbability(), within(EXACT));
-        assertThat(styledProbability).isCloseTo(0.20 * 1.15, within(EXACT));
+        assertThat(probability).isCloseTo(expected, within(EXACT));
     }
 
     @Test
@@ -298,7 +296,9 @@ class CrossResolverTest {
     private CrossResolver resolverWith(CrossConfig crossConfig, long seed) {
         EngineConfig custom = new EngineConfig(engineConfig.buildUpAndMidfieldDuration(),
                 engineConfig.attackingThirdDuration(), engineConfig.dribbleProbability(),
-                engineConfig.minimumStoppageMinutes(), engineConfig.shot(), engineConfig.setPiece(), crossConfig);
+                engineConfig.minimumStoppageMinutes(), engineConfig.shot(), engineConfig.setPiece(), crossConfig,
+                engineConfig.counterAttack(), engineConfig.playStyles(), engineConfig.foul(), engineConfig.lineup(),
+                engineConfig.homeAdvantage());
         MatchRandom random = new MatchRandom(seed);
         ShotResolver shotResolver = TestResolvers.shotResolver(custom, layout, random);
         return TestResolvers.crossResolver(custom, layout, random, shotResolver);

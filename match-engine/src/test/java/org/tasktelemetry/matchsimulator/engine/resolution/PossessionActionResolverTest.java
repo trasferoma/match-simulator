@@ -15,6 +15,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.TestConfigs;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
@@ -25,8 +26,6 @@ import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
-import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
-import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
@@ -70,6 +69,9 @@ class PossessionActionResolverTest {
                     if (SHOT_TYPES.contains(outcome.type())) {
                         assertThat(shotRangeFor(config, outcome.type()).contains(outcome.durationSeconds()))
                                 .isTrue();
+                    } else if (outcome.type() == EventType.FOUL) {
+                        assertThat(outcome.next().phase()).isEqualTo(PlayPhase.SET_PIECE);
+                        assertThat(config.foul().foulDuration().contains(outcome.durationSeconds())).isTrue();
                     } else if (CROSS_TYPES.contains(outcome.type())) {
                         assertThat(outcome.next().phase()).isEqualTo(PlayPhase.BUILD_UP);
                         assertThat(config.cross().crossDuration().contains(outcome.durationSeconds())).isTrue();
@@ -173,11 +175,32 @@ void onTheAttackingThirdACrossIsChosenWithTheConfiguredProbabilityTimesTheStyleM
     Zone attackingThird = zoneWithRole(layout, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
     MatchState state = new MatchState(MatchSide.HOME, attackingThird, PlayPhase.BUILD_UP);
     EngineConfig config = EngineConfig.defaults();
-    double expected = config.cross().crossProbability() * config.cross().styleMultiplier();
+    double expected = config.cross().crossProbability()
+            * config.playStyles().effectOf(PlayStyle.BALANCED).crossPropensity();
 
     List<ActionOutcome> outcomes = resolveMany(resolverFor(config, layout, SEED), state, TRIALS);
 
     long crosses = outcomes.stream().filter(outcome -> CROSS_TYPES.contains(outcome.type())).count();
+    assertThat((double) crosses / TRIALS).isCloseTo(expected, within(0.01));
+}
+
+@Test
+void theCrossIsChosenWithThePropensityOfTheStyleOfTheAttackersNotOfTheDefenders() {
+    PitchLayout layout = PitchLayout.standard();
+    Zone attackingThird = zoneWithRole(layout, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
+    MatchState state = new MatchState(MatchSide.HOME, attackingThird, PlayPhase.BUILD_UP);
+    TeamOnPitch attackers = TeamOnPitch.startingWith(TestTeams.team("Attackers", PlayStyle.ATTACKING, 50));
+    TeamOnPitch defenders = TeamOnPitch.startingWith(TestTeams.team("Defenders", PlayStyle.POSSESSION, 50));
+    EngineConfig config = EngineConfig.defaults();
+    double expected = config.cross().crossProbability()
+            * config.playStyles().effectOf(PlayStyle.ATTACKING).crossPropensity();
+    PossessionActionResolver resolver = resolverFor(config, layout, SEED);
+
+    long crosses = IntStream.range(0, TRIALS)
+            .mapToObj(index -> resolver.resolve(state, Score.goalless(), attackers, defenders))
+            .filter(outcome -> CROSS_TYPES.contains(outcome.type()))
+            .count();
+
     assertThat((double) crosses / TRIALS).isCloseTo(expected, within(0.01));
 }
 
@@ -212,7 +235,7 @@ void theCrosserOfACrossIsAMidfielderOfTheAttackersAndNotTheForwardWhoWouldCarryT
 void aDribbleIsChosenWithTheConfiguredProbability() {
         PitchLayout layout = PitchLayout.standard();
         MatchState state = new MatchState(MatchSide.HOME, layout.kickOffZone(), PlayPhase.BUILD_UP);
-        EngineConfig config = EngineConfig.defaults();
+        EngineConfig config = TestConfigs.withoutFouls(EngineConfig.defaults());
 
         List<ActionOutcome> outcomes = resolveMany(resolverFor(config, layout, SEED), state, TRIALS);
 
@@ -233,7 +256,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
 
     @Test
     void aDribbleAlwaysAttemptedProducesOnlyDribbleOutcomes() {
-        EngineConfig onlyDribbles = withDribbleProbability(1.0);
+        EngineConfig onlyDribbles = TestConfigs.withoutFouls(withDribbleProbability(1.0));
         PitchLayout layout = PitchLayout.standard();
         MatchState state = new MatchState(MatchSide.HOME, layout.kickOffZone(), PlayPhase.BUILD_UP);
 
@@ -245,7 +268,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
 
     @Test
     void aPassAlwaysAttemptedProducesOnlyPassOutcomes() {
-        EngineConfig onlyPasses = withDribbleProbability(0.0);
+        EngineConfig onlyPasses = TestConfigs.withoutFouls(withDribbleProbability(0.0));
         PitchLayout layout = PitchLayout.standard();
         MatchState state = new MatchState(MatchSide.HOME, layout.kickOffZone(), PlayPhase.BUILD_UP);
 
@@ -319,7 +342,8 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         EngineConfig defaults = EngineConfig.defaults();
         return new EngineConfig(defaults.buildUpAndMidfieldDuration(), defaults.attackingThirdDuration(),
                 dribbleProbability, defaults.minimumStoppageMinutes(), defaults.shot(), defaults.setPiece(),
-                defaults.cross());
+                defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
+                defaults.lineup(), defaults.homeAdvantage());
     }
 
     private TeamOnPitch teamOf(MatchSide side) {
@@ -328,10 +352,8 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
 
     private PossessionActionResolver resolverFor(EngineConfig config, PitchLayout layout, long seed) {
         MatchRandom random = new MatchRandom(seed);
-        PlayerPicker picker = new PlayerPicker(random);
-        ShotResolver shotResolver = TestResolvers.shotResolver(config, layout, random);
-        CrossResolver crossResolver = TestResolvers.crossResolver(config, layout, random, shotResolver);
-        return new PossessionActionResolver(config, layout, random, picker, shotResolver, crossResolver);
+        EngineConfig withoutVenueEffect = TestConfigs.withoutHomeAdvantage(config);
+        return TestResolvers.possessionResolver(withoutVenueEffect, layout, random);
     }
 
     private Zone zoneWithRole(PitchLayout layout, MatchSide side, ZoneRole role) {
@@ -344,7 +366,9 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
     private EngineConfig distinctRangesConfig() {
         EngineConfig defaults = EngineConfig.defaults();
         return new EngineConfig(new DurationRange(4, 5), new DurationRange(20, 25), 0.3, 1, defaults.shot(),
-                defaults.setPiece(), defaults.cross());
+                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
+                defaults.lineup(),
+                defaults.homeAdvantage());
     }
 
     private DurationRange rangeFor(EngineConfig config, ZoneRole role) {

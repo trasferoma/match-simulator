@@ -45,6 +45,7 @@ public record ExpectedGoalsConfig(
         Map<PlayPhase, Double> multiplierByPhase = new EnumMap<>(PlayPhase.class);
         multiplierByPhase.put(PlayPhase.BUILD_UP, 1.0);
         multiplierByPhase.put(PlayPhase.SET_PIECE, 1.0);
+        multiplierByPhase.put(PlayPhase.COUNTER_ATTACK, 1.30);
         Map<ShotKind, Double> multiplierByKind = new EnumMap<>(ShotKind.class);
         multiplierByKind.put(ShotKind.FOOT, 1.0);
         multiplierByKind.put(ShotKind.HEADER, 0.8);

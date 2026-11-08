@@ -6,6 +6,7 @@ public enum EventType {
     FIRST_HALF_END,
     SECOND_HALF_START,
     MATCH_END,
+    MATCH_SUSPENDED,
     PASS_COMPLETED,
     DRIBBLE_COMPLETED,
     INTERCEPTION,
@@ -19,5 +20,24 @@ public enum EventType {
     CROSS_COMPLETED,
     CROSS_FAILED,
     CLEARANCE,
-    CORNER_KICK
+    CORNER_KICK,
+    FOUL,
+    FREE_KICK,
+    FREE_KICK_CROSS,
+    YELLOW_CARD,
+    SECOND_YELLOW_CARD,
+    RED_CARD,
+    SUBSTITUTION;
+
+    public boolean isBallRecovery() {
+        return this == INTERCEPTION || this == TACKLE;
+    }
+
+    public boolean isCard() {
+        return this == YELLOW_CARD || this == SECOND_YELLOW_CARD || this == RED_CARD;
+    }
+
+    public boolean isDismissal() {
+        return this == SECOND_YELLOW_CARD || this == RED_CARD;
+    }
 }

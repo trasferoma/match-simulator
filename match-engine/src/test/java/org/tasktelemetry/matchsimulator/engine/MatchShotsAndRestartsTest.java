@@ -16,6 +16,8 @@ import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
+import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
+import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
@@ -40,16 +42,30 @@ class MatchShotsAndRestartsTest {
 
     @Test
     void everyShotEventHasTheDetailAndTheParticipantsOfItsType() {
-        List<MatchEvent> shots = eventsOf(SHOT_TYPES);
+        List<MatchEvent> shots = eventsOf(SHOT_TYPES).stream()
+                .filter(shot -> !isPenaltyOrDirectFreeKick(shot))
+                .toList();
 
         assertThat(shots).isNotEmpty().allSatisfy(shot -> {
             assertThat(shot.participants().primary()).isPresent();
-            assertThat(shot.phase()).isIn(PlayPhase.BUILD_UP, PlayPhase.SET_PIECE);
+            assertThat(shot.phase()).isIn(PlayPhase.BUILD_UP, PlayPhase.COUNTER_ATTACK, PlayPhase.SET_PIECE);
             assertThat(shot.zoneRole()).isEqualTo(ZoneRole.OPPONENT_BOX);
-            assertThat(shooterOf(shot).role()).isEqualTo(Role.FORWARD);
             assertThat(shooterOf(shot).name()).startsWith(shot.side() == MatchSide.HOME ? "Home" : "Away");
             assertThat(detailMatchesType(shot)).isTrue();
         });
+    }
+
+    @Test
+    void withoutDismissalsEveryShotOfTheOpenPlayAndOfTheCornersIsTakenByAForward() {
+        List<MatchEvent> shots = matches.stream()
+                .filter(events -> events.stream().noneMatch(event -> event.type().isDismissal()))
+                .flatMap(List::stream)
+                .filter(event -> SHOT_TYPES.contains(event.type()))
+                .filter(shot -> !isPenaltyOrDirectFreeKick(shot))
+                .toList();
+
+        assertThat(shots).isNotEmpty().allSatisfy(shot ->
+                assertThat(shooterOf(shot).role()).isEqualTo(Role.FORWARD));
     }
 
     @Test
@@ -179,9 +195,14 @@ class MatchShotsAndRestartsTest {
 
     @Test
     void shotsAndRestartsStayInsideTheirConfiguredDurations() {
-        assertThat(eventsOf(EnumSet.of(EventType.GOAL))).isNotEmpty().allSatisfy(event ->
+        assertThat(eventsOf(EnumSet.of(EventType.GOAL))).filteredOn(event -> !isDirectFreeKick(event))
+                .isNotEmpty().allSatisfy(event ->
                 assertThat(config.shot().goalWithRestartDuration().contains(event.durationSeconds())).isTrue());
+        assertThat(eventsOf(EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED, EventType.SHOT_OFF_TARGET,
+                EventType.SHOT_BLOCKED))).filteredOn(this::isDirectFreeKick).allSatisfy(event ->
+                assertThat(event.durationSeconds()).isGreaterThan(config.setPiece().freeKickDuration().minSeconds()));
         assertThat(eventsOf(EnumSet.of(EventType.SHOT_SAVED, EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED)))
+                .filteredOn(event -> !isPenaltyOrDirectFreeKick(event))
                 .isNotEmpty().allSatisfy(event ->
                         assertThat(config.shot().shotDuration().contains(event.durationSeconds())).isTrue());
         assertThat(eventsOf(EnumSet.of(EventType.GOAL_KICK))).isNotEmpty().allSatisfy(event -> {
@@ -205,6 +226,28 @@ class MatchShotsAndRestartsTest {
 
     private GoalContext goalContextOf(MatchEvent goal) {
         return ((EventDetail.Goal) goal.detail()).context();
+    }
+
+    private boolean isPenaltyOrDirectFreeKick(MatchEvent shot) {
+        ShotProfile profile = profileOf(shot);
+        return profile.penalty() || profile.kind() == ShotKind.DIRECT_FREE_KICK;
+    }
+
+    private boolean isDirectFreeKick(MatchEvent shot) {
+        return profileOf(shot).kind() == ShotKind.DIRECT_FREE_KICK;
+    }
+
+    private boolean isPenalty(MatchEvent shot) {
+        return profileOf(shot).penalty();
+    }
+
+    private ShotProfile profileOf(MatchEvent shot) {
+        return switch (shot.detail()) {
+            case EventDetail.Goal goal -> goal.profile();
+            case EventDetail.Save save -> save.profile();
+            case EventDetail.Shot detail -> detail.profile();
+            default -> throw new IllegalStateException("not a shot detail: " + shot.detail());
+        };
     }
 
     private boolean detailMatchesType(MatchEvent shot) {

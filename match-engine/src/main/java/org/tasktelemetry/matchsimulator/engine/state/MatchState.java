@@ -13,6 +13,7 @@ public record MatchState(MatchSide possession, Zone zone, PlayPhase phase, SetPi
         Objects.requireNonNull(zone, "zone must not be null");
         Objects.requireNonNull(phase, "phase must not be null");
         requireKindOnlyInSetPiece(phase, setPiece);
+        requireCrosserOnlyWhereACrossCanArise(phase, setPiece, crosser);
     }
 
     public MatchState(MatchSide possession, Zone zone, PlayPhase phase, SetPieceKind setPiece) {
@@ -35,6 +36,10 @@ public record MatchState(MatchSide possession, Zone zone, PlayPhase phase, SetPi
         return openPlay(possession, zone);
     }
 
+    public MatchState inCounterAttack() {
+        return new MatchState(possession, zone, PlayPhase.COUNTER_ATTACK);
+    }
+
     public MatchState withCrossInFlightFrom(Player crosser) {
         Objects.requireNonNull(crosser, "crosser must not be null");
         return new MatchState(possession, zone, phase, setPiece, crosser);
@@ -52,6 +57,16 @@ public record MatchState(MatchSide possession, Zone zone, PlayPhase phase, SetPi
         if (!isSetPiece && setPiece != null) {
             throw new IllegalArgumentException("a state in " + phase + " has no set piece, but the kind is "
                     + setPiece);
+        }
+    }
+
+    private static void requireCrosserOnlyWhereACrossCanArise(PlayPhase phase, SetPieceKind setPiece,
+            Player crosser) {
+        boolean crossCanArise = phase == PlayPhase.BUILD_UP || setPiece == SetPieceKind.CORNER
+                || setPiece == SetPieceKind.FREE_KICK;
+        if (crosser != null && !crossCanArise) {
+            throw new IllegalArgumentException("a cross can be in flight only from open build-up play, a corner or a free kick,"
+                    + " not in " + phase + " with set piece " + setPiece);
         }
     }
 }

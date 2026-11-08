@@ -6,7 +6,8 @@ import java.util.Objects;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 
-public record MatchSummary(List<ScoredGoal> goals, TeamStatistics home, TeamStatistics away) {
+public record MatchSummary(List<ScoredGoal> goals, TeamStatistics home, TeamStatistics away,
+        Suspension suspension) {
 
     public MatchSummary {
         Objects.requireNonNull(goals, "goals must not be null");
@@ -15,10 +16,25 @@ public record MatchSummary(List<ScoredGoal> goals, TeamStatistics home, TeamStat
         goals = List.copyOf(goals);
     }
 
+    public MatchSummary(List<ScoredGoal> goals, TeamStatistics home, TeamStatistics away) {
+        this(goals, home, away, null);
+    }
+
+    public boolean isSuspended() {
+        return suspension != null;
+    }
+
     public Score fieldScore() {
         int homeGoals = countGoalsBy(MatchSide.HOME);
         int awayGoals = countGoalsBy(MatchSide.AWAY);
         return new Score(homeGoals, awayGoals);
+    }
+
+    public Score officialScore() {
+        if (isSuspended()) {
+            return suspension.officialScore();
+        }
+        return fieldScore();
     }
 
     public TeamStatistics statisticsOf(MatchSide side) {

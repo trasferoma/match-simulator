@@ -4,6 +4,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.CrossConfig;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
+import org.tasktelemetry.matchsimulator.engine.config.PlayStyleModifiers;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
@@ -18,6 +19,7 @@ import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class CrossResolver {
@@ -25,22 +27,25 @@ public final class CrossResolver {
     private static final ZoneRole CROSSER_ZONE_ROLE = ZoneRole.MIDFIELD;
 
     private final CrossConfig config;
+    private final PlayStyleModifiers playStyles;
     private final PitchLayout layout;
     private final MatchRandom random;
     private final PlayerPicker picker;
     private final ShotResolver shotResolver;
 
-    public CrossResolver(CrossConfig config, PitchLayout layout, MatchRandom random, PlayerPicker picker,
-            ShotResolver shotResolver) {
+    public CrossResolver(CrossConfig config, PlayStyleModifiers playStyles, PitchLayout layout, MatchRandom random,
+            PlayerPicker picker, ShotResolver shotResolver) {
         this.config = config;
+        this.playStyles = playStyles;
         this.layout = layout;
         this.random = random;
         this.picker = picker;
         this.shotResolver = shotResolver;
     }
 
-    public double crossProbability() {
-        return config.crossProbability() * config.styleMultiplier();
+    public double crossProbability(PlayStyle style) {
+        double propensity = playStyles.effectOf(style).crossPropensity();
+        return config.crossProbability() * propensity;
     }
 
     public Duel crossDuel(Player crosser) {

@@ -26,20 +26,20 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D4 duello di Bradley-Terry | `DuelTest`: probabilità esatta, modificatori neutri invariati | 3 | fatto |
 | D5 esiti con stato successivo e durata | `PossessionActionResolverTest`: ogni esito porta uno stato valido e una durata nell'intervallo | 2 | fatto |
 | D6 tiro con xG | `ExpectedGoalsModelTest`, `ShotResolverTest` | 3 | fatto |
-| D7 fallo a catena | `FoulResolverTest` | 3 | previsto |
+| D7 fallo a catena | `FoulResolverTest` | 3 | fatto |
 | D8 motore isolato | modulo `match-engine` che non vede `match-app`; `EngineIsolationTest`: import solo da `java.*` e dai package del motore, niente I/O né console | 1 e 2 | fatto |
 | D9 eventi unica fonte | `MatchSummaryCalculatorTest` su eventi costruiti a mano | 3 | fatto |
 | D10 racconto che non inventa | `NarratorTest`, `PhraseCatalogTest`: ogni chiave ha una frase che nomina chi fa cosa e usa solo il lessico del proprio valore | 2 | previsto |
 | D12 riproducibilità: casualità e ordine | `EngineIsolationTest`: nessuna sorgente di casualità fuori da `MatchRandom`, nessuna struttura a ordine non garantito | 2 | fatto |
 | D12 riproducibilità: stessa partita | `MatchReproducibilityTest`; `CrossJvmReproducibilityTest` sugli eventi (la stessa prova sul testo della cronaca si aggiunge con il racconto) | 3 | fatto |
 | D13 nessun numero sparso | `TuningConstantsTest` sui sorgenti di `match-engine` | 2 | fatto |
-| D14 tattiche: un punto, una direzione, neutro = 1 | `PlayStyleModifiersTest` su tutti gli stili | 2 | previsto |
+| D14 tattiche: un punto, una direzione, neutro = 1 | `PlayStyleModifiersTest` su tutti gli stili | 2 | fatto |
 | D16 dipendenze esterne solo se concordate | `EngineIsolationTest`: il pom di `match-engine` non ha dipendenze fuori dallo scope test (non controlla quelle ereditate dal pom padre) | 2 | fatto |
 | D19 squadre di forza diversa | `LeagueGeneratorTest`; `LeagueStrengthTest` (tag `calibration`) | 3 | fatto |
 | D20 parametri di orientamento mai a zero | `ContourEventsPresenceTest` (tag `calibration`): ogni evento di contorno compare nel campionato del banco | 3 | previsto |
 | D22 attribuzione StatsBomb | `CalibrationReportTest`: il report contiene «Data: StatsBomb» | 3 | fatto |
 | D24 fasce come probabilità | `CrossResolverTest` | 3 | fatto |
-| D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi | 2 | previsto |
+| D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi | 2 | fatto |
 | D32 due moduli | struttura Maven: `pom.xml` radice con i moduli `match-engine` e `match-app` | 1 | fatto |
 | D33 Jackson solo in `match-app` | struttura Maven e `EngineIsolationTest` sul pom del motore | 1 e 2 | fatto |
 | D35 librerie di test solo nello scope test | `EngineIsolationTest` sul pom del motore | 2 | fatto |

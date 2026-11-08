@@ -85,4 +85,55 @@ void rejectsMissingValues() {
         assertThatThrownBy(() -> new MatchState(MatchSide.HOME, zone, null))
                 .isInstanceOf(NullPointerException.class);
     }
+
+    @Test
+    void aCounterAttackKeepsPossessionAndZoneAndHasNoSetPiece() {
+        MatchState openPlay = MatchState.openPlay(MatchSide.AWAY, zone);
+
+        MatchState counterAttack = openPlay.inCounterAttack();
+
+        assertThat(counterAttack).isEqualTo(new MatchState(MatchSide.AWAY, zone, PlayPhase.COUNTER_ATTACK));
+        assertThat(counterAttack.setPiece()).isNull();
+        assertThat(counterAttack.hasCrossInFlight()).isFalse();
+    }
+
+    @Test
+    void aCrossCanBeInFlightFromOpenBuildUpPlayFromACornerAndFromAFreeKick() {
+        Player crosser = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+
+        MatchState fromBuildUp = new MatchState(MatchSide.HOME, zone, PlayPhase.BUILD_UP, null, crosser);
+        MatchState fromCorner = new MatchState(MatchSide.HOME, zone, PlayPhase.SET_PIECE, SetPieceKind.CORNER,
+                crosser);
+        MatchState fromFreeKick = new MatchState(MatchSide.HOME, zone, PlayPhase.SET_PIECE, SetPieceKind.FREE_KICK,
+                crosser);
+
+        assertThat(fromBuildUp.crosser()).isEqualTo(crosser);
+        assertThat(fromCorner.crosser()).isEqualTo(crosser);
+        assertThat(fromFreeKick.crosser()).isEqualTo(crosser);
+    }
+
+    @Test
+    void rejectsACrossInFlightDuringACounterAttack() {
+        Player crosser = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+
+        assertThatThrownBy(() -> new MatchState(MatchSide.HOME, zone, PlayPhase.COUNTER_ATTACK, null, crosser))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("a cross can be in flight only from open build-up play, a corner or a free kick");
+        assertThatThrownBy(() -> MatchState.openPlay(MatchSide.HOME, zone).inCounterAttack()
+                .withCrossInFlightFrom(crosser))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsACrossInFlightFromASetPieceThatIsNotACorner() {
+        Player crosser = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+
+        assertThatThrownBy(() -> new MatchState(MatchSide.HOME, zone, PlayPhase.SET_PIECE, SetPieceKind.GOAL_KICK,
+                crosser))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("a cross can be in flight only from open build-up play, a corner or a free kick");
+        assertThatThrownBy(() -> MatchState.forSetPiece(MatchSide.HOME, zone, SetPieceKind.KICK_OFF)
+                .withCrossInFlightFrom(crosser))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
 }

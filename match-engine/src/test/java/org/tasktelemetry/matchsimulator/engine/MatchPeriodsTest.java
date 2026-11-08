@@ -150,9 +150,13 @@ class MatchPeriodsTest {
 
         assertThat(periodEvents).allSatisfy(event -> assertThat(event.durationSeconds()).isZero());
         assertThat(actions).isNotEmpty().allSatisfy(event -> {
-            assertThat(event.durationSeconds()).isBetween(
-                    config.attackingThirdDuration().minSeconds(), config.buildUpAndMidfieldDuration().maxSeconds());
-            assertThat(event.phase()).isEqualTo(PlayPhase.BUILD_UP);
+            assertThat(event.phase()).isIn(PlayPhase.BUILD_UP, PlayPhase.COUNTER_ATTACK);
+            if (event.phase() == PlayPhase.BUILD_UP) {
+                assertThat(event.durationSeconds()).isBetween(config.attackingThirdDuration().minSeconds(),
+                        longestOpenPlayActionSeconds(config));
+            } else {
+                assertThat(config.counterAttack().advanceDuration().contains(event.durationSeconds())).isTrue();
+            }
         });
     }
 
@@ -182,7 +186,13 @@ class MatchPeriodsTest {
         DurationRange buildUp = defaults.buildUpAndMidfieldDuration();
         DurationRange attacking = defaults.attackingThirdDuration();
         return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), minutes, defaults.shot(),
-                defaults.setPiece(), defaults.cross());
+                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
+                defaults.lineup(),
+                defaults.homeAdvantage());
+    }
+
+    private int longestOpenPlayActionSeconds(EngineConfig config) {
+        return Math.max(config.buildUpAndMidfieldDuration().maxSeconds(), config.attackingThirdDuration().maxSeconds());
     }
 
     private int longestConfiguredActionSeconds(EngineConfig config) {

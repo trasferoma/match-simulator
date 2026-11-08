@@ -11,12 +11,14 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.summary.ContourCounters;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 import org.tasktelemetry.matchsimulator.summary.ScoredGoal;
+import org.tasktelemetry.matchsimulator.summary.Suspension;
 import org.tasktelemetry.matchsimulator.summary.TeamStatistics;
 
 class LeagueMetricsTest {
@@ -102,5 +104,67 @@ class LeagueMetricsTest {
         }
         MatchSummary summary = new MatchSummary(goals, home, away);
         return new PlayedMatch("Home", "Away", summary);
+    }
+
+    @Test
+    void aSuspendedMatchCountsItsOfficialResultForGoalsAndOutcomesButItsEventsForTheStatistics() {
+        PlayedMatch suspended = suspendedMatch(2, 1, new Score(0, 3), statistics(10, 600), statistics(5, 400));
+        PlayedMatch homeWin = match(1, 0, statistics(8, 500), statistics(2, 500));
+
+        MeasuredLeague league = metrics.measure(List.of(suspended, homeWin));
+
+        assertThat(league.values().get(BandedMetric.GOALS_PER_GAME)).isCloseTo(2.0, within(TOLERANCE));
+        assertThat(league.values().get(BandedMetric.HOME_GOALS_PER_GAME)).isCloseTo(0.5, within(TOLERANCE));
+        assertThat(league.values().get(BandedMetric.AWAY_GOALS_PER_GAME)).isCloseTo(1.5, within(TOLERANCE));
+        assertThat(league.values().get(BandedMetric.HOME_WIN_PCT)).isCloseTo(50.0, within(TOLERANCE));
+        assertThat(league.values().get(BandedMetric.AWAY_WIN_PCT)).isCloseTo(50.0, within(TOLERANCE));
+        assertThat(league.values().get(BandedMetric.DRAW_PCT)).isZero();
+        assertThat(league.values().get(BandedMetric.SHOTS_PER_GAME)).isCloseTo(12.5, within(TOLERANCE));
+    }
+
+    @Test
+    void theShareOfSuspendedMatchesIsReportedAsOrientation() {
+        PlayedMatch suspended = suspendedMatch(0, 0, new Score(0, 3), statistics(1, 100), statistics(1, 100));
+        PlayedMatch regular = match(0, 0, statistics(1, 100), statistics(1, 100));
+
+        MeasuredLeague league = metrics.measure(List.of(suspended, regular, regular, regular));
+
+        assertThat(league.orientation().get("partite sospese (%)")).isCloseTo(25.0, within(TOLERANCE));
+    }
+
+    @Test
+    void theContourOrientationCountsFoulsAndCardsFromTheEvents() {
+        ContourCounters counters = new ContourCounters(1, 2, 20, 4, 1, 0, 3, 2);
+        TeamStatistics withContour = new TeamStatistics(5, 2, 0.0, 300, counters);
+        PlayedMatch played = match(0, 0, withContour, statistics(5, 300));
+
+        MeasuredLeague league = metrics.measure(List.of(played));
+
+        assertThat(league.orientation().get("falli a partita")).isCloseTo(20.0, within(TOLERANCE));
+        assertThat(league.orientation().get("gialli a partita")).isCloseTo(4.0, within(TOLERANCE));
+        assertThat(league.orientation().get("rossi a partita")).isCloseTo(1.0, within(TOLERANCE));
+        assertThat(league.orientation().get("cambi a partita")).isCloseTo(3.0, within(TOLERANCE));
+        assertThat(league.orientation().get("rigori a partita")).isCloseTo(2.0, within(TOLERANCE));
+    }
+
+    private PlayedMatch suspendedMatch(int fieldHome, int fieldAway, Score official, TeamStatistics home,
+            TeamStatistics away) {
+        List<ScoredGoal> goals = goalsOf(fieldHome, fieldAway);
+        MatchTime time = new MatchTime(MatchPeriod.SECOND_HALF, 1800);
+        Suspension suspension = new Suspension(MatchSide.HOME, official, time);
+        MatchSummary summary = new MatchSummary(goals, home, away, suspension);
+        return new PlayedMatch("Home", "Away", summary);
+    }
+
+    private List<ScoredGoal> goalsOf(int homeGoals, int awayGoals) {
+        List<ScoredGoal> goals = new ArrayList<>();
+        MatchTime time = new MatchTime(MatchPeriod.FIRST_HALF, 100);
+        for (int goal = 0; goal < homeGoals; goal++) {
+            goals.add(new ScoredGoal(MatchSide.HOME, scorer, time));
+        }
+        for (int goal = 0; goal < awayGoals; goal++) {
+            goals.add(new ScoredGoal(MatchSide.AWAY, scorer, time));
+        }
+        return goals;
     }
 }

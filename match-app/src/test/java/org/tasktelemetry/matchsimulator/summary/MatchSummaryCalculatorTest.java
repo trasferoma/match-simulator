@@ -11,6 +11,7 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
@@ -208,6 +209,126 @@ void aGoalWithoutAScorerIsRejected() {
         assertThatThrownBy(() -> calculator.summarize(events))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("shot profile");
+    }
+
+    @Test
+    void foulsAreCountedForTheSideOfTheFoulerWhileTheirTimeBelongsToTheFouledSideThatHadTheBall() {
+        events.add(foul(MatchSide.HOME, awayDefender, homeForward, 5));
+        events.add(foul(MatchSide.HOME, awayDefender, homeMidfielder, 5));
+        events.add(foul(MatchSide.AWAY, homeMidfielder, awayForward, 7));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().contour().fouls()).isEqualTo(1);
+        assertThat(summary.away().contour().fouls()).isEqualTo(2);
+        assertThat(summary.home().possessionSeconds()).isEqualTo(10);
+        assertThat(summary.away().possessionSeconds()).isEqualTo(7);
+    }
+
+    @Test
+    void cardsAreCountedForTheSideOfTheCardedPlayerAndASecondYellowIsAYellowAndARed() {
+        events.add(plainEvent(EventType.YELLOW_CARD, MatchSide.HOME, homeMidfielder, 0));
+        events.add(plainEvent(EventType.YELLOW_CARD, MatchSide.AWAY, awayDefender, 0));
+        events.add(plainEvent(EventType.SECOND_YELLOW_CARD, MatchSide.AWAY, awayDefender, 0));
+        events.add(plainEvent(EventType.RED_CARD, MatchSide.HOME, homeForward, 0));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().contour().yellowCards()).isEqualTo(1);
+        assertThat(summary.home().contour().redCards()).isEqualTo(1);
+        assertThat(summary.away().contour().yellowCards()).isEqualTo(2);
+        assertThat(summary.away().contour().redCards()).isEqualTo(1);
+    }
+
+    @Test
+    void substitutionsAreCountedForTheSideThatMadeThem() {
+        events.add(event(EventType.SUBSTITUTION, MatchSide.AWAY, firstHalf(10),
+                Participants.of(awayDefender, awayGoalkeeper), 0, EventDetail.none()));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.away().contour().substitutions()).isEqualTo(1);
+        assertThat(summary.home().contour().substitutions()).isZero();
+    }
+
+    @Test
+    void aMatchWithoutSuspensionHasTheFieldScoreAsOfficialResult() {
+        events.add(goal(MatchSide.HOME, homeForward, firstHalf(100), 0.30));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.isSuspended()).isFalse();
+        assertThat(summary.suspension()).isNull();
+        assertThat(summary.officialScore()).isEqualTo(new Score(1, 0));
+    }
+
+    @Test
+    void aSuspendedMatchShowsTheOfficialResultTheFieldScoreAndTheMinuteOfTheSuspension() {
+        events.add(goal(MatchSide.HOME, homeForward, firstHalf(754), 0.30));
+        events.add(goal(MatchSide.HOME, homeMidfielder, firstHalf(900), 0.20));
+        events.add(goal(MatchSide.AWAY, awayForward, secondHalf(60), 0.10));
+        Score field = new Score(2, 1);
+        Score official = new Score(0, 3);
+        EventDetail detail = EventDetail.suspension(MatchSide.HOME, field, official);
+        events.add(event(EventType.MATCH_SUSPENDED, MatchSide.AWAY, secondHalf(1800), Participants.nobody(), 0,
+                detail));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.isSuspended()).isTrue();
+        assertThat(summary.officialScore()).isEqualTo(official);
+        assertThat(summary.fieldScore()).isEqualTo(field);
+        assertThat(summary.suspension().responsibleSide()).isEqualTo(MatchSide.HOME);
+        assertThat(summary.suspension().time().display()).isEqualTo("75'");
+    }
+
+    @Test
+    void aSuspendedMatchKeepsTheStatisticsAndTheScorersOfTheEventsUpToTheSuspension() {
+        events.add(goal(MatchSide.AWAY, awayForward, firstHalf(100), 0.30));
+        events.add(shotEvent(EventType.SHOT_OFF_TARGET, MatchSide.HOME, homeForward, 0.10));
+        EventDetail detail = EventDetail.suspension(MatchSide.HOME, new Score(0, 1), new Score(0, 3));
+        events.add(event(EventType.MATCH_SUSPENDED, MatchSide.HOME, firstHalf(500), Participants.nobody(), 0,
+                detail));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.goals()).extracting(ScoredGoal::scorer).containsExactly(awayForward);
+        assertThat(summary.home().shots()).isEqualTo(1);
+        assertThat(summary.away().shots()).isEqualTo(1);
+        assertThat(summary.officialScore()).isEqualTo(new Score(0, 3));
+    }
+
+    @Test
+    void aSuspensionWithoutItsDetailIsRejected() {
+        events.add(event(EventType.MATCH_SUSPENDED, MatchSide.HOME, firstHalf(500), Participants.nobody(), 0,
+                EventDetail.none()));
+
+        assertThatThrownBy(() -> calculator.summarize(events))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("must carry the suspension detail");
+    }
+
+    @Test
+    void penaltiesAreCountedForTheSideThatWonThemAndOtherFoulsAreNot() {
+        events.add(foul(MatchSide.HOME, awayDefender, homeForward, 5, true));
+        events.add(foul(MatchSide.HOME, awayDefender, homeForward, 5, false));
+        events.add(foul(MatchSide.AWAY, homeMidfielder, awayForward, 5, true));
+        events.add(foul(MatchSide.AWAY, homeMidfielder, awayForward, 5, true));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().contour().penalties()).isEqualTo(1);
+        assertThat(summary.away().contour().penalties()).isEqualTo(2);
+    }
+
+    private MatchEvent foul(MatchSide fouledSide, Player fouler, Player fouled, int seconds) {
+        return foul(fouledSide, fouler, fouled, seconds, false);
+    }
+
+    private MatchEvent foul(MatchSide fouledSide, Player fouler, Player fouled, int seconds, boolean penalty) {
+        EventDetail detail = EventDetail.foul(FoulSeverity.HARD, penalty);
+        Participants participants = Participants.of(fouler, fouled);
+        return event(EventType.FOUL, fouledSide, firstHalf(10), participants, seconds, detail);
     }
 
     private MatchEvent goal(MatchSide side, Player scorer, MatchTime time, double expectedGoals) {

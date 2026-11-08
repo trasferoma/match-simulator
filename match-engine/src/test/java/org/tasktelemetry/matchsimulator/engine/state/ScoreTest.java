@@ -40,4 +40,13 @@ class ScoreTest {
         assertThatThrownBy(() -> new Score(-1, 0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new Score(0, -1)).isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void theLeadIsTheGoalDifferenceSeenFromASide() {
+        Score score = new Score(1, 4);
+
+        assertThat(score.leadOf(MatchSide.HOME)).isEqualTo(-3);
+        assertThat(score.leadOf(MatchSide.AWAY)).isEqualTo(3);
+        assertThat(Score.goalless().leadOf(MatchSide.HOME)).isZero();
+    }
 }

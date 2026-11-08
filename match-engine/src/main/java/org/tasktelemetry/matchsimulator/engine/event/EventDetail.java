@@ -2,6 +2,9 @@ package org.tasktelemetry.matchsimulator.engine.event;
 
 import java.util.Objects;
 
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
+
 public sealed interface EventDetail {
 
     static EventDetail none() {
@@ -22,6 +25,14 @@ public sealed interface EventDetail {
 
     static EventDetail goal(ShotProfile profile, GoalContext context) {
         return new Goal(profile, context);
+    }
+
+    static EventDetail foul(FoulSeverity severity, boolean penalty) {
+        return new Foul(severity, penalty);
+    }
+
+    static EventDetail suspension(MatchSide responsibleSide, Score fieldScore, Score officialScore) {
+        return new Suspension(responsibleSide, fieldScore, officialScore);
     }
 
     record NoDetail() implements EventDetail {
@@ -56,6 +67,22 @@ public sealed interface EventDetail {
         public Goal {
             Objects.requireNonNull(profile, "shot profile must not be null");
             Objects.requireNonNull(context, "goal context must not be null");
+        }
+    }
+
+    record Foul(FoulSeverity severity, boolean penalty) implements EventDetail {
+
+        public Foul {
+            Objects.requireNonNull(severity, "foul severity must not be null");
+        }
+    }
+
+    record Suspension(MatchSide responsibleSide, Score fieldScore, Score officialScore) implements EventDetail {
+
+        public Suspension {
+            Objects.requireNonNull(responsibleSide, "responsible side must not be null");
+            Objects.requireNonNull(fieldScore, "field score must not be null");
+            Objects.requireNonNull(officialScore, "official score must not be null");
         }
     }
 }

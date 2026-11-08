@@ -59,6 +59,10 @@ public final class LeagueMetrics {
         };
     }
 
+    private boolean isSuspended(PlayedMatch match) {
+        return match.summary().isSuspended();
+    }
+
     private boolean isHomeWin(PlayedMatch match) {
         Score score = match.score();
         return score.home() > score.away();
@@ -98,6 +102,8 @@ public final class LeagueMetrics {
         double redCards = averageContour(matches, ContourCounters::redCards);
         double offsides = averageContour(matches, ContourCounters::offsides);
         double substitutions = averageContour(matches, ContourCounters::substitutions);
+        double penalties = averageContour(matches, ContourCounters::penalties);
+        double suspendedShare = percentageOf(matches, this::isSuspended);
         orientation.put("tiri in porta a partita", shotsOnTarget);
         orientation.put("xG a partita", expectedGoals);
         orientation.put("angoli a partita", corners);
@@ -107,6 +113,8 @@ public final class LeagueMetrics {
         orientation.put("rossi a partita", redCards);
         orientation.put("fuorigioco a partita", offsides);
         orientation.put("cambi a partita", substitutions);
+        orientation.put("rigori a partita", penalties);
+        orientation.put("partite sospese (%)", suspendedShare);
         return orientation;
     }
 

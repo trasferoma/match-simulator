@@ -17,7 +17,7 @@ public record PlayedMatch(String homeName, String awayName, MatchSummary summary
     }
 
     public Score score() {
-        return summary.fieldScore();
+        return summary.officialScore();
     }
 
     public int sumOfBothTeams(ToIntFunction<TeamStatistics> statistic) {

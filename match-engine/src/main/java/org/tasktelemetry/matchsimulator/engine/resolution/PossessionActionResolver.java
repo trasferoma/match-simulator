@@ -1,5 +1,7 @@
 package org.tasktelemetry.matchsimulator.engine.resolution;
 
+import java.util.Optional;
+
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
@@ -11,9 +13,11 @@ import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class PossessionActionResolver {
@@ -21,30 +25,32 @@ public final class PossessionActionResolver {
     private final EngineConfig config;
     private final PitchLayout layout;
     private final MatchRandom random;
-    private final PlayerPicker picker;
+    private final Matchups matchups;
     private final ShotResolver shotResolver;
     private final CrossResolver crossResolver;
+    private final FoulResolver foulResolver;
 
     public PossessionActionResolver(EngineConfig config, PitchLayout layout, MatchRandom random,
-            PlayerPicker picker, ShotResolver shotResolver, CrossResolver crossResolver) {
+            Matchups matchups, ShotResolver shotResolver, CrossResolver crossResolver, FoulResolver foulResolver) {
         this.config = config;
         this.layout = layout;
         this.random = random;
-        this.picker = picker;
+        this.matchups = matchups;
         this.shotResolver = shotResolver;
         this.crossResolver = crossResolver;
+        this.foulResolver = foulResolver;
     }
 
     public ActionOutcome resolve(MatchState state, Score score, TeamOnPitch attackers, TeamOnPitch defenders) {
-        if (isOnAttackingThird(state) && decidesToCross()) {
+        if (isOnAttackingThird(state) && decidesToCross(attackers)) {
             return attemptCross(state, attackers);
         }
         Player carrier = pickCarrier(state, attackers);
         Player opponent = pickOpponent(state, defenders);
         if (decidesToDribble()) {
-            return resolveDribble(state, score, carrier, opponent, defenders);
+            return resolveDribble(state, score, carrier, opponent, attackers, defenders);
         }
-        return resolvePass(state, score, carrier, opponent, defenders);
+        return resolvePass(state, score, carrier, opponent, attackers, defenders);
     }
 
     public Duel passingDuel(Player passer, Player interceptor) {
@@ -56,8 +62,9 @@ public final class PossessionActionResolver {
     }
 
     private ActionOutcome resolvePass(MatchState state, Score score, Player passer, Player interceptor,
-            TeamOnPitch defenders) {
-        Duel duel = passingDuel(passer, interceptor);
+            TeamOnPitch attackers, TeamOnPitch defenders) {
+        Duel attributeDuel = passingDuel(passer, interceptor);
+        Duel duel = applyStyleAndVenue(attributeDuel, state, attackers, defenders);
         if (attackerWins(duel)) {
             return completeAction(state, score, EventType.PASS_COMPLETED, passer, defenders);
         }
@@ -65,12 +72,13 @@ public final class PossessionActionResolver {
     }
 
     private ActionOutcome resolveDribble(MatchState state, Score score, Player dribbler, Player tackler,
-            TeamOnPitch defenders) {
-        Duel duel = dribblingDuel(dribbler, tackler);
+            TeamOnPitch attackers, TeamOnPitch defenders) {
+        Duel attributeDuel = dribblingDuel(dribbler, tackler);
+        Duel duel = applyStyleAndVenue(attributeDuel, state, attackers, defenders);
         if (attackerWins(duel)) {
             return completeAction(state, score, EventType.DRIBBLE_COMPLETED, dribbler, defenders);
         }
-        return turnOverPossession(state, EventType.TACKLE, tackler);
+        return loseDuel(state, EventType.TACKLE, dribbler, tackler);
     }
 
     private ActionOutcome completeAction(MatchState state, Score score, EventType type, Player attacker,
@@ -86,6 +94,11 @@ public final class PossessionActionResolver {
         MatchState next = new MatchState(state.possession(), target, state.phase());
         int duration = drawDuration(state);
         return ActionOutcome.byPlayer(type, attacker, next, duration);
+    }
+
+    private ActionOutcome loseDuel(MatchState state, EventType recovery, Player attacker, Player defender) {
+        Optional<ActionOutcome> foul = foulResolver.resolveFoul(state, defender, attacker);
+        return foul.orElseGet(() -> turnOverPossession(state, recovery, defender));
     }
 
     private ActionOutcome turnOverPossession(MatchState state, EventType type, Player recoverer) {
@@ -128,18 +141,21 @@ public final class PossessionActionResolver {
     }
 
     private Player pickCarrier(MatchState state, TeamOnPitch attackers) {
-        ZoneRole zoneRole = layout.roleOf(state.zone(), state.possession());
-        return picker.pickFrom(attackers, zoneRole);
+        return matchups.pickAttacker(state, attackers);
     }
 
     private Player pickOpponent(MatchState state, TeamOnPitch defenders) {
-        MatchSide defendingSide = state.possession().opposite();
-        ZoneRole zoneRole = layout.roleOf(state.zone(), defendingSide);
-        return picker.pickFrom(defenders, zoneRole);
+        return matchups.pickDefender(state, defenders);
     }
 
-    private boolean decidesToCross() {
-        double probability = crossResolver.crossProbability();
+    private Duel applyStyleAndVenue(Duel attributeDuel, MatchState state, TeamOnPitch attackers,
+            TeamOnPitch defenders) {
+        return matchups.openPlayDuel(attributeDuel, state, attackers, defenders);
+    }
+
+    private boolean decidesToCross(TeamOnPitch attackers) {
+        PlayStyle style = attackers.team().style();
+        double probability = crossResolver.crossProbability(style);
         return random.occurs(probability);
     }
 

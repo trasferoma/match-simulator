@@ -37,6 +37,8 @@ class ExpectedGoalsModelTest {
             "ATTACKING_THIRD, BUILD_UP, FOOT, 0.045",
             "OPPONENT_BOX, BUILD_UP, FOOT, 0.085",
             "OPPONENT_BOX, SET_PIECE, FOOT, 0.085",
+            "OPPONENT_BOX, COUNTER_ATTACK, FOOT, 0.1105",
+            "MIDFIELD, COUNTER_ATTACK, FOOT, 0.0195",
             "OPPONENT_BOX, BUILD_UP, HEADER, 0.068",
             "ATTACKING_THIRD, SET_PIECE, DIRECT_FREE_KICK, 0.0585"})
     void aNeutralShooterGetsTheBaseOfZonePhaseAndKind(ZoneRole zoneRole, PlayPhase phase, ShotKind kind,
@@ -46,6 +48,18 @@ class ExpectedGoalsModelTest {
         double expectedGoals = model.expectedGoals(zoneRole, phase, kind, shooter);
 
         assertThat(expectedGoals).isCloseTo(expected, within(EXACT));
+    }
+
+    @Test
+    void aCounterAttackRaisesExpectedGoalsInEveryZoneForTheSameShooterAndKind() {
+        Player shooter = shooterWith(NEUTRAL_SHOOTING);
+
+        for (ZoneRole zoneRole : ZoneRole.values()) {
+            double buildUp = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter);
+            double counterAttack = model.expectedGoals(zoneRole, PlayPhase.COUNTER_ATTACK, ShotKind.FOOT, shooter);
+
+            assertThat(counterAttack).isGreaterThan(buildUp);
+        }
     }
 
     @Test

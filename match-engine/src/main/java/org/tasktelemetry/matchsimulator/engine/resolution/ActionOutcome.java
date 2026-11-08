@@ -21,6 +21,11 @@ public record ActionOutcome(EventType type, Participants participants, MatchStat
         }
     }
 
+    public ActionOutcome afterWaiting(int seconds) {
+        int total = durationSeconds + seconds;
+        return new ActionOutcome(type, participants, next, total, detail);
+    }
+
     public static ActionOutcome byPlayer(EventType type, Player player, MatchState next, int durationSeconds) {
         Participants participants = Participants.of(player);
         EventDetail detail = EventDetail.none();

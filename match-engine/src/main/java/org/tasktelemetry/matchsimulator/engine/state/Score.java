@@ -21,6 +21,10 @@ public record Score(int home, int away) {
         };
     }
 
+    public int leadOf(MatchSide side) {
+        return goalsOf(side) - goalsOf(side.opposite());
+    }
+
     public Score withGoalBy(MatchSide side) {
         return switch (side) {
             case HOME -> new Score(home + 1, away);
