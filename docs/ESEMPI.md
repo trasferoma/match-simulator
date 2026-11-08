@@ -1,40 +1,27 @@
 # Esempi da seguire
 
-Per ogni tipo di compito, la classe da imitare. Un agente che deve scrivere una regola, un evento o un test parte da
-qui, non dalla classe più vicina che trova.
+Per ogni tipo di compito, la classe da imitare. Chi deve scrivere una classe di un tipo già presente parte da qui,
+non dalla classe più vicina che trova: la più vicina può essere un caso storto.
 
-**Stato al 2026-11-07: non esiste ancora codice.** Le righe indicano la prima classe prevista dal piano
-(`C:\build\git\spec\match-misulator\implementation-motore-partita-v1.md`) per ogni tipo di compito, con la fase che
-la crea. Finché una riga dice `prevista`, la classe non esiste: non va cercata né imitata.
+- **Domanda d'ingresso: è un tipo di compito che si ripeterà, e questa classe esistente è un buon modello per
+  farlo?** Una classe unica nel suo genere (un punto d'ingresso, un adattatore usato una volta) non entra, anche se è
+  scritta bene. Nel dubbio, non entra.
+- **Solo classi che esistono.** Una classe prevista ma non ancora scritta non entra: il suo nome e il suo package
+  possono cambiare prima che esista.
+- **Una riga per tipo di compito**, con il percorso reale e il motivo per cui è un buon modello.
+- Una classe che esiste ma non va imitata non sta qui: sta in [DEVIAZIONI.md](DEVIAZIONI.md).
+- **Chi aggiorna e quando:** `CLAUDE.md`, sezione «Documenti».
 
-**Stati.** `prevista`: la classe non esiste ancora. `esiste`: la classe c'è, con il percorso reale, ed è un buon
-modello. Se la classe scritta non è un buon modello, la riga resta `prevista` e il motivo va in
-[DEVIAZIONI.md](DEVIAZIONI.md); se una classe successiva diventa un esempio migliore, la riga cambia. Chi aggiorna e
-quando: `CLAUDE.md`, sezione «Documenti».
-
-Package sotto `org.tasktelemetry.matchsimulator` (decisioni D31 e D32).
-
-| Per fare | Guarda | Fase | Stato |
-|---|---|---|---|
-| un tipo del dominio con invarianti (validazione nel costruttore, messaggio che nomina la regola) | `engine.team.Team` | 3 | prevista |
-| un valore della configurazione (numero di taratura con default) | `engine.config.EngineConfig`, `DurationRange` | 3 | prevista |
-| una regola che legge il campo (ruolo della zona, mai l'indice) | `engine.pitch.PitchLayout`, `ZoneRole` | 3 | prevista |
-| un test di guardia che legge i sorgenti del motore | `EngineIsolationTest`, `TuningConstantsTest` | 3 | prevista |
-| una regola che risolve un'azione (esiti, stato successivo, durata) | `engine.resolution.PossessionActionResolver`, `ActionOutcome` | 4 | prevista |
-| un confronto fra due valori, con la probabilità esposta | `engine.resolution.Duel` | 4 | prevista |
-| una scelta casuale | `engine.MatchRandom`, passato alla regola, mai creato da lei | 4 | prevista |
-| un tipo di evento nuovo con il suo dettaglio | `engine.event.MatchEvent`, `EventType`, `EventDetail` | 4 | prevista |
-| un test di regola: probabilità esatta (1e-9) e direzione stretta | `DuelTest` | 4 | prevista |
-| un test sull'effetto di un attributo | `PlayerAttributeInfluenceTest` | 4 | prevista |
-| un modello di probabilità (xG o simili) | `engine.resolution.shot.ExpectedGoalsModel` | 5 | prevista |
-| una palla inattiva (squadra e zona di ripartenza) | `engine.resolution.stoppage.SetPieceResolver` | 5 | prevista |
-| un calcolo ricavato dagli eventi | `summary.MatchSummaryCalculator` | 6 | prevista |
-| un test di calcolo su eventi costruiti a mano | `MatchSummaryCalculatorTest` | 6 | prevista |
-| una metrica del banco confrontata con una forbice | `calibration.LeagueMetrics`, `CalibrationReport` | 7 | prevista |
-| un test lento del banco (tag `calibration`) | `LeagueStrengthTest` | 7 | prevista |
-| un parametro del banco, non del motore (D55) | `calibration.BenchConfig` | 7 | prevista |
-| un ramo nuovo dell'azione d'attacco | `engine.resolution.shot.CrossResolver` | 8 | prevista |
-| un moltiplicatore di stile | `engine.config.PlayStyleModifiers` | 9 | prevista |
-| una modifica degli uomini in campo | `engine.resolution.lineup.LineupRepair` | 10 | prevista |
-| una lettura di file con errori che indicano file e campo | `teamfile.TeamFileReader`, `InvalidTeamFileException` | 13 | prevista |
-| una frase della cronaca | `narration.PhraseCatalog`, `phrases_it.properties` | 14 | prevista |
+| Per fare | Guarda | Perché è un buon modello |
+|---|---|---|
+| un tipo del dominio con invarianti | `match-engine/src/main/java/org/tasktelemetry/matchsimulator/engine/team/Team.java` | record con costruttore compatto: copia difensiva delle liste, poi una guardia nominata per regola, con un messaggio che nomina la regola violata |
+| una regola che risolve un'azione | `match-engine/src/main/java/org/tasktelemetry/matchsimulator/engine/resolution/PossessionActionResolver.java` | riceve stato e squadre e restituisce un esito con stato successivo e durata; il generatore arriva dall'esterno; i duelli sono metodi con nome di dominio che espongono la probabilità; legge solo il ruolo della zona |
+| il dettaglio di un tipo di evento | `match-engine/src/main/java/org/tasktelemetry/matchsimulator/engine/event/EventDetail.java` | interfaccia sigillata con un record per dettaglio, guardie nel costruttore: chi aggiunge un dettaglio aggiunge un record, e il compilatore segnala gli `switch` da completare |
+| un modello di probabilità (separato dal sorteggio) | `match-engine/src/main/java/org/tasktelemetry/matchsimulator/engine/resolution/shot/ExpectedGoalsModel.java` | calcolo puro, senza generatore: riceve i fattori e restituisce la probabilità, limitata e crescente nei suoi attributi; chi sorteggia (`ShotResolver`) la usa senza ricalcolarla |
+| un gruppo di parametri della configurazione | `match-engine/src/main/java/org/tasktelemetry/matchsimulator/engine/config/ExpectedGoalsConfig.java` | record con mappe complete per ogni valore di enum, copiate e non modificabili, guardie su valori e soglie; si aggancia a `EngineConfig` come un suo componente |
+| un calcolo ricavato dalla lista degli eventi | `match-app/src/main/java/org/tasktelemetry/matchsimulator/summary/MatchSummaryCalculator.java` | riceve solo la lista degli eventi, senza stato; attribuisce per la squadra che aveva la palla, non per il giocatore; legge il dettaglio con uno `switch` esaustivo sull'interfaccia sigillata, così un dettaglio nuovo ferma la compilazione |
+| un test su eventi costruiti a mano | `match-app/src/test/java/org/tasktelemetry/matchsimulator/summary/MatchSummaryCalculatorTest.java` | costruisce pochi eventi con valori scelti e confronta il risultato esatto; include un caso che distingue un'attribuzione sbagliata (perdita di palla con il giocatore principale della squadra opposta) |
+| un test di una regola probabilistica | `match-engine/src/test/java/org/tasktelemetry/matchsimulator/engine/resolution/PossessionActionResolverTest.java` | probabilità esatta per la regola, frequenza a seme fisso con ±1 punto per il percorso reale, e un caso che distingue un accoppiamento sbagliato di attributi |
+| un test lento del banco | `match-app/src/test/java/org/tasktelemetry/matchsimulator/calibration/CalibrationAcceptanceTest.java` | tag `calibration`, cartella dei dati dalla proprietà di sistema e mai dal default; se fallisce, il messaggio allega il report completo |
+| un parametro del banco (non del motore) | `match-app/src/main/java/org/tasktelemetry/matchsimulator/calibration/BenchConfig.java` | record nel banco, fuori da `EngineConfig`; `defaults()` dà un nome a ogni valore; guardie con il nome del parametro e il valore ricevuto |
+| un parametro della configurazione del motore | `match-engine/src/main/java/org/tasktelemetry/matchsimulator/engine/config/EngineConfig.java` (con `DurationRange.java`) | record con guardie sui null; `defaults()` dà un nome a ogni valore prima di costruire |

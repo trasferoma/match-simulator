@@ -1,19 +1,15 @@
 # Deviazioni: cosa c'è nel codice da non imitare
 
 Classi o pezzi di codice che esistono ma non sono un modello: compromessi temporanei, scorciatoie accettate,
-soluzioni superate da un esempio migliore. Un agente che trova uno di questi casi non lo copia, anche se è il codice
-più vicino al suo compito.
+soluzioni superate da un esempio migliore, codice storico. Chi trova uno di questi casi non lo copia, anche se è il
+codice più vicino al suo compito.
 
-Non va confuso con le **deviazioni dalla SPEC** del piano (`implementation-motore-partita-v1.md`, sezione
-"Registro"): quelle riguardano il comportamento rispetto alla specifica; queste riguardano il codice come modello.
-
-**Formato**, una riga per deviazione:
+- **Domanda d'ingresso: qualcuno potrebbe copiarla scambiandola per un modello?** Una scorciatoia in codice che
+  nessuno imiterà (uno script usato una volta, una classe unica nel suo genere) non entra. Nel dubbio, non entra.
+- Non sono le deviazioni dalla specifica (comportamento diverso da quello richiesto): quelle stanno nel registro del
+  piano o della specifica. Queste riguardano il codice come modello.
+- Contiene solo compromessi ancora presenti nel codice.
+- **Chi aggiorna e quando:** `CLAUDE.md`, sezione «Documenti».
 
 | Dove | Cosa non imitare | Perché esiste | Cosa fare invece | Dal |
 |---|---|---|---|---|
-
-Quando il compromesso viene tolto, la riga si cancella. Chi aggiorna e quando: `CLAUDE.md`, sezione «Documenti».
-
-## Elenco
-
-Nessuna deviazione: al 2026-11-07 il progetto non ha ancora codice.

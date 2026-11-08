@@ -1,21 +1,25 @@
 # Decisioni di progetto
 
-Principi che valgono per **ogni** funzionalità, presente o futura. Il comportamento di una funzionalità (valori,
-spareggi, validazioni, criteri di accettazione) sta nella sua SPEC, non qui. La SPEC della prima versione è
-`C:\build\git\spec\match-misulator\spec-motore-partita-v1.md` (qui «SPEC»).
+Principi che valgono per **ogni** funzionalità, presente o futura. Il comportamento di una singola funzionalità
+(valori, spareggi, validazioni, criteri di accettazione) sta nella sua specifica, non qui.
 
-- **Cosa entra.** Una scelta entra qui se la prossima SPEC dovrà rispettarla. Altrimenti resta solo nella SPEC.
-- **Conflitti.** Sui principi vince questo registro: una SPEC che ne contraddice uno si corregge, oppure prima si
-  cambia la decisione, con il sì dell'utente. Sui dettagli di una funzionalità vince la SPEC: qui non ci sono.
-- **Da dove arrivano.** Una scelta nasce in una SPEC; se si rivela generale viene promossa qui, con una riga che
-  rimanda alla SPEC senza ricopiarne il dettaglio.
-- **Niente valori di taratura:** la taratura li cambia; stanno nella SPEC e nella configurazione.
+- **Domanda d'ingresso: la prossima specifica, o la prossima modifica in un'altra parte del progetto, dovrà
+  rispettarla?** Se no, non entra: resta nella specifica o nel codice. Nel dubbio, non entra.
+- **Conflitti.** Sui principi vince questo registro: una specifica che ne contraddice uno si corregge, oppure prima si
+  cambia la decisione, con il sì dell'utente. Sui dettagli di una funzionalità vince la specifica: qui non ci sono.
+- **Ogni riga rimanda alla sua fonte** (una specifica, una revisione, il codice esistente) e non ne ricopia il
+  dettaglio.
+- **Cosa non si scrive qui:** valori di taratura o di configurazione, numeri di criteri di accettazione o di fasi di
+  un piano, percorsi che cambiano a ogni refactoring. Cambiano spesso e renderebbero falso il registro.
+- **Formato:** `- **D<n>. <decisione in una frase>.** Perché: <motivo>. Fonte: <documento e sezione, o classe>.`
+  I numeri non si riusano.
 - **Chi aggiorna e quando:** `CLAUDE.md`, sezione «Documenti».
 
-I numeri non si riusano. Le decisioni che erano qui ma riguardano solo la prima versione sono in fondo, con il punto
-della SPEC in cui stanno, così i riferimenti `D<n>` continuano a funzionare.
+Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\match-misulator\spec-motore-partita-v1.md`.
 
-## Modello di simulazione
+## Decisioni
+
+### Modello di simulazione
 
 - **D1. Catena di stati sul possesso ("livello 2"), non simulazione spaziale ad agenti.** Perché: produce una
   partita raccontabile senza il costo di simulare posizioni e movimenti. Fonte: SPEC, Obiettivo; analisi §1.
@@ -33,10 +37,11 @@ della SPEC in cui stanno, così i riferimenti `D<n>` continuano a funzionare.
 - **D7. Fallo a catena:** fallo con gravità → punizione o rigore → cartellino → espulsione. Fonte: analisi §2.5.
 - **D24. Il gioco sulle fasce è una probabilità legata alla tattica, non una posizione** (cross dalla trequarti,
   duello aereo). Perché: dà cross e colpi di testa senza corsie nel campo. Fonte: SPEC, "Stato e azioni"; analisi §1.1.
-- **D25. Ogni attributo dei giocatori è letto da almeno una regola;** nessun attributo decorativo. Elenco e regole:
-  SPEC, "Ingresso e motore".
+- **D25. Ogni attributo dei giocatori è letto da almeno una regola;** nessun attributo decorativo. Perché: un
+  attributo che nessuna regola legge confonde chi scrive le squadre e non cambia la partita. Fonte: SPEC, "Ingresso e
+  motore".
 
-## Architettura
+### Architettura
 
 - **D8. Motore isolato:** riceve squadre, configurazione e seme, esegue a passi, restituisce solo eventi; niente
   I/O, e non conosce file, racconto, riga di comando né taratura. Perché: il motore si prova e si tara da solo, e gli
@@ -61,7 +66,7 @@ della SPEC in cui stanno, così i riferimenti `D<n>` continuano a funzionare.
 - **D55. La configurazione del banco di taratura è separata da quella del motore** e sta in `match-app`. Perché: il
   banco descrive l'obiettivo, non il motore. Fonte: SPEC, "Banco di taratura"; piano, "File coinvolti".
 
-## Tecnologia
+### Tecnologia
 
 - **D15. Java 21 puro con Maven:** niente Spring né altri framework. Fonte: SPEC, Vincoli.
 - **D16. Dipendenze esterne solo se indispensabili e concordate;** il motore non ne ha a runtime. Fonte: SPEC,
@@ -72,7 +77,7 @@ della SPEC in cui stanno, così i riferimenti `D<n>` continuano a funzionare.
   forbici di taratura restano nei loro file. Fonte: SPEC, Vincoli.
 - **D35. Test con JUnit 5 e AssertJ, solo nello scope test.** Fonte: SPEC, Vincoli.
 
-## Taratura e dati
+### Taratura e dati
 
 - **D19. Si tara su un campionato simulato con squadre di forza diversa,** mai su una partita ripetuta fra squadre
   uguali, contro i cinque grandi campionati. Perché: le forbici descrivono stagioni intere. Fonte: analisi §11;
@@ -87,24 +92,26 @@ della SPEC in cui stanno, così i riferimenti `D<n>` continuano a funzionare.
 
 ## Proposte da confermare
 
+Scelte generali non ancora approvate: non sono regole, e nessuno le applica come se lo fossero.
+
 Nessuna.
 
-## Spostate nella SPEC della prima versione
+## Spostate altrove
 
-Riguardano solo la prima versione: il dettaglio vale come scritto nella SPEC.
+Decisioni che erano qui ma riguardano una sola funzionalità: il numero resta valido e rimanda alla fonte.
 
-| Decisioni | Tema | Dove nella SPEC |
+| Decisioni | Tema | Dove stanno ora |
 |---|---|---|
-| D17, D18, D52 | perimetro: dentro e fuori | "Comportamento atteso", "Fuori scope" |
-| D21, D40 | criterio di «finito» della taratura | "Banco di taratura", tabella del criterio |
-| D26, D27, D37 | stili, fattore campo, propensione al cross | "Decisioni prese", 1 e 2 |
-| D28, D38, D42, D45, D46, D47 | porta scoperta, chi esce, reparto svuotato, panchinaro di ripiego, spareggi | "Eventi di contorno" |
-| D29, D43 | fine dei tempi e recupero | "Tempo e partita" |
-| D30 | cronaca predefinita e completa | "Evento, tabellino, racconto" |
-| D34, D54 | misura e forbice del possesso | "Banco di taratura", «Forbici» |
-| D36 | valori iniziali di taratura | "Decisioni prese", 3 |
-| D39 | validità della squadra | "Ingresso e motore" |
-| D41, D50, D53 | squadre del banco: composizione, profili, forze | "Banco di taratura" |
-| D44 | rigore | "Tiro" |
-| D48 | regola dei 7 e risultato a tavolino | "Eventi di contorno" |
-| D51 | uscita in UTF-8 e numeri in formato italiano | "Riga di comando" |
+| D17, D18, D52 | perimetro: dentro e fuori | SPEC, "Comportamento atteso", "Fuori scope" |
+| D21, D40 | criterio di «finito» della taratura | SPEC, "Banco di taratura", tabella del criterio |
+| D26, D27, D37 | stili, fattore campo, propensione al cross | SPEC, "Decisioni prese", 1 e 2 |
+| D28, D38, D42, D45, D46, D47 | porta scoperta, chi esce, reparto svuotato, panchinaro di ripiego, spareggi | SPEC, "Eventi di contorno" |
+| D29, D43 | fine dei tempi e recupero | SPEC, "Tempo e partita" |
+| D30 | cronaca predefinita e completa | SPEC, "Evento, tabellino, racconto" |
+| D34, D54 | misura e forbice del possesso | SPEC, "Banco di taratura", «Forbici» |
+| D36 | valori iniziali di taratura | SPEC, "Decisioni prese", 3 |
+| D39 | validità della squadra | SPEC, "Ingresso e motore" |
+| D41, D50, D53 | squadre del banco: composizione, profili, forze | SPEC, "Banco di taratura" |
+| D44 | rigore | SPEC, "Tiro" |
+| D48 | regola dei 7 e risultato a tavolino | SPEC, "Eventi di contorno" |
+| D51 | uscita in UTF-8 e numeri in formato italiano | SPEC, "Riga di comando" |

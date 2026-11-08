@@ -1,61 +1,62 @@
 # Controlli
 
-Per ogni principio o regola importante: chi la fa rispettare. Una regola scritta solo qui o nel `CLAUDE.md` è una
-probabilità che un agente la legga e la applichi; un controllo che fallisce lo ferma sempre.
+Per ogni principio di [DECISIONI.md](DECISIONI.md): chi lo fa rispettare. Una regola scritta solo in prosa è una
+probabilità che venga letta e applicata; un controllo che fallisce ferma sempre chi la viola, anche se non l'ha letta.
 
-**Scala**, dal più forte al più debole:
+**Scala**, dal più forte al più debole. Per ogni principio si sceglie il gradino più alto realistico.
 
-1. **compilatore o struttura**: l'errore non si può scrivere (moduli Maven, tipi);
-2. **test che copre tutti i casi**, anche futuri (tutti i sorgenti, tutti gli stili, tutti gli attributi, tutte le
-   chiavi delle frasi);
+1. **compilatore o struttura**: l'errore non si può scrivere (moduli, tipi, visibilità);
+2. **test che copre tutti i casi**, anche futuri (tutte le classi di un package, tutti i valori di un enum, tutti i
+   sorgenti);
 3. **test specifico**: protegge un caso scritto a mano;
-4. **revisione**: una persona o un agente controlla a fine fase;
+4. **revisione**: una persona o un agente controlla;
 5. **memoria**: nessun controllo.
 
-Per ogni regola si sceglie il gradino più alto realistico. Chi aggiorna questo file e quando: `CLAUDE.md`, sezione
-«Documenti».
+- **Domanda d'ingresso: protegge un principio di [DECISIONI.md](DECISIONI.md)?** Un test che protegge una regola di
+  dettaglio di una funzionalità non entra: lo segue la sua specifica. Nel dubbio, non entra.
+- Ogni riga nomina il controllo con un nome stabile (classe di test, modulo, regola), **mai** con il numero di un
+  criterio di accettazione o di una fase: il legame con quei numeri lo tiene il piano.
+- **Chi aggiorna e quando:** `CLAUDE.md`, sezione «Documenti».
 
-Stato al 2026-11-07: nessun codice, quindi nessun controllo è ancora `fatto`. I criteri DoD (27) sono quelli della
-SPEC (`C:\build\git\spec\match-misulator\spec-motore-partita-v1.md`), le fasi (17) quelle del piano
-(`implementation-motore-partita-v1.md` nella stessa cartella). Le `D<n>` sono in [DECISIONI.md](DECISIONI.md).
+## Coperti
 
-## Coperte dal piano
+| Principio (D<n>) | Controllo | Gradino | Stato |
+|---|---|---|---|
+| D3 regole sul ruolo della zona | `PitchLayoutTest`: un layout con un numero diverso di zone riusa gli stessi ruoli | 3 | fatto |
+| D4 duello di Bradley-Terry | `DuelTest`: probabilità esatta, modificatori neutri invariati | 3 | fatto |
+| D5 esiti con stato successivo e durata | `PossessionActionResolverTest`: ogni esito porta uno stato valido e una durata nell'intervallo | 2 | fatto |
+| D6 tiro con xG | `ExpectedGoalsModelTest`, `ShotResolverTest` | 3 | fatto |
+| D7 fallo a catena | `FoulResolverTest` | 3 | previsto |
+| D8 motore isolato | modulo `match-engine` che non vede `match-app`; `EngineIsolationTest`: import solo da `java.*` e dai package del motore, niente I/O né console | 1 e 2 | fatto |
+| D9 eventi unica fonte | `MatchSummaryCalculatorTest` su eventi costruiti a mano | 3 | fatto |
+| D10 racconto che non inventa | `NarratorTest`, `PhraseCatalogTest`: ogni chiave ha una frase che nomina chi fa cosa e usa solo il lessico del proprio valore | 2 | previsto |
+| D12 riproducibilità: casualità e ordine | `EngineIsolationTest`: nessuna sorgente di casualità fuori da `MatchRandom`, nessuna struttura a ordine non garantito | 2 | fatto |
+| D12 riproducibilità: stessa partita | `MatchReproducibilityTest`; `CrossJvmReproducibilityTest` sugli eventi (la stessa prova sul testo della cronaca si aggiunge con il racconto) | 3 | fatto |
+| D13 nessun numero sparso | `TuningConstantsTest` sui sorgenti di `match-engine` | 2 | fatto |
+| D14 tattiche: un punto, una direzione, neutro = 1 | `PlayStyleModifiersTest` su tutti gli stili | 2 | previsto |
+| D16 dipendenze esterne solo se concordate | `EngineIsolationTest`: il pom di `match-engine` non ha dipendenze fuori dallo scope test (non controlla quelle ereditate dal pom padre) | 2 | fatto |
+| D19 squadre di forza diversa | `LeagueGeneratorTest`; `LeagueStrengthTest` (tag `calibration`) | 3 | fatto |
+| D20 parametri di orientamento mai a zero | `ContourEventsPresenceTest` (tag `calibration`): ogni evento di contorno compare nel campionato del banco | 3 | previsto |
+| D22 attribuzione StatsBomb | `CalibrationReportTest`: il report contiene «Data: StatsBomb» | 3 | fatto |
+| D24 fasce come probabilità | `CrossResolverTest` | 3 | previsto |
+| D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi | 2 | previsto |
+| D32 due moduli | struttura Maven: `pom.xml` radice con i moduli `match-engine` e `match-app` | 1 | fatto |
+| D33 Jackson solo in `match-app` | struttura Maven e `EngineIsolationTest` sul pom del motore | 1 e 2 | fatto |
+| D35 librerie di test solo nello scope test | `EngineIsolationTest` sul pom del motore | 2 | fatto |
+| D49 il motore vede solo le proprie costanti | modulo `match-engine` che non vede `match-app`; `TeamFileTermsTest` per la traduzione | 1 e 3 | previsto |
 
-| Principio o regola (fonte) | Controllo previsto | Gradino | Fase, DoD | Stato |
-|---|---|---|---|---|
-| Motore isolato (D8, D32) | modulo `match-engine` senza dipendenze di runtime, che non vede `match-app`; `EngineIsolationTest`: import solo da `java.*` e dai package del motore, niente `java.io`, `java.nio.file`, `java.net`, `System.out`, `System.err` | 1 e 2 | 2 e 3, DoD 20 | da fare |
-| Nessuna casualità fuori dal generatore (D12) | `EngineIsolationTest`: niente `Math.random`, `java.util.Random`, `ThreadLocalRandom`, `SplittableRandom`, `RandomGenerator.getDefault`; fabbrica del generatore solo in `MatchRandom` | 2 | 3, DoD 21 | da fare |
-| Ordine garantito (D12) | `EngineIsolationTest`: nessuna struttura a ordine non garantito vietata dalla SPEC | 2 | 3, DoD 21 | da fare |
-| Nessun numero sparso (D13) | `TuningConstantsTest`: decimali solo in `engine.config` salvo 0.0 e 1.0; interi solo -1, 0, 1, 2 e l'elenco chiuso di costanti di regolamento | 2 | 3, DoD 22 | da fare |
-| Riproducibilità, nella stessa JVM e fra JVM (D12) | `MatchReproducibilityTest`; `CrossJvmReproducibilityTest` sul motore e poi anche sul testo della cronaca | 3 | 4 e 14, DoD 1 | da fare |
-| Duello di Bradley-Terry (D4) | `DuelTest`: probabilità `a / (a + d)` esatta, modificatori neutri invariati | 3 | 4, DoD 4 | da fare |
-| Regole sul ruolo della zona (D3) | `PitchLayoutTest` con un layout a più zone che riusa gli stessi ruoli | 3 | 3, DoD 5 | da fare |
-| Ogni attributo letto da una regola (D25) | `PlayerAttributeInfluenceTest`: un caso per **ognuno** degli 8 attributi | 2 | 4, 5, 8, 9, 10, 11; DoD 8 | da fare |
-| Tattiche: un punto, una direzione, neutro = 1 (D14) | `PlayStyleModifiersTest` su **tutti** gli stili | 2 | 9, DoD 14 | da fare |
-| Eventi unica fonte (D9) | `MatchSummaryCalculatorTest` su eventi costruiti a mano, anche con partita sospesa | 3 | 6 e 10, DoD 15 | da fare |
-| Racconto che non inventa (D10) | `NarratorTest`, `PhraseCatalogTest`: ogni chiave ha una frase, che nomina il giocatore principale e il secondario se ci sono | 2 | 14, DoD 16 | da fare |
-| Lessico delle qualità (D10) | `PhraseCatalogTest`: nessuna frase usa parole di un altro valore della stessa qualità | 2 | 14, DoD 16 | da fare |
-| Cronaca rilevante o completa (SPEC) | `NarratedEventFilterTest`: tutti e soli gli eventi dell'elenco; una riga per evento nella completa | 3 | 14, DoD 17 | da fare |
-| Minuti di recupero in cronaca (SPEC) | `NarratorTest` con annunci di 2', 5' e 8' | 3 | 14, DoD 17 | da fare |
-| Recupero (SPEC) | `StoppageTimeTest`: arrotondamento per eccesso, minimi e massimi, momento del calcolo | 3 | 12, DoD 3 | da fare |
-| Regola dei 7 (SPEC) | `MinimumPlayersRuleTest`: conta per espulsione e per infortunio, risultato a tavolino | 3 | 10 e 12, DoD 27 | da fare |
-| Squadre valide (SPEC) | `TeamTest`, `TeamFileReaderTest`, `TeamFileTermsTest`: uno per regola violata, valori italiani esatti | 3 | 3 e 13, DoD 18 | da fare |
-| Attribuzione StatsBomb (D22) | `CalibrationReportTest`: il report contiene «Data: StatsBomb» | 3 | 7, DoD 23 | da fare |
-| Squadre di forza diversa (D19) | `LeagueGeneratorTest` (forze, profili, scala); `LeagueStrengthTest`, tag `calibration`: la più forte vince più della più debole | 3 | 7, DoD 24 | da fare |
-| Parametri di contorno mai a zero (D20) | `ContourEventsPresenceTest`, tag `calibration`: ogni evento di contorno compare nel campionato del banco | 3 | 12 e 16, DoD 25 | da fare |
-| Criterio di «finito» (SPEC) | `CalibrationTargetsReaderTest` (forbici lette e forbice del possesso calcolata); `CalibrationAcceptanceTest`, tag `calibration`, sulle dieci metriche | 3 | 7 e 16, DoD 26 | da fare |
+`Stato`: `previsto` se il controllo è pianificato ma non esiste, `fatto` se la classe o la struttura esiste.
 
-## Senza un controllo automatico nel piano
+## Senza controllo automatico
 
-| Principio o regola (fonte) | Oggi nel piano | Proposta | Gradino | Quando |
-|---|---|---|---|---|
-| Dati grezzi fuori dal repository (D22) | nessuno | test che elenca i file di `data/calibration` e fallisce su un file non in elenco (oggi i quattro file aggregati e il README); nessuna dipendenza nuova, da concordare | 2 | Fase 2 o 3 |
-| Un gesto, un tipo di evento (D11) | test caso per caso nelle fasi 10-12 | nessuno: resta alla revisione, perché distinguere i significati è un giudizio | 4 | — |
-| Si taglia grosso, si raffina dove la taratura lo chiede (`CLAUDE.md`) | nessuno | nessuno: resta alla revisione | 4 | — |
-| Idee sì, codice no da OpenFootManager e openengine (D23) | nessuno | nessuno: resta alla persona | 5 | — |
-| Documenti aggiornati (`ESEMPI.md`, questo file) | regola nel piano, a chiusura di ogni fase; controllo finale in Fase 17 | nessuno | 4 | ogni fase |
-
-## Integrazione continua
-
-Il repository non ha ancora una CI: oggi tutti i controlli girano solo se qualcuno lancia i test. Quando il
-repository avrà un remoto, il primo controllo da aggiungere è `mvn verify` su ogni push, senza il tag `calibration`.
+| Principio (D<n>) | Proposta | Gradino possibile |
+|---|---|---|
+| D1 catena di stati sul possesso | revisione: è il livello del modello | 4 |
+| D2 stato dell'azione | revisione | 4 |
+| D11 un gesto, un tipo di evento | revisione: distinguere i significati è un giudizio | 4 |
+| D15 Java 21 puro, niente framework | revisione dei pom | 4 |
+| D20 un obiettivo senza fonte non si usa per tarare | revisione del banco | 4 |
+| D22 dati grezzi fuori dal repository | test che elenca i file di `data/calibration` e fallisce su un file non in elenco; nessuna dipendenza nuova, da concordare | 2 |
+| D23 idee sì, codice no da OpenFootManager e openengine | persona | 5 |
+| D31 nome e package radice | revisione | 4 |
+| D55 configurazione del banco separata da quella del motore | revisione: `BenchConfig` in `match-app`, nessun parametro del banco in `EngineConfig` | 4 |
