@@ -148,7 +148,7 @@ class MatchSummaryCalculatorTest {
     }
 
     @Test
-    void contourCountersAreNotEmittedYetAndStayAtZero() {
+    void contourCountersStayAtZeroWhenTheirEventsAreAbsent() {
         events.add(goal(MatchSide.HOME, homeForward, firstHalf(100), 0.30));
 
         MatchSummary summary = calculator.summarize(events);
@@ -157,8 +157,42 @@ class MatchSummaryCalculatorTest {
         assertThat(summary.away().contour()).isEqualTo(ContourCounters.none());
     }
 
-    @Test
-    void aGoalWithoutAScorerIsRejected() {
+@Test
+void cornersAreCountedForTheSideThatTookThem() {
+    events.add(plainEvent(EventType.CORNER_KICK, MatchSide.HOME, homeMidfielder, 30));
+    events.add(plainEvent(EventType.CORNER_KICK, MatchSide.HOME, homeMidfielder, 30));
+    events.add(plainEvent(EventType.CORNER_KICK, MatchSide.AWAY, awayDefender, 30));
+
+    MatchSummary summary = calculator.summarize(events);
+
+    assertThat(summary.home().contour()).isEqualTo(ContourCounters.none().withCorners(2));
+    assertThat(summary.away().contour()).isEqualTo(ContourCounters.none().withCorners(1));
+}
+
+@Test
+void crossesCountBothTheCompletedAndTheFailedOnesForTheSideThatCrossed() {
+    events.add(plainEvent(EventType.CROSS_COMPLETED, MatchSide.HOME, homeMidfielder, 4));
+    events.add(plainEvent(EventType.CROSS_FAILED, MatchSide.HOME, homeMidfielder, 4));
+    events.add(plainEvent(EventType.CROSS_FAILED, MatchSide.AWAY, awayDefender, 4));
+
+    MatchSummary summary = calculator.summarize(events);
+
+    assertThat(summary.home().contour()).isEqualTo(ContourCounters.none().withCrosses(2));
+    assertThat(summary.away().contour()).isEqualTo(ContourCounters.none().withCrosses(1));
+}
+
+@Test
+void aClearanceIsNeitherACornerNorACrossAndTheDeliveryOfACornerIsNotACross() {
+    events.add(plainEvent(EventType.CLEARANCE, MatchSide.HOME, awayDefender, 2));
+    events.add(plainEvent(EventType.CORNER_KICK, MatchSide.HOME, homeMidfielder, 30));
+
+    MatchSummary summary = calculator.summarize(events);
+
+    assertThat(summary.home().contour()).isEqualTo(ContourCounters.none().withCorners(1));
+}
+
+@Test
+void aGoalWithoutAScorerIsRejected() {
         events.add(event(EventType.GOAL, MatchSide.HOME, firstHalf(10), Participants.nobody(), 0, goalDetail(0.3)));
 
         assertThatThrownBy(() -> calculator.summarize(events))

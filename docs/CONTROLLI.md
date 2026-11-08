@@ -38,7 +38,7 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D19 squadre di forza diversa | `LeagueGeneratorTest`; `LeagueStrengthTest` (tag `calibration`) | 3 | fatto |
 | D20 parametri di orientamento mai a zero | `ContourEventsPresenceTest` (tag `calibration`): ogni evento di contorno compare nel campionato del banco | 3 | previsto |
 | D22 attribuzione StatsBomb | `CalibrationReportTest`: il report contiene «Data: StatsBomb» | 3 | fatto |
-| D24 fasce come probabilità | `CrossResolverTest` | 3 | previsto |
+| D24 fasce come probabilità | `CrossResolverTest` | 3 | fatto |
 | D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi | 2 | previsto |
 | D32 due moduli | struttura Maven: `pom.xml` radice con i moduli `match-engine` e `match-app` | 1 | fatto |
 | D33 Jackson solo in `match-app` | struttura Maven e `EngineIsolationTest` sul pom del motore | 1 e 2 | fatto |

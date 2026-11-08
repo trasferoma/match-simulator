@@ -18,7 +18,7 @@ class EngineConfigTest {
         EngineConfig config = EngineConfig.defaults();
 
         assertThat(config.buildUpAndMidfieldDuration()).isEqualTo(new DurationRange(12, 36));
-        assertThat(config.attackingThirdDuration()).isEqualTo(new DurationRange(9, 31));
+        assertThat(config.attackingThirdDuration()).isEqualTo(new DurationRange(10, 35));
     }
 
     @Test

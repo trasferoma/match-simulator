@@ -69,9 +69,13 @@ public final class CrossResolver {
         Player defender = pickDefenderInTheBox(state, defenders);
         Duel duel = aerialDuel(attacker, defender);
         if (attackerWins(duel)) {
-            return shotResolver.resolveShot(state, score, attacker, ShotKind.HEADER, defenders);
+            return shootHeader(state, score, attacker, defenders);
         }
         return clearBall(state, defender);
+    }
+
+    private ActionOutcome shootHeader(MatchState state, Score score, Player attacker, TeamOnPitch defenders) {
+        return shotResolver.resolveShot(state, score, attacker, ShotKind.HEADER, defenders);
     }
 
     private ActionOutcome deliverCross(MatchState state, Player crosser) {

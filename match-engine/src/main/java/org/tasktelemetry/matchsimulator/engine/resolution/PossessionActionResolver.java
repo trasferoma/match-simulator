@@ -37,7 +37,7 @@ public final class PossessionActionResolver {
 
     public ActionOutcome resolve(MatchState state, Score score, TeamOnPitch attackers, TeamOnPitch defenders) {
         if (isOnAttackingThird(state) && decidesToCross()) {
-            return crossResolver.resolveCross(state, attackers);
+            return attemptCross(state, attackers);
         }
         Player carrier = pickCarrier(state, attackers);
         Player opponent = pickOpponent(state, defenders);
@@ -93,6 +93,10 @@ public final class PossessionActionResolver {
         MatchState next = new MatchState(recoveringSide, state.zone(), state.phase());
         int duration = drawDuration(state);
         return ActionOutcome.byPlayer(type, recoverer, next, duration);
+    }
+
+    private ActionOutcome attemptCross(MatchState state, TeamOnPitch attackers) {
+        return crossResolver.resolveCross(state, attackers);
     }
 
     private boolean isOnAttackingThird(MatchState state) {

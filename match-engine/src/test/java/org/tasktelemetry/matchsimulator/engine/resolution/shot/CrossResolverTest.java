@@ -26,7 +26,6 @@ import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
-import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
@@ -198,7 +197,7 @@ class CrossResolverTest {
     }
 
     @Test
-    void aCrossInFlightFromACornerIsResolvedLikeAnyCrossAndKeepsTheSetPiecePhase() {
+    void aCrossInFlightFromACornerIsResolvedLikeAnyCross() {
         Zone box = layout.ownBoxZone(MatchSide.AWAY);
         Player taker = home.playersIn(Role.MIDFIELDER).get(0);
         MatchState fromCorner = MatchState.forSetPiece(MatchSide.HOME, box, SetPieceKind.CORNER)
@@ -211,7 +210,6 @@ class CrossResolverTest {
 
         long headers = outcomes.stream().filter(outcome -> SHOT_TYPES.contains(outcome.type())).count();
         assertThat((double) headers / TRIALS).isCloseTo(0.5, within(ONE_POINT));
-        assertThat(fromCorner.phase()).isEqualTo(PlayPhase.SET_PIECE);
         assertThat(outcomes).filteredOn(outcome -> outcome.type() == EventType.CLEARANCE)
                 .allSatisfy(outcome -> assertThat(outcome.participants().secondary()).contains(taker));
     }

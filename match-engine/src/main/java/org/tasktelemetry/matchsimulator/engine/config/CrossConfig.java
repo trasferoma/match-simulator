@@ -23,8 +23,8 @@ public record CrossConfig(
     public static CrossConfig defaults() {
         double crossProbability = 0.20;
         double styleMultiplier = 1.0;
-        double crossDifficulty = 150.0;
-        double clearedToCornerShare = 0.30;
+        double crossDifficulty = 200.0;
+        double clearedToCornerShare = 0.20;
         DurationRange crossDuration = new DurationRange(3, 6);
         DurationRange clearanceDuration = new DurationRange(1, 3);
         return new CrossConfig(crossProbability, styleMultiplier, crossDifficulty, clearedToCornerShare,

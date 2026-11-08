@@ -46,8 +46,8 @@ public record ShotConfig(
         double blockedShare = 0.30;
         double offTargetShare = 0.33;
         double blockedRecoveredByAttackShare = 0.40;
-        double blockedToCornerShare = 0.25;
-        double savedToCornerShare = 0.30;
+        double blockedToCornerShare = 0.10;
+        double savedToCornerShare = 0.12;
         double halfChanceThreshold = 0.08;
         double bigChanceThreshold = 0.25;
         double difficultSaveThreshold = 0.15;

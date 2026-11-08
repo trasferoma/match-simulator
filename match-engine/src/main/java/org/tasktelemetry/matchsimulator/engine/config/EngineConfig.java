@@ -23,7 +23,7 @@ public record EngineConfig(
 
     public static EngineConfig defaults() {
         DurationRange buildUpAndMidfieldDuration = new DurationRange(12, 36);
-        DurationRange attackingThirdDuration = new DurationRange(9, 31);
+        DurationRange attackingThirdDuration = new DurationRange(10, 35);
         double dribbleProbability = 0.30;
         int minimumStoppageMinutes = 1;
         ShotConfig shot = ShotConfig.defaults();
