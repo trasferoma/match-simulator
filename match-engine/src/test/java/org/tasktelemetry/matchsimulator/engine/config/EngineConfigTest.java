@@ -106,7 +106,8 @@ class EngineConfigTest {
         DurationRange range = new DurationRange(1, 2);
 
         assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, 1, shot, setPiece, cross, counterAttack,
-                playStyles, FoulConfig.defaults(), LineupConfig.defaults(), homeAdvantage))
+                playStyles, FoulConfig.defaults(), OffsideConfig.defaults(), LineupConfig.defaults(),
+                homeAdvantage))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("home advantage must be positive and finite");
     }
@@ -153,7 +154,7 @@ class EngineConfigTest {
             int minimumStoppageMinutes, ShotConfig shotConfig, SetPieceConfig setPieceConfig,
             CrossConfig crossConfig, CounterAttackConfig counterAttackConfig, PlayStyleModifiers styles) {
         return new EngineConfig(buildUp, attacking, dribbleProbability, minimumStoppageMinutes, shotConfig,
-                setPieceConfig, crossConfig, counterAttackConfig, styles, FoulConfig.defaults(), LineupConfig.defaults(),
-                HOME_ADVANTAGE);
+                setPieceConfig, crossConfig, counterAttackConfig, styles, FoulConfig.defaults(), OffsideConfig.defaults(),
+                LineupConfig.defaults(), HOME_ADVANTAGE);
     }
 }

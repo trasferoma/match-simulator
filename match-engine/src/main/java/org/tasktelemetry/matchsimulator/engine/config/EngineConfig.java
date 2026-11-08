@@ -13,6 +13,7 @@ public record EngineConfig(
         CounterAttackConfig counterAttack,
         PlayStyleModifiers playStyles,
         FoulConfig foul,
+        OffsideConfig offside,
         LineupConfig lineup,
         double homeAdvantage) {
 
@@ -25,6 +26,7 @@ public record EngineConfig(
         Objects.requireNonNull(counterAttack, "counter-attack configuration must not be null");
         Objects.requireNonNull(playStyles, "play style modifiers must not be null");
         Objects.requireNonNull(foul, "foul configuration must not be null");
+        Objects.requireNonNull(offside, "offside configuration must not be null");
         Objects.requireNonNull(lineup, "lineup configuration must not be null");
         requireProbability(dribbleProbability);
         requireAtLeastOneMinute(minimumStoppageMinutes);
@@ -44,11 +46,12 @@ public record EngineConfig(
         CounterAttackConfig counterAttack = CounterAttackConfig.defaults();
         PlayStyleModifiers playStyles = PlayStyleModifiers.defaults();
         FoulConfig foul = FoulConfig.defaults();
+        OffsideConfig offside = OffsideConfig.defaults();
         LineupConfig lineup = LineupConfig.defaults();
         double homeAdvantage = 1.08;
         return new EngineConfig(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability,
-                minimumStoppageMinutes, shot, setPiece, cross, counterAttack, playStyles, foul, lineup,
-                homeAdvantage);
+                minimumStoppageMinutes, shot, setPiece, cross, counterAttack, playStyles, foul, offside,
+                lineup, homeAdvantage);
     }
 
     private static void requireProbability(double dribbleProbability) {

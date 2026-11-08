@@ -44,6 +44,7 @@ public final class SetPieceResolver {
             case GOAL_KICK -> goalKick(state, restartingTeam);
             case CORNER -> cornerKick(state, restartingTeam);
             case FREE_KICK -> freeKick(state, score, restartingTeam, opponents);
+            case OFFSIDE_FREE_KICK -> offsideFreeKick(state, restartingTeam);
             case PENALTY -> shotResolver.resolvePenalty(state, score, restartingTeam, opponents);
         };
     }
@@ -82,6 +83,13 @@ public final class SetPieceResolver {
             return shot.afterWaiting(drawFreeKickDuration());
         }
         return crossFromFreeKick(state, taker);
+    }
+
+    private ActionOutcome offsideFreeKick(MatchState state, TeamOnPitch restartingTeam) {
+        Player taker = crossResolver.pickCrosser(restartingTeam);
+        int duration = drawFreeKickDuration();
+        MatchState next = state.inOpenPlay();
+        return ActionOutcome.byPlayer(EventType.OFFSIDE_FREE_KICK, taker, next, duration);
     }
 
     private ActionOutcome restartFromFreeKick(MatchState state, Player taker) {

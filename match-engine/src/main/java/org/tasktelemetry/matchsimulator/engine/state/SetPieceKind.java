@@ -5,5 +5,6 @@ public enum SetPieceKind {
     GOAL_KICK,
     CORNER,
     FREE_KICK,
+    OFFSIDE_FREE_KICK,
     PENALTY
 }

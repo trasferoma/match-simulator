@@ -341,6 +341,52 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         return new TeamOnPitch(team.team(), players);
     }
 
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void anOffsideFreeKickIsTakenByAMidfielderOfTheDefendingSideInTheSetPiecePhase(MatchSide defendingSide) {
+        Zone defence = layout.defenceZone(defendingSide);
+        MatchState state = MatchState.forSetPiece(defendingSide, defence, SetPieceKind.OFFSIDE_FREE_KICK);
+        TeamOnPitch restarting = teamOf(defendingSide);
+
+        ActionOutcome outcome = resolver(SEED).resolve(state, SCORE, restarting, teamOf(defendingSide.opposite()));
+
+        assertThat(outcome.type()).isEqualTo(EventType.OFFSIDE_FREE_KICK);
+        Player taker = outcome.participants().primary().orElseThrow();
+        assertThat(taker.role()).isEqualTo(Role.MIDFIELDER);
+        assertThat(restarting.players()).contains(taker);
+        assertThat(outcome.detail()).isEqualTo(EventDetail.none());
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void afterAnOffsideFreeKickPlayRestartsInOpenPlayFromTheDefenceZoneWithTheSameSide(MatchSide defendingSide) {
+        Zone defence = layout.defenceZone(defendingSide);
+        MatchState state = MatchState.forSetPiece(defendingSide, defence, SetPieceKind.OFFSIDE_FREE_KICK);
+
+        ActionOutcome outcome = resolver(SEED).resolve(state, SCORE, teamOf(defendingSide),
+                teamOf(defendingSide.opposite()));
+
+        assertThat(outcome.next()).isEqualTo(MatchState.openPlay(defendingSide, defence));
+    }
+
+    @Test
+    void anOffsideFreeKickLastsWithinTheFreeKickRangeAndUsesTheWholeRange() {
+        Zone defence = layout.defenceZone(MatchSide.AWAY);
+        MatchState state = MatchState.forSetPiece(MatchSide.AWAY, defence, SetPieceKind.OFFSIDE_FREE_KICK);
+        SetPieceResolver resolver = resolver(SEED);
+
+        List<Integer> durations = resolveMany(resolver, state, 2_000).stream()
+                .map(ActionOutcome::durationSeconds)
+                .toList();
+
+        assertThat(durations).allMatch(config.freeKickDuration()::contains);
+        assertThat(durations).contains(config.freeKickDuration().minSeconds(), config.freeKickDuration().maxSeconds());
+    }
+
+    private TeamOnPitch teamOf(MatchSide side) {
+        return side == MatchSide.HOME ? home : away;
+    }
+
     private List<ActionOutcome> resolveMany(SetPieceResolver resolver, MatchState state, int count) {
         return IntStream.range(0, count)
                 .mapToObj(index -> resolver.resolve(state, SCORE, away, home))

@@ -19,6 +19,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsMode
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotQualityScale;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.OffsideRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.SetPieceResolver;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
@@ -47,6 +48,7 @@ public final class MatchEngine {
         CrossResolver crossResolver = new CrossResolver(config.cross(), config.playStyles(), layout, random, picker,
                 shotResolver);
         FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random);
+        OffsideRule offsideRule = new OffsideRule(config.offside(), layout, random, picker);
         Matchups matchups = new Matchups(layout, picker, config.playStyles(), config.homeAdvantage(),
                 config.lineup().inferiorityMultiplier());
         PossessionActionResolver possessionResolver = new PossessionActionResolver(config, layout, random, matchups,
@@ -59,7 +61,7 @@ public final class MatchEngine {
         MinimumPlayersRule minimumPlayers = new MinimumPlayersRule();
         DismissalResolver dismissalResolver = new DismissalResolver(minimumPlayers, lineupRepair);
         return new ActionResolvers(possessionResolver, counterAttackResolver, setPieceResolver, crossResolver,
-                foulResolver, dismissalResolver, minimumPlayers);
+                foulResolver, offsideRule, dismissalResolver, minimumPlayers);
     }
 
     private ShotResolver newShotResolver(PitchLayout layout, MatchRandom random) {

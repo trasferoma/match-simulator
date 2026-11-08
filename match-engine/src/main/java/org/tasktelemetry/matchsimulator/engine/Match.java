@@ -119,7 +119,8 @@ public final class Match {
         MatchSide defendingSide = state.possession().opposite();
         TeamOnPitch defenders = teams.get(defendingSide);
         ActionOutcome outcome = resolvers.possession().resolve(state, score, attackers, defenders);
-        return resolvers.counterAttack().openCounterAttackIfBallRecovered(outcome, defenders);
+        ActionOutcome checkedForOffside = resolvers.offside().callOffsideIfCaught(outcome, attackers);
+        return resolvers.counterAttack().openCounterAttackIfBallRecovered(checkedForOffside, defenders);
     }
 
     private ActionOutcome resolveCounterAttack() {

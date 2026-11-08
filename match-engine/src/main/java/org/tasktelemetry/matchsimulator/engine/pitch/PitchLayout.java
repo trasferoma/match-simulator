@@ -37,6 +37,10 @@ public final class PitchLayout {
         return zoneAtAttackPosition(0, possession);
     }
 
+    public Zone defenceZone(MatchSide possession) {
+        return zoneAtAttackPosition(1, possession);
+    }
+
     public ZoneRole roleOf(Zone zone, MatchSide possession) {
         int position = attackPosition(zone, possession);
         return roleAt(position);

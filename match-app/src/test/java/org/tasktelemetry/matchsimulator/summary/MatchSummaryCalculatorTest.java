@@ -321,6 +321,19 @@ void aGoalWithoutAScorerIsRejected() {
         assertThat(summary.away().contour().penalties()).isEqualTo(2);
     }
 
+    @Test
+    void offsidesAreCountedForTheSideThatWasCaughtOffsideAndNotForTheSideThatTakesTheFreeKick() {
+        events.add(plainEvent(EventType.OFFSIDE, MatchSide.HOME, homeForward, 12));
+        events.add(plainEvent(EventType.OFFSIDE_FREE_KICK, MatchSide.AWAY, awayDefender, 25));
+        events.add(plainEvent(EventType.OFFSIDE, MatchSide.AWAY, awayForward, 9));
+        events.add(plainEvent(EventType.OFFSIDE, MatchSide.AWAY, awayForward, 9));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().contour().offsides()).isEqualTo(1);
+        assertThat(summary.away().contour().offsides()).isEqualTo(2);
+    }
+
     private MatchEvent foul(MatchSide fouledSide, Player fouler, Player fouled, int seconds) {
         return foul(fouledSide, fouler, fouled, seconds, false);
     }

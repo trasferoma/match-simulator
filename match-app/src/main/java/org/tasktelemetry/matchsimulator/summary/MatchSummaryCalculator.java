@@ -23,6 +23,7 @@ public final class MatchSummaryCalculator {
     private static final Set<EventType> FOUL_TYPES = EnumSet.of(EventType.FOUL);
     private static final Set<EventType> CORNER_TYPES = EnumSet.of(EventType.CORNER_KICK);
     private static final Set<EventType> SUBSTITUTION_TYPES = EnumSet.of(EventType.SUBSTITUTION);
+    private static final Set<EventType> OFFSIDE_TYPES = EnumSet.of(EventType.OFFSIDE);
 
     public MatchSummary summarize(List<MatchEvent> events) {
         Objects.requireNonNull(events, "events must not be null");
@@ -80,8 +81,9 @@ public final class MatchSummaryCalculator {
         int yellowCards = countOfTypes(sideEvents, YELLOW_TYPES);
         int redCards = countOfTypes(sideEvents, RED_TYPES);
         int substitutions = countOfTypes(sideEvents, SUBSTITUTION_TYPES);
+        int offsides = countOfTypes(sideEvents, OFFSIDE_TYPES);
         int penalties = countPenaltiesAwarded(sideEvents);
-        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, 0, substitutions, penalties);
+        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties);
     }
 
     private List<MatchEvent> selectEventsOf(List<MatchEvent> events, MatchSide side) {

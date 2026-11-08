@@ -24,6 +24,8 @@ public enum EventType {
     FOUL,
     FREE_KICK,
     FREE_KICK_CROSS,
+    OFFSIDE,
+    OFFSIDE_FREE_KICK,
     YELLOW_CARD,
     SECOND_YELLOW_CARD,
     RED_CARD,

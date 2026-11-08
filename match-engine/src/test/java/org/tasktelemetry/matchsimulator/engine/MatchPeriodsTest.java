@@ -186,7 +186,7 @@ class MatchPeriodsTest {
         DurationRange buildUp = defaults.buildUpAndMidfieldDuration();
         DurationRange attacking = defaults.attackingThirdDuration();
         return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), minutes, defaults.shot(),
-                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
+                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(),
                 defaults.lineup(),
                 defaults.homeAdvantage());
     }

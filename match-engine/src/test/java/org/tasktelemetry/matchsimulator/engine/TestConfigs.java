@@ -16,7 +16,7 @@ public final class TestConfigs {
     public static EngineConfig withHomeAdvantage(EngineConfig base, double homeAdvantage) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.lineup(), homeAdvantage);
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.lineup(), homeAdvantage);
     }
 
     public static EngineConfig withoutHomeAdvantage(EngineConfig base) {
@@ -26,19 +26,19 @@ public final class TestConfigs {
     public static EngineConfig withFoul(EngineConfig base, FoulConfig foul) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), foul, base.lineup(), base.homeAdvantage());
+                base.counterAttack(), base.playStyles(), foul, base.offside(), base.lineup(), base.homeAdvantage());
     }
 
     public static EngineConfig withLineup(EngineConfig base, LineupConfig lineup) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), lineup, base.homeAdvantage());
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), lineup, base.homeAdvantage());
     }
 
     public static EngineConfig withSetPiece(EngineConfig base, SetPieceConfig setPiece) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), setPiece, base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.lineup(), base.homeAdvantage());
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.lineup(), base.homeAdvantage());
     }
 
     public static EngineConfig withoutFouls(EngineConfig base) {

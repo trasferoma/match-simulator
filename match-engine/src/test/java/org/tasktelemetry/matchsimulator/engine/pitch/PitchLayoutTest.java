@@ -159,6 +159,19 @@ class PitchLayoutTest {
         }
     }
 
+    @ParameterizedTest
+    @ValueSource(ints = {5, 7, 9})
+    void theDefenceZoneHasTheDefenceRoleForItsSideAndIsNextToTheOwnBox(int zoneCount) {
+        PitchLayout layout = new PitchLayout(zoneCount);
+
+        for (MatchSide side : MatchSide.values()) {
+            Zone defence = layout.defenceZone(side);
+
+            assertThat(layout.roleOf(defence, side)).isEqualTo(ZoneRole.DEFENCE);
+            assertThat(layout.advance(layout.ownBoxZone(side), side)).contains(defence);
+        }
+    }
+
     private List<ZoneRole> rolesAlongThePitch(PitchLayout layout, MatchSide side) {
         return layout.zones().stream()
                 .map(zone -> layout.roleOf(zone, side))

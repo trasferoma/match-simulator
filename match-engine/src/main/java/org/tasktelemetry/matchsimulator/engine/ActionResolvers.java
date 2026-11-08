@@ -6,6 +6,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolv
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.MinimumPlayersRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.OffsideRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.SetPieceResolver;
 
 record ActionResolvers(
@@ -14,6 +15,7 @@ record ActionResolvers(
         SetPieceResolver setPiece,
         CrossResolver cross,
         FoulResolver foul,
+        OffsideRule offside,
         DismissalResolver dismissal,
         MinimumPlayersRule minimumPlayers) {
 }
