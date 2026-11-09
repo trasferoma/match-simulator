@@ -12,23 +12,30 @@ import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> reassigned, List<Player> cautioned,
-        int substitutionsMade) {
+        int substitutionsMade, List<Player> withdrawn) {
 
     public TeamOnPitch {
         Objects.requireNonNull(team, "team must not be null");
         Objects.requireNonNull(players, "players on the pitch must not be null");
         Objects.requireNonNull(reassigned, "reassigned roles must not be null");
         Objects.requireNonNull(cautioned, "cautioned players must not be null");
+        Objects.requireNonNull(withdrawn, "withdrawn players must not be null");
         if (substitutionsMade < 0) {
             throw new IllegalArgumentException("substitutions made must not be negative, was " + substitutionsMade);
         }
         players = List.copyOf(players);
         reassigned = Collections.unmodifiableMap(new LinkedHashMap<>(reassigned));
         cautioned = List.copyOf(cautioned);
+        withdrawn = List.copyOf(withdrawn);
     }
 
     public TeamOnPitch(Team team, List<Player> players) {
         this(team, players, new LinkedHashMap<>(), List.of(), 0);
+    }
+
+    public TeamOnPitch(Team team, List<Player> players, Map<Player, Role> reassigned, List<Player> cautioned,
+            int substitutionsMade) {
+        this(team, players, reassigned, cautioned, substitutionsMade, List.of());
     }
 
     public static TeamOnPitch startingWith(Team team) {
@@ -66,6 +73,7 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
     public List<Player> availableBench() {
         return team.bench().stream()
                 .filter(player -> !players.contains(player))
+                .filter(player -> !withdrawn.contains(player))
                 .toList();
     }
 
@@ -75,21 +83,23 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         Map<Player, Role> remainingRoles = new LinkedHashMap<>(reassigned);
         remainingRoles.remove(player);
         List<Player> remainingCautioned = cautioned.stream().filter(other -> !other.equals(player)).toList();
-        return new TeamOnPitch(team, remaining, remainingRoles, remainingCautioned, substitutionsMade);
+        List<Player> nowWithdrawn = withdrawnWith(player);
+        return new TeamOnPitch(team, remaining, remainingRoles, remainingCautioned, substitutionsMade,
+                nowWithdrawn);
     }
 
     public TeamOnPitch withRole(Player player, Role role) {
         requireOnPitch(player);
         Map<Player, Role> roles = new LinkedHashMap<>(reassigned);
         roles.put(player, role);
-        return new TeamOnPitch(team, players, roles, cautioned, substitutionsMade);
+        return new TeamOnPitch(team, players, roles, cautioned, substitutionsMade, withdrawn);
     }
 
     public TeamOnPitch withCautioned(Player player) {
         requireOnPitch(player);
         List<Player> nowCautioned = new ArrayList<>(cautioned);
         nowCautioned.add(player);
-        return new TeamOnPitch(team, players, reassigned, nowCautioned, substitutionsMade);
+        return new TeamOnPitch(team, players, reassigned, nowCautioned, substitutionsMade, withdrawn);
     }
 
     public TeamOnPitch withSubstitution(Player leaving, Player entering, Role enteringAs) {
@@ -100,7 +110,14 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         roles.remove(leaving);
         roles.put(entering, enteringAs);
         List<Player> remainingCautioned = cautioned.stream().filter(other -> !other.equals(leaving)).toList();
-        return new TeamOnPitch(team, lineup, roles, remainingCautioned, substitutionsMade + 1);
+        List<Player> nowWithdrawn = withdrawnWith(leaving);
+        return new TeamOnPitch(team, lineup, roles, remainingCautioned, substitutionsMade + 1, nowWithdrawn);
+    }
+
+    private List<Player> withdrawnWith(Player leaving) {
+        List<Player> nowWithdrawn = new ArrayList<>(withdrawn);
+        nowWithdrawn.add(leaving);
+        return nowWithdrawn;
     }
 
     private void requireOnPitch(Player player) {

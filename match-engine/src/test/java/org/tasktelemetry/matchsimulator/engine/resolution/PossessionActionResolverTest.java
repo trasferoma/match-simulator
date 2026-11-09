@@ -341,8 +341,8 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
     private EngineConfig withDribbleProbability(double dribbleProbability) {
         EngineConfig defaults = EngineConfig.defaults();
         return new EngineConfig(defaults.buildUpAndMidfieldDuration(), defaults.attackingThirdDuration(),
-                dribbleProbability, defaults.minimumStoppageMinutes(), defaults.shot(), defaults.setPiece(),
-                defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(),
+                dribbleProbability, defaults.stoppage(), defaults.shot(), defaults.setPiece(),
+                defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(), defaults.injury(),
                 defaults.lineup(), defaults.homeAdvantage());
     }
 
@@ -365,8 +365,9 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
 
     private EngineConfig distinctRangesConfig() {
         EngineConfig defaults = EngineConfig.defaults();
-        return new EngineConfig(new DurationRange(4, 5), new DurationRange(20, 25), 0.3, 1, defaults.shot(),
-                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(),
+        return new EngineConfig(new DurationRange(4, 5), new DurationRange(20, 25), 0.3, defaults.stoppage(),
+                defaults.shot(),
+                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(), defaults.injury(),
                 defaults.lineup(),
                 defaults.homeAdvantage());
     }

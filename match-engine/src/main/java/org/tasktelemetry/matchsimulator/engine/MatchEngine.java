@@ -12,8 +12,11 @@ import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjurySubstitution;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupRepair;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.MinimumPlayersRule;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.SubstitutionTimer;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsModel;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotQualityScale;
@@ -21,6 +24,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.OffsideRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.SetPieceResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.StoppageTime;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 
@@ -39,7 +43,7 @@ public final class MatchEngine {
         PitchLayout layout = PitchLayout.standard();
         ActionResolvers resolvers = newActionResolvers(layout, random);
         Map<MatchSide, TeamOnPitch> teams = teamsOnPitch(home, away);
-        return new Match(config, layout, teams, resolvers);
+        return new Match(layout, teams, resolvers);
     }
 
     private ActionResolvers newActionResolvers(PitchLayout layout, MatchRandom random) {
@@ -50,7 +54,7 @@ public final class MatchEngine {
         FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random);
         OffsideRule offsideRule = new OffsideRule(config.offside(), layout, random, picker);
         Matchups matchups = new Matchups(layout, picker, config.playStyles(), config.homeAdvantage(),
-                config.lineup().inferiorityMultiplier());
+                config.lineup().inferiorityMultiplier(), config.duelSharpness());
         PossessionActionResolver possessionResolver = new PossessionActionResolver(config, layout, random, matchups,
                 shotResolver, crossResolver, foulResolver);
         CounterAttackResolver counterAttackResolver = new CounterAttackResolver(config.counterAttack(),
@@ -60,8 +64,14 @@ public final class MatchEngine {
         LineupRepair lineupRepair = new LineupRepair(config.lineup());
         MinimumPlayersRule minimumPlayers = new MinimumPlayersRule();
         DismissalResolver dismissalResolver = new DismissalResolver(minimumPlayers, lineupRepair);
+        InjurySubstitution injurySubstitution = new InjurySubstitution(config.lineup());
+        InjuryResolver injuryResolver = new InjuryResolver(config.injury(), random, injurySubstitution,
+                minimumPlayers, lineupRepair);
+        SubstitutionTimer substitutionTimer = new SubstitutionTimer(config.lineup(), random);
+        StoppageTime stoppageTime = new StoppageTime(config.stoppage());
         return new ActionResolvers(possessionResolver, counterAttackResolver, setPieceResolver, crossResolver,
-                foulResolver, offsideRule, dismissalResolver, minimumPlayers);
+                foulResolver, offsideRule, dismissalResolver, minimumPlayers, injuryResolver, substitutionTimer,
+                stoppageTime);
     }
 
     private ShotResolver newShotResolver(PitchLayout layout, MatchRandom random) {

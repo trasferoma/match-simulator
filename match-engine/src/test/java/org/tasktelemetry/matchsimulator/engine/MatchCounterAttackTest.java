@@ -21,8 +21,9 @@ class MatchCounterAttackTest {
     private static final int MATCHES = 40;
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
-    private static final Set<EventType> PERIOD_TYPES = EnumSet.of(EventType.KICK_OFF, EventType.STOPPAGE_ANNOUNCED,
-            EventType.FIRST_HALF_END, EventType.SECOND_HALF_START, EventType.MATCH_END);
+    private static final Set<EventType> NOT_ACTION_TYPES = EnumSet.of(EventType.KICK_OFF, EventType.STOPPAGE_ANNOUNCED,
+            EventType.FIRST_HALF_END, EventType.SECOND_HALF_START, EventType.MATCH_END, EventType.INJURY,
+            EventType.SUBSTITUTION);
 
     private final EngineConfig config = EngineConfig.defaults();
     private final Team home = TestTeams.team("Home", PlayStyle.COUNTER_ATTACK, 60);
@@ -45,7 +46,7 @@ class MatchCounterAttackTest {
         for (List<MatchEvent> events : matches) {
             MatchEvent previous = null;
             for (MatchEvent event : events) {
-                if (PERIOD_TYPES.contains(event.type())) {
+                if (NOT_ACTION_TYPES.contains(event.type())) {
                     continue;
                 }
                 if (event.phase() == PlayPhase.COUNTER_ATTACK && !continuesARun(previous, event)) {
@@ -88,7 +89,7 @@ class MatchCounterAttackTest {
         for (List<MatchEvent> events : matches) {
             MatchEvent previous = null;
             for (MatchEvent event : events) {
-                if (PERIOD_TYPES.contains(event.type())) {
+                if (NOT_ACTION_TYPES.contains(event.type())) {
                     continue;
                 }
                 boolean isStart = event.phase() == PlayPhase.COUNTER_ATTACK && !continuesARun(previous, event);
@@ -109,7 +110,7 @@ class MatchCounterAttackTest {
         return matches.stream()
                 .flatMap(List::stream)
                 .filter(event -> event.phase() == PlayPhase.COUNTER_ATTACK)
-                .filter(event -> !PERIOD_TYPES.contains(event.type()))
+                .filter(event -> !NOT_ACTION_TYPES.contains(event.type()))
                 .toList();
     }
 

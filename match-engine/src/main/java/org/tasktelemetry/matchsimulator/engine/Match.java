@@ -5,7 +5,6 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
-import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -15,7 +14,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
-import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.Substitution;
 import org.tasktelemetry.matchsimulator.engine.state.MatchClock;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
@@ -28,7 +27,6 @@ import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class Match {
 
-    private final EngineConfig config;
     private final PitchLayout layout;
     private final Map<MatchSide, TeamOnPitch> teams;
     private final ActionResolvers resolvers;
@@ -38,9 +36,7 @@ public final class Match {
     private MatchState state;
     private Score score = Score.goalless();
 
-    Match(EngineConfig config, PitchLayout layout, Map<MatchSide, TeamOnPitch> teams,
-            ActionResolvers resolvers) {
-        this.config = config;
+    Match(PitchLayout layout, Map<MatchSide, TeamOnPitch> teams, ActionResolvers resolvers) {
         this.layout = layout;
         this.teams = teams;
         this.resolvers = resolvers;
@@ -73,6 +69,20 @@ public final class Match {
     }
 
     private void playAction() {
+        resolveAndRecordNextAction();
+        if (isFinished()) {
+            return;
+        }
+        strikeInjuries();
+        if (isFinished()) {
+            return;
+        }
+        announceStoppageIfDue();
+        takePenaltyAwardedAtTheWhistle();
+        closePeriodIfExpired();
+    }
+
+    private void resolveAndRecordNextAction() {
         MatchState before = state;
         ActionOutcome outcome = resolveNextAction();
         advanceClock(outcome.durationSeconds());
@@ -80,11 +90,59 @@ public final class Match {
         state = outcome.next();
         countGoal(before, outcome);
         sanctionFoul(before, outcome);
-        if (isFinished()) {
-            return;
+    }
+
+    private void takePenaltyAwardedAtTheWhistle() {
+        if (isPenaltyAwaitedAtTheWhistle()) {
+            resolveAndRecordNextAction();
         }
-        announceStoppageIfDue();
-        closePeriodIfExpired();
+    }
+
+    private boolean isPenaltyAwaitedAtTheWhistle() {
+        return clock.hasExpired() && state.isAwaitingPenalty();
+    }
+
+    private void strikeInjuries() {
+        for (MatchSide side : MatchSide.values()) {
+            if (!canBeInjured()) {
+                return;
+            }
+            strikeInjuryOf(side);
+        }
+    }
+
+    private boolean canBeInjured() {
+        boolean playIsOn = !isFinished() && !clock.reachedRegulationTime();
+        return playIsOn && !state.hasCrossInFlight();
+    }
+
+    private void strikeInjuryOf(MatchSide side) {
+        Optional<Player> injured = drawInjuredPlayer(side);
+        injured.ifPresent(player -> treatInjury(side, player));
+    }
+
+    private Optional<Player> drawInjuredPlayer(MatchSide side) {
+        TeamOnPitch team = teams.get(side);
+        return resolvers.injury().injuredIn(team);
+    }
+
+    private void treatInjury(MatchSide side, Player injured) {
+        recordInjury(side, injured);
+        LineupOutcome outcome = replaceInjured(side, injured);
+        applyLineupOutcome(side, outcome);
+    }
+
+    private LineupOutcome replaceInjured(MatchSide side, Player injured) {
+        TeamOnPitch beforeInjury = teams.get(side);
+        return resolvers.injury().replaceInjured(beforeInjury, injured);
+    }
+
+    private void recordInjury(MatchSide side, Player injured) {
+        int duration = resolvers.injury().drawInjurySeconds();
+        advanceClock(duration);
+        Participants participants = Participants.of(injured);
+        EventDetail detail = EventDetail.none();
+        appendEvent(EventType.INJURY, side, state, participants, duration, detail);
     }
 
     private ActionOutcome resolveNextAction() {
@@ -167,7 +225,11 @@ public final class Match {
     }
 
     private void dismiss(MatchSide side, Player dismissed) {
-        DismissalOutcome outcome = resolveDismissal(side, dismissed);
+        LineupOutcome outcome = resolveDismissal(side, dismissed);
+        applyLineupOutcome(side, outcome);
+    }
+
+    private void applyLineupOutcome(MatchSide side, LineupOutcome outcome) {
         teams.put(side, outcome.team());
         if (outcome.suspendsTheMatch()) {
             suspendMatch(side);
@@ -176,7 +238,7 @@ public final class Match {
         recordSubstitutions(side, outcome.substitutions());
     }
 
-    private DismissalOutcome resolveDismissal(MatchSide side, Player dismissed) {
+    private LineupOutcome resolveDismissal(MatchSide side, Player dismissed) {
         TeamOnPitch beforeDismissal = teams.get(side);
         int lead = score.leadOf(side);
         return resolvers.dismissal().dismiss(beforeDismissal, dismissed, lead);
@@ -189,9 +251,11 @@ public final class Match {
     }
 
     private void recordSubstitution(MatchSide side, Substitution substitution) {
+        int duration = resolvers.substitutionTimer().drawSubstitutionSeconds();
+        advanceClock(duration);
         Participants participants = Participants.of(substitution.leaving(), substitution.entering());
         EventDetail detail = EventDetail.none();
-        appendEvent(EventType.SUBSTITUTION, side, state, participants, 0, detail);
+        appendEvent(EventType.SUBSTITUTION, side, state, participants, duration, detail);
     }
 
     private void suspendMatch(MatchSide responsibleSide) {
@@ -210,7 +274,7 @@ public final class Match {
         if (!clock.reachedRegulationTime() || clock.isStoppageAnnounced()) {
             return;
         }
-        int minutes = config.minimumStoppageMinutes();
+        int minutes = resolvers.stoppage().announcedMinutes(events, clock.period());
         clock = clock.withAnnouncedStoppage(minutes);
         EventDetail detail = EventDetail.stoppageAnnounced(minutes);
         recordPeriodEvent(EventType.STOPPAGE_ANNOUNCED, detail);

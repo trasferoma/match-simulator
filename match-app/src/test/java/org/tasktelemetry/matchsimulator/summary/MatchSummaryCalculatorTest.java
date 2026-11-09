@@ -138,6 +138,20 @@ class MatchSummaryCalculatorTest {
     }
 
     @Test
+    void theTimeOfAnInjuryOrASubstitutionBelongsToNeitherSideBecauseTheirEventsCarryTheSideOfThePlayer() {
+        events.add(plainEvent(EventType.PASS_COMPLETED, MatchSide.HOME, homeMidfielder, 30));
+        events.add(event(EventType.INJURY, MatchSide.AWAY, firstHalf(40), Participants.of(awayDefender), 100,
+                EventDetail.none()));
+        events.add(event(EventType.SUBSTITUTION, MatchSide.AWAY, firstHalf(41),
+                Participants.of(awayDefender, awayForward), 35, EventDetail.none()));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().possessionSeconds()).isEqualTo(30);
+        assertThat(summary.away().possessionSeconds()).isZero();
+    }
+
+    @Test
     void periodEventsWithZeroDurationLeavePossessionUnchanged() {
         events.add(plainEvent(EventType.KICK_OFF, MatchSide.HOME, null, 0));
         events.add(plainEvent(EventType.FIRST_HALF_END, MatchSide.AWAY, null, 0));
@@ -249,6 +263,19 @@ void aGoalWithoutAScorerIsRejected() {
 
         assertThat(summary.away().contour().substitutions()).isEqualTo(1);
         assertThat(summary.home().contour().substitutions()).isZero();
+    }
+
+    @Test
+    void injuriesAreCountedForTheSideOfTheInjuredPlayer() {
+        events.add(event(EventType.INJURY, MatchSide.HOME, firstHalf(10), Participants.of(homeMidfielder), 100,
+                EventDetail.none()));
+        events.add(event(EventType.INJURY, MatchSide.HOME, firstHalf(20), Participants.of(homeMidfielder), 70,
+                EventDetail.none()));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().contour().injuries()).isEqualTo(2);
+        assertThat(summary.away().contour().injuries()).isZero();
     }
 
     @Test

@@ -49,6 +49,10 @@ public record MatchState(MatchSide possession, Zone zone, PlayPhase phase, SetPi
         return crosser != null;
     }
 
+    public boolean isAwaitingPenalty() {
+        return setPiece == SetPieceKind.PENALTY;
+    }
+
     private static void requireKindOnlyInSetPiece(PlayPhase phase, SetPieceKind setPiece) {
         boolean isSetPiece = phase == PlayPhase.SET_PIECE;
         if (isSetPiece && setPiece == null) {

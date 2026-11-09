@@ -252,7 +252,8 @@ class MatchupsTest {
 
     private EngineConfig noVenueEffectWithMultiplier(double multiplier) {
         EngineConfig noVenue = TestConfigs.withoutHomeAdvantage(config);
-        return TestConfigs.withLineup(noVenue, new LineupConfig(config.lineup().maximumSubstitutions(), multiplier));
+        return TestConfigs.withLineup(noVenue, new LineupConfig(config.lineup().maximumSubstitutions(), multiplier,
+                config.lineup().substitutionDuration()));
     }
 
     private TeamOnPitch withoutMidfielders(TeamOnPitch team, int count) {

@@ -296,8 +296,8 @@ class CrossResolverTest {
     private CrossResolver resolverWith(CrossConfig crossConfig, long seed) {
         EngineConfig custom = new EngineConfig(engineConfig.buildUpAndMidfieldDuration(),
                 engineConfig.attackingThirdDuration(), engineConfig.dribbleProbability(),
-                engineConfig.minimumStoppageMinutes(), engineConfig.shot(), engineConfig.setPiece(), crossConfig,
-                engineConfig.counterAttack(), engineConfig.playStyles(), engineConfig.foul(), engineConfig.offside(),
+                engineConfig.stoppage(), engineConfig.shot(), engineConfig.setPiece(), crossConfig,
+                engineConfig.counterAttack(), engineConfig.playStyles(), engineConfig.foul(), engineConfig.offside(), engineConfig.injury(),
                 engineConfig.lineup(),
                 engineConfig.homeAdvantage());
         MatchRandom random = new MatchRandom(seed);

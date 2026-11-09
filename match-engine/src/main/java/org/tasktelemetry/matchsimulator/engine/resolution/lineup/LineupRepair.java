@@ -29,6 +29,18 @@ public final class LineupRepair {
         return new RepairedLineup(refilled, covered.substitutions());
     }
 
+    public TeamOnPitch repairAfterInjury(TeamOnPitch team) {
+        TeamOnPitch withGoalkeeper = coverTheGoalIfUncovered(team);
+        return fillEmptiedSector(withGoalkeeper);
+    }
+
+    private TeamOnPitch coverTheGoalIfUncovered(TeamOnPitch team) {
+        if (team.playersIn(Role.GOALKEEPER).isEmpty()) {
+            return moveBestGoalkeeperBetweenThePosts(team);
+        }
+        return team;
+    }
+
     private RepairedLineup coverTheGoal(TeamOnPitch team, int lead) {
         Optional<Player> reserve = reserveGoalkeeperWithSubstitutionsLeft(team);
         if (reserve.isEmpty()) {

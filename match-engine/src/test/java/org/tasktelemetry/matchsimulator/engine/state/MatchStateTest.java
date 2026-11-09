@@ -4,6 +4,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
@@ -33,6 +35,19 @@ class MatchStateTest {
         assertThat(setPiece.setPiece()).isEqualTo(SetPieceKind.KICK_OFF);
         assertThat(openPlay.phase()).isEqualTo(PlayPhase.BUILD_UP);
         assertThat(openPlay.setPiece()).isNull();
+    }
+
+    @ParameterizedTest
+    @EnumSource(SetPieceKind.class)
+    void onlyTheSetPieceOfAPenaltyIsAwaitingAPenalty(SetPieceKind kind) {
+        MatchState state = MatchState.forSetPiece(MatchSide.HOME, zone, kind);
+
+        assertThat(state.isAwaitingPenalty()).isEqualTo(kind == SetPieceKind.PENALTY);
+    }
+
+    @Test
+    void anOpenPlayStateIsNotAwaitingAPenalty() {
+        assertThat(MatchState.openPlay(MatchSide.HOME, zone).isAwaitingPenalty()).isFalse();
     }
 
     @Test

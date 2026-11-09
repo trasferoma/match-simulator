@@ -6,13 +6,14 @@ Principi che valgono per **ogni** funzionalità, presente o futura. Il comportam
 - **Domanda d'ingresso: la prossima specifica, o la prossima modifica in un'altra parte del progetto, dovrà
   rispettarla?** Se no, non entra: resta nella specifica o nel codice. Nel dubbio, non entra.
 - **Conflitti.** Sui principi vince questo registro: una specifica che ne contraddice uno si corregge, oppure prima si
-  cambia la decisione, con il sì dell'utente. Sui dettagli di una funzionalità vince la specifica: qui non ci sono.
+  cambia la decisione. Sui dettagli di una funzionalità vince la specifica: qui non ci sono.
 - **Ogni riga rimanda alla sua fonte** (una specifica, una revisione, il codice esistente) e non ne ricopia il
   dettaglio.
 - **Cosa non si scrive qui:** valori di taratura o di configurazione, numeri di criteri di accettazione o di fasi di
   un piano, percorsi che cambiano a ogni refactoring. Cambiano spesso e renderebbero falso il registro.
 - **Formato:** `- **D<n>. <decisione in una frase>.** Perché: <motivo>. Fonte: <documento e sezione, o classe>.`
-  I numeri non si riusano.
+  I numeri non si riusano. Il «Perché» si scrive quando aiuta a giudicare un caso nuovo; si omette per le
+  convenzioni che si seguono e basta (linguaggio, librerie, nomi), se la fonte non dà un motivo.
 - **Chi aggiorna e quando:** `CLAUDE.md`, sezione «Documenti».
 
 Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\match-misulator\spec-motore-partita-v1.md`.
@@ -34,7 +35,9 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
   tempo avanza con le azioni, e la durata serve sia al recupero sia al possesso. Fonte: analisi §2.2 e §3.
 - **D6. Ogni tiro ha un xG; è gol se l'estrazione cade sotto la probabilità di gol.** Perché: lega i gol a una
   misura confrontabile con i dati reali. Fonte: analisi §2.3.
-- **D7. Fallo a catena:** fallo con gravità → punizione o rigore → cartellino → espulsione. Fonte: analisi §2.5.
+- **D7. Fallo a catena:** fallo con gravità → punizione o rigore → cartellino → espulsione. Perché: un rigore o un
+  cartellino nasce sempre da un fallo che il racconto può nominare, mai da una probabilità fissa slegata dal gioco.
+  Fonte: analisi §2.5.
 - **D24. Il gioco sulle fasce è una probabilità legata alla tattica, non una posizione** (cross dalla trequarti,
   duello aereo). Perché: dà cross e colpi di testa senza corsie nel campo. Fonte: SPEC, "Stato e azioni"; analisi §1.1.
 - **D25. Ogni attributo dei giocatori è letto da almeno una regola;** nessun attributo decorativo. Perché: un
@@ -49,20 +52,27 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
 - **D9. Gli eventi sono l'unica fonte di verità:** tabellino e statistiche si calcolano solo dalla lista degli
   eventi. Perché: due calcoli separati prima o poi divergono. Fonte: analisi §5.1.
 - **D10. Il racconto non inventa nulla:** usa solo informazioni presenti nell'evento; se serve una sfumatura, la
-  calcola il motore e la mette nel dettaglio dell'evento. Fonte: analisi §5.2-5.3.
-- **D11. Un gesto con conseguenze diverse ha un tipo di evento diverso.** Fonte: analisi §5.4.
+  calcola il motore e la mette nel dettaglio dell'evento. Perché: una frase che descrive ciò che il motore non ha
+  deciso (una «parata prodigiosa» senza una parata difficile) rende il racconto incoerente con la partita. Fonte:
+  analisi §5.2-5.3.
+- **D11. Un gesto con conseguenze diverse ha un tipo di evento diverso.** Perché: chi conta gli eventi non deve
+  distinguerli dal contesto; per esempio un rigore della lotteria finale non finisce nei gol della partita. Fonte:
+  analisi §5.4.
 - **D12. Riproducibilità:** stesso seme, stesse squadre, stessa configurazione → stessa sequenza di eventi, anche in
   un'altra JVM. L'unica sorgente di casualità è il generatore con seme della partita, e nessun risultato dipende
-  dall'ordine di iterazione di strutture a ordine non garantito. Elenco dei divieti: SPEC, Vincoli. Fonte: analisi
-  §6.3.
+  dall'ordine di iterazione di strutture a ordine non garantito. Elenco dei divieti: SPEC, Vincoli. Perché: una
+  partita che si rigioca uguale si può confrontare, correggere e tarare; senza, un difetto visto una volta non si
+  ritrova. Fonte: analisi §6.3.
 - **D13. Tutti i numeri in un'unica configurazione** con valori di default; nessuna costante di taratura nelle
   regole. Perché: la taratura tocca un solo posto. Fonte: analisi §6.4.
 - **D14. Ogni tattica ha un effetto in un solo punto e in una sola direzione; lo stile neutro moltiplica per 1;
-  ogni stile ha un costo oltre al beneficio.** Fonte: analisi §4.3.
+  ogni stile ha un costo oltre al beneficio.** Perché: non si sommano effetti opposti nascosti, una squadra con lo
+  stile neutro gioca come senza stile, e ogni tattica si prova da sola. Fonte: analisi §4.3.
 - **D32. Due moduli Maven:** `match-engine`, il motore senza dipendenze di runtime, e `match-app`, che lo usa.
   Perché: l'isolamento del motore (D8) lo garantisce il compilatore. Fonte: SPEC, Vincoli.
 - **D49. Il motore vede solo le proprie costanti;** i valori dei file d'ingresso si traducono nel modulo che legge
-  il file. Fonte: SPEC, "Riga di comando".
+  il file. Perché: il formato dei file delle squadre, compresi i termini in italiano, può cambiare senza toccare il
+  motore (D8). Fonte: SPEC, "Riga di comando".
 - **D55. La configurazione del banco di taratura è separata da quella del motore** e sta in `match-app`. Perché: il
   banco descrive l'obiettivo, non il motore. Fonte: SPEC, "Banco di taratura"; piano, "File coinvolti".
 
@@ -83,12 +93,16 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
   uguali, contro i cinque grandi campionati. Perché: le forbici descrivono stagioni intere. Fonte: analisi §11;
   [data/calibration](../data/calibration/README.md).
 - **D20. Un obiettivo senza fonte non si usa per tarare;** i parametri senza obiettivo restano valori di orientamento
-  dichiarati come tali, ma mai a zero. Fonte: SPEC, Vincoli.
+  dichiarati come tali, ma mai a zero. Perché: tarare su un numero che nessuno sa giustificare trasforma un'ipotesi
+  in comportamento; un parametro a zero toglie l'evento dalla partita. Fonte: SPEC, Vincoli; analisi §7.
 - **D22. Il progetto resta non commerciale.** Dati StatsBomb: nel repository solo valori aggregati, mai i dati
   grezzi, attribuzione «Data: StatsBomb» nell'output che li usa. football-data.co.uk: solo aggregati finché non sono
-  verificate le condizioni del sito. openfootball (CC0): anche le singole partite. Fonte:
+  verificate le condizioni del sito. openfootball (CC0): anche le singole partite. Perché: sono le condizioni di
+  licenza delle fonti dei dati. Fonte:
   [data/calibration](../data/calibration/README.md).
-- **D23. OpenFootManager (GPLv3) e openengine (MIT): se ne riprendono le idee, mai il codice.** Fonte: `CLAUDE.md`.
+- **D23. OpenFootManager (GPLv3) e openengine (MIT): se ne riprendono le idee, mai il codice.** Perché:
+  copiare codice GPLv3 obbligherebbe a rilasciare il progetto sotto GPL; il codice di openengine è troppo
+  sperimentale per essere riusato. Fonte: `CLAUDE.md`; analisi, "Licenze".
 
 ## Proposte da confermare
 

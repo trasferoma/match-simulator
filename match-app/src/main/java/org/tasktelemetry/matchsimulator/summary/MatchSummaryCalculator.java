@@ -24,6 +24,8 @@ public final class MatchSummaryCalculator {
     private static final Set<EventType> CORNER_TYPES = EnumSet.of(EventType.CORNER_KICK);
     private static final Set<EventType> SUBSTITUTION_TYPES = EnumSet.of(EventType.SUBSTITUTION);
     private static final Set<EventType> OFFSIDE_TYPES = EnumSet.of(EventType.OFFSIDE);
+    private static final Set<EventType> INJURY_TYPES = EnumSet.of(EventType.INJURY);
+    private static final Set<EventType> STOPPED_BALL_TYPES = EnumSet.of(EventType.INJURY, EventType.SUBSTITUTION);
 
     public MatchSummary summarize(List<MatchEvent> events) {
         Objects.requireNonNull(events, "events must not be null");
@@ -83,7 +85,9 @@ public final class MatchSummaryCalculator {
         int substitutions = countOfTypes(sideEvents, SUBSTITUTION_TYPES);
         int offsides = countOfTypes(sideEvents, OFFSIDE_TYPES);
         int penalties = countPenaltiesAwarded(sideEvents);
-        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties);
+        int injuries = countOfTypes(sideEvents, INJURY_TYPES);
+        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties,
+                injuries);
     }
 
     private List<MatchEvent> selectEventsOf(List<MatchEvent> events, MatchSide side) {
@@ -116,7 +120,10 @@ public final class MatchSummaryCalculator {
     }
 
     private int sumPossessionSeconds(List<MatchEvent> sideEvents) {
-        return sideEvents.stream().mapToInt(MatchEvent::durationSeconds).sum();
+        return sideEvents.stream()
+                .filter(event -> !STOPPED_BALL_TYPES.contains(event.type()))
+                .mapToInt(MatchEvent::durationSeconds)
+                .sum();
     }
 
     private double expectedGoalsOf(EventDetail shotDetail) {

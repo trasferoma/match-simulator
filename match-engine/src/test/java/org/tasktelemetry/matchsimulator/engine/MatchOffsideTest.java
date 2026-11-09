@@ -101,12 +101,15 @@ class MatchOffsideTest {
 
     private List<Player> teamOf(MatchEvent event) {
         Team team = event.side() == MatchSide.HOME ? home : away;
-        return team.starters();
+        List<Player> squad = new ArrayList<>(team.starters());
+        squad.addAll(team.bench());
+        return squad;
     }
 
     private boolean isPeriodEnd(MatchEvent event) {
         return event.type() == EventType.FIRST_HALF_END || event.type() == EventType.MATCH_END
-                || event.type() == EventType.STOPPAGE_ANNOUNCED;
+                || event.type() == EventType.STOPPAGE_ANNOUNCED || event.type() == EventType.INJURY
+                || event.type() == EventType.SUBSTITUTION;
     }
 
     private List<MatchEvent> play(long seed) {

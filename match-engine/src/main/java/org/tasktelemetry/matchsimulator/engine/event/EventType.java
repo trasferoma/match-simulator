@@ -29,6 +29,7 @@ public enum EventType {
     YELLOW_CARD,
     SECOND_YELLOW_CARD,
     RED_CARD,
+    INJURY,
     SUBSTITUTION;
 
     public boolean isBallRecovery() {

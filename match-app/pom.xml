@@ -45,6 +45,7 @@
                 <configuration>
                     <systemPropertyVariables>
                         <calibration.dir>${project.basedir}/../data/calibration</calibration.dir>
+                        <teams.dir>${project.basedir}/../data/teams</teams.dir>
                     </systemPropertyVariables>
                 </configuration>
             </plugin>

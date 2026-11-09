@@ -14,13 +14,13 @@ public final class DismissalResolver {
         this.lineupRepair = lineupRepair;
     }
 
-    public DismissalOutcome dismiss(TeamOnPitch team, Player dismissed, int lead) {
+    public LineupOutcome dismiss(TeamOnPitch team, Player dismissed, int lead) {
         Role dismissedRole = team.roleOf(dismissed);
         TeamOnPitch reduced = team.withoutPlayer(dismissed);
         if (minimumPlayers.isBelowMinimum(reduced)) {
-            return DismissalOutcome.suspended(reduced);
+            return LineupOutcome.suspended(reduced);
         }
         RepairedLineup repaired = lineupRepair.repairAfterDismissal(reduced, dismissedRole, lead);
-        return DismissalOutcome.continuing(repaired);
+        return LineupOutcome.continuing(repaired);
     }
 }

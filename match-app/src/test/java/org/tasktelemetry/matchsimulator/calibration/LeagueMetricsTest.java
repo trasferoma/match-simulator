@@ -134,7 +134,7 @@ class LeagueMetricsTest {
 
     @Test
     void theContourOrientationCountsFoulsAndCardsFromTheEvents() {
-        ContourCounters counters = new ContourCounters(1, 2, 20, 4, 1, 0, 3, 2);
+        ContourCounters counters = new ContourCounters(1, 2, 20, 4, 1, 0, 3, 2, 1);
         TeamStatistics withContour = new TeamStatistics(5, 2, 0.0, 300, counters);
         PlayedMatch played = match(0, 0, withContour, statistics(5, 300));
 
@@ -145,6 +145,7 @@ class LeagueMetricsTest {
         assertThat(league.orientation().get("rossi a partita")).isCloseTo(1.0, within(TOLERANCE));
         assertThat(league.orientation().get("cambi a partita")).isCloseTo(3.0, within(TOLERANCE));
         assertThat(league.orientation().get("rigori a partita")).isCloseTo(2.0, within(TOLERANCE));
+        assertThat(league.orientation().get("infortuni a partita")).isCloseTo(1.0, within(TOLERANCE));
     }
 
     private PlayedMatch suspendedMatch(int fieldHome, int fieldAway, Score official, TeamStatistics home,

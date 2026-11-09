@@ -81,11 +81,11 @@ class MinimumPlayersRuleTest {
         TeamOnPitch team = complete;
 
         for (int expulsion = 1; expulsion <= 4; expulsion++) {
-            DismissalOutcome outcome = dismissals.dismiss(team, anOutfielderOf(team), LEVEL);
+            LineupOutcome outcome = dismissals.dismiss(team, anOutfielderOf(team), LEVEL);
             assertThat(outcome.suspendsTheMatch()).isFalse();
             team = outcome.team();
         }
-        DismissalOutcome fifth = dismissals.dismiss(team, anOutfielderOf(team), LEVEL);
+        LineupOutcome fifth = dismissals.dismiss(team, anOutfielderOf(team), LEVEL);
 
         assertThat(team.players()).hasSize(7);
         assertThat(fifth.suspendsTheMatch()).isTrue();
@@ -98,7 +98,7 @@ class MinimumPlayersRuleTest {
         TeamOnPitch team = complete;
 
         for (int expulsion = 1; expulsion <= 4; expulsion++) {
-            DismissalOutcome outcome = dismissals.dismiss(team, anOutfielderOf(team), LEVEL);
+            LineupOutcome outcome = dismissals.dismiss(team, anOutfielderOf(team), LEVEL);
             team = outcome.team();
         }
 
@@ -114,7 +114,7 @@ class MinimumPlayersRuleTest {
                 .findFirst()
                 .orElseThrow();
 
-        DismissalOutcome outcome = dismissals.dismiss(sevenOnThePitch, sevenOnThePitch.goalkeeper(), LEVEL);
+        LineupOutcome outcome = dismissals.dismiss(sevenOnThePitch, sevenOnThePitch.goalkeeper(), LEVEL);
 
         assertThat(sevenOnThePitch.substitutionsMade()).isLessThan(LineupConfig.defaults().maximumSubstitutions());
         assertThat(outcome.suspendsTheMatch()).isTrue();
@@ -130,7 +130,7 @@ class MinimumPlayersRuleTest {
                 .findFirst()
                 .orElseThrow();
 
-        DismissalOutcome outcome = dismissals.dismiss(eightOnThePitch, eightOnThePitch.goalkeeper(), LEVEL);
+        LineupOutcome outcome = dismissals.dismiss(eightOnThePitch, eightOnThePitch.goalkeeper(), LEVEL);
 
         assertThat(outcome.suspendsTheMatch()).isFalse();
         assertThat(outcome.team().goalkeeper()).isEqualTo(reserve);
@@ -146,7 +146,7 @@ class MinimumPlayersRuleTest {
         Player aMidfielder = oneDefenderLeft.playersIn(Role.MIDFIELDER).get(0);
         TeamOnPitch onlyOneDefender = oneDefenderLeft.withoutPlayer(aMidfielder);
 
-        DismissalOutcome outcome = dismissals.dismiss(onlyOneDefender, lastDefender, LEVEL);
+        LineupOutcome outcome = dismissals.dismiss(onlyOneDefender, lastDefender, LEVEL);
 
         assertThat(outcome.suspendsTheMatch()).isTrue();
         assertThat(outcome.team().playersIn(Role.DEFENDER)).isEmpty();
@@ -155,7 +155,7 @@ class MinimumPlayersRuleTest {
 
     @Test
     void anOutfielderSentOffWhenTheTeamStaysAtSevenOrMoreContinuesWithoutSubstitutions() {
-        DismissalOutcome outcome = dismissals.dismiss(complete, anOutfielderOf(complete), BEHIND);
+        LineupOutcome outcome = dismissals.dismiss(complete, anOutfielderOf(complete), BEHIND);
 
         assertThat(outcome.suspendsTheMatch()).isFalse();
         assertThat(outcome.team().players()).hasSize(10);
@@ -166,7 +166,7 @@ class MinimumPlayersRuleTest {
     void aSuspendedOutcomeCannotCarrySubstitutions() {
         Substitution substitution = new Substitution(complete.players().get(1), complete.players().get(2));
 
-        assertThatThrownBy(() -> new DismissalOutcome(complete, true, List.of(substitution)))
+        assertThatThrownBy(() -> new LineupOutcome(complete, true, List.of(substitution)))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("a suspended match has no substitutions");
     }

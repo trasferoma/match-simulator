@@ -29,29 +29,30 @@ public record Team(String name, PlayStyle style, List<Player> starters, List<Pla
 
     private static void requireNameNotBlank(String name) {
         if (name.isBlank()) {
-            throw new IllegalArgumentException("team name must not be blank");
+            throw new TeamRuleViolation(TeamRule.TEAM_NAME_BLANK, "team name must not be blank");
         }
     }
 
     private static void requireStartersCount(List<Player> starters) {
         if (starters.size() != STARTERS_COUNT) {
-            throw new IllegalArgumentException("a team must have exactly " + STARTERS_COUNT
-                    + " starters, found " + starters.size());
+            String message = "a team must have exactly " + STARTERS_COUNT + " starters, found " + starters.size();
+            throw new TeamRuleViolation(TeamRule.STARTERS_COUNT, message, STARTERS_COUNT, starters.size());
         }
     }
 
     private static void requireExactlyOneGoalkeeper(List<Player> starters) {
         long goalkeepers = countOf(starters, Role.GOALKEEPER);
         if (goalkeepers != 1) {
-            throw new IllegalArgumentException("a team must have exactly one goalkeeper among the starters, found "
-                    + goalkeepers);
+            String message = "a team must have exactly one goalkeeper among the starters, found " + goalkeepers;
+            throw new TeamRuleViolation(TeamRule.ONE_GOALKEEPER, message, goalkeepers);
         }
     }
 
     private static void requireAtLeastOne(List<Player> starters, Role role) {
         if (countOf(starters, role) == 0) {
             String roleName = role.name().toLowerCase(Locale.ROOT);
-            throw new IllegalArgumentException("a team must have at least one " + roleName + " among the starters");
+            String message = "a team must have at least one " + roleName + " among the starters";
+            throw new TeamRuleViolation(TeamRule.ROLE_MISSING, message, role);
         }
     }
 
@@ -61,8 +62,8 @@ public record Team(String name, PlayStyle style, List<Player> starters, List<Pla
         Set<String> seenNames = new LinkedHashSet<>();
         for (Player player : squad) {
             if (!seenNames.add(player.name())) {
-                throw new IllegalArgumentException(
-                        "player names must be unique among starters and bench, repeated: " + player.name());
+                String message = "player names must be unique among starters and bench, repeated: " + player.name();
+                throw new TeamRuleViolation(TeamRule.PLAYER_NAME_REPEATED, message, player.name());
             }
         }
     }

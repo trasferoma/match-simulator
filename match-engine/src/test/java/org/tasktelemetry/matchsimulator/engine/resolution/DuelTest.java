@@ -58,6 +58,37 @@ class DuelTest {
     }
 
     @Test
+    void neutralSharpnessLeavesTheDuelIdentical() {
+        Duel duel = Duel.between(80, 55);
+
+        assertThat(duel.sharpened(1.0)).isEqualTo(duel);
+    }
+
+    @Test
+    void sharpnessAboveOneMakesTheDuelMoreDecisive() {
+        Duel duel = Duel.between(80, 55);
+        double attackPower = Math.pow(80.0, 2.0);
+        double defencePower = Math.pow(55.0, 2.0);
+
+        double sharpened = duel.sharpened(2.0).attackerWinProbability();
+
+        assertThat(sharpened).isCloseTo(attackPower / (attackPower + defencePower), within(EXACT));
+        assertThat(sharpened).isGreaterThan(duel.attackerWinProbability());
+    }
+
+    @Test
+    void sharpnessDoesNotChangeEvenOdds() {
+        assertThat(Duel.between(50, 50).sharpened(3.0).attackerWinProbability()).isCloseTo(0.5, within(EXACT));
+    }
+
+    @Test
+    void rejectsNonPositiveSharpness() {
+        assertThatThrownBy(() -> Duel.between(50, 50).sharpened(0.0))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("sharpness must be positive");
+    }
+
+    @Test
     void rejectsNonPositiveValuesAndModifiers() {
         assertThatThrownBy(() -> new Duel(0.0, 10.0)).isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> new Duel(10.0, -1.0)).isInstanceOf(IllegalArgumentException.class);

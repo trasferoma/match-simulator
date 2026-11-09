@@ -8,17 +8,20 @@ public record ContourCounters(
         int redCards,
         int offsides,
         int substitutions,
-        int penalties) {
+        int penalties,
+        int injuries) {
 
     public static ContourCounters none() {
-        return new ContourCounters(0, 0, 0, 0, 0, 0, 0, 0);
+        return new ContourCounters(0, 0, 0, 0, 0, 0, 0, 0, 0);
     }
 
     public ContourCounters withCorners(int corners) {
-        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties);
+        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties,
+                injuries);
     }
 
     public ContourCounters withCrosses(int crosses) {
-        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties);
+        return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties,
+                injuries);
     }
 }

@@ -175,7 +175,7 @@ class MatchCrossesAndCornersTest {
 
     private Optional<MatchEvent> playedEventAfter(List<MatchEvent> events, int index) {
         int next = index + 1;
-        while (next < events.size() && events.get(next).type() == EventType.STOPPAGE_ANNOUNCED) {
+        while (next < events.size() && isInterruption(events.get(next))) {
             next++;
         }
         boolean periodEndsFirst = next >= events.size() || PERIOD_END_TYPES.contains(events.get(next).type());
@@ -187,7 +187,7 @@ class MatchCrossesAndCornersTest {
 
     private MatchEvent playedEventBefore(List<MatchEvent> events, int index) {
         int previous = index - 1;
-        while (events.get(previous).type() == EventType.STOPPAGE_ANNOUNCED) {
+        while (isInterruption(events.get(previous))) {
             previous--;
         }
         return events.get(previous);
@@ -211,5 +211,10 @@ class MatchCrossesAndCornersTest {
             match.step();
         }
         return match.events();
+    }
+
+    private boolean isInterruption(MatchEvent event) {
+        return event.type() == EventType.STOPPAGE_ANNOUNCED || event.type() == EventType.INJURY
+                || event.type() == EventType.SUBSTITUTION;
     }
 }

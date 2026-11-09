@@ -13,6 +13,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.config.StoppageConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -89,22 +90,25 @@ class MatchPeriodsTest {
 
     @ParameterizedTest
     @ValueSource(ints = {1, 3})
-    void theAnnouncementCarriesTheConfiguredMinimumAndTheHalfLastsUntilItIsExceeded(int minimumMinutes) {
+    void theAnnouncementIsNeverBelowTheConfiguredMinimumAndTheHalfLastsUntilItIsExceeded(int minimumMinutes) {
         EngineConfig config = configWithMinimumStoppage(minimumMinutes);
-        int maximumActionSeconds = longestConfiguredActionSeconds(config);
+        int maximumStepSeconds = longestStepSeconds(config);
         List<MatchEvent> events = playToEnd(config, 9L);
 
         List<MatchEvent> announcements = eventsOfType(events, EventType.STOPPAGE_ANNOUNCED);
         List<MatchEvent> ends = List.of(firstOfType(events, EventType.FIRST_HALF_END),
                 firstOfType(events, EventType.MATCH_END));
-        int expiry = REGULATION_SECONDS + minimumMinutes * 60;
 
-        assertThat(announcements).extracting(MatchEvent::detail)
-                .containsOnly(EventDetail.stoppageAnnounced(minimumMinutes));
-        assertThat(ends).allSatisfy(end -> {
+        assertThat(announcements).hasSize(2);
+        for (int half = 0; half < announcements.size(); half++) {
+            int announced = ((EventDetail.StoppageAnnounced) announcements.get(half).detail()).minutes();
+            int expiry = REGULATION_SECONDS + announced * 60;
+            MatchEvent end = ends.get(half);
+
+            assertThat(announced).isGreaterThanOrEqualTo(minimumMinutes);
             assertThat(end.time().seconds()).isGreaterThan(expiry);
-            assertThat(end.time().seconds()).isLessThanOrEqualTo(expiry + maximumActionSeconds);
-        });
+            assertThat(end.time().seconds()).isLessThanOrEqualTo(expiry + maximumStepSeconds);
+        }
     }
 
     @Test
@@ -185,10 +189,11 @@ class MatchPeriodsTest {
         EngineConfig defaults = EngineConfig.defaults();
         DurationRange buildUp = defaults.buildUpAndMidfieldDuration();
         DurationRange attacking = defaults.attackingThirdDuration();
-        return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), minutes, defaults.shot(),
-                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(),
-                defaults.lineup(),
-                defaults.homeAdvantage());
+        StoppageConfig stoppage = new StoppageConfig(minutes, defaults.stoppage().secondsPerEvent(),
+                defaults.stoppage().maximumFirstHalfMinutes(), defaults.stoppage().maximumSecondHalfMinutes());
+        return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), stoppage, defaults.shot(),
+                defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
+                defaults.offside(), defaults.injury(), defaults.lineup(), defaults.homeAdvantage());
     }
 
     private int longestOpenPlayActionSeconds(EngineConfig config) {
@@ -208,6 +213,13 @@ class MatchPeriodsTest {
                 config.cross().clearanceDuration().maxSeconds())
                 .max()
                 .orElseThrow();
+    }
+
+    private int longestStepSeconds(EngineConfig config) {
+        int penaltyConcededByTheLastAction = config.shot().penaltyDuration().maxSeconds();
+        int substitutionCausedByTheLastAction = config.lineup().substitutionDuration().maxSeconds();
+        return longestConfiguredActionSeconds(config) + penaltyConcededByTheLastAction
+                + substitutionCausedByTheLastAction;
     }
 
     private List<MatchEvent> playToEnd(EngineConfig config, long seed) {

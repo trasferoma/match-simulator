@@ -6,7 +6,7 @@ public record EngineConfig(
         DurationRange buildUpAndMidfieldDuration,
         DurationRange attackingThirdDuration,
         double dribbleProbability,
-        int minimumStoppageMinutes,
+        StoppageConfig stoppage,
         ShotConfig shot,
         SetPieceConfig setPiece,
         CrossConfig cross,
@@ -14,12 +14,25 @@ public record EngineConfig(
         PlayStyleModifiers playStyles,
         FoulConfig foul,
         OffsideConfig offside,
+        InjuryConfig injury,
         LineupConfig lineup,
-        double homeAdvantage) {
+        double homeAdvantage,
+        double duelSharpness) {
+
+    private static final double NEUTRAL_SHARPNESS = 1.0;
+
+    public EngineConfig(DurationRange buildUpAndMidfieldDuration, DurationRange attackingThirdDuration,
+            double dribbleProbability, StoppageConfig stoppage, ShotConfig shot, SetPieceConfig setPiece,
+            CrossConfig cross, CounterAttackConfig counterAttack, PlayStyleModifiers playStyles, FoulConfig foul,
+            OffsideConfig offside, InjuryConfig injury, LineupConfig lineup, double homeAdvantage) {
+        this(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability, stoppage, shot, setPiece, cross,
+                counterAttack, playStyles, foul, offside, injury, lineup, homeAdvantage, NEUTRAL_SHARPNESS);
+    }
 
     public EngineConfig {
         Objects.requireNonNull(buildUpAndMidfieldDuration, "build-up and midfield duration must not be null");
         Objects.requireNonNull(attackingThirdDuration, "attacking third duration must not be null");
+        Objects.requireNonNull(stoppage, "stoppage configuration must not be null");
         Objects.requireNonNull(shot, "shot configuration must not be null");
         Objects.requireNonNull(setPiece, "set piece configuration must not be null");
         Objects.requireNonNull(cross, "cross configuration must not be null");
@@ -27,10 +40,11 @@ public record EngineConfig(
         Objects.requireNonNull(playStyles, "play style modifiers must not be null");
         Objects.requireNonNull(foul, "foul configuration must not be null");
         Objects.requireNonNull(offside, "offside configuration must not be null");
+        Objects.requireNonNull(injury, "injury configuration must not be null");
         Objects.requireNonNull(lineup, "lineup configuration must not be null");
         requireProbability(dribbleProbability);
-        requireAtLeastOneMinute(minimumStoppageMinutes);
         requirePositiveAndFinite("home advantage", homeAdvantage);
+        requirePositiveAndFinite("duel sharpness", duelSharpness);
         requireCrossProbabilityBelowOneForEveryStyle(cross, playStyles);
         requireCounterAttackStartBelowOneForEveryStyle(counterAttack, playStyles);
     }
@@ -39,7 +53,7 @@ public record EngineConfig(
         DurationRange buildUpAndMidfieldDuration = new DurationRange(12, 33);
         DurationRange attackingThirdDuration = new DurationRange(10, 37);
         double dribbleProbability = 0.30;
-        int minimumStoppageMinutes = 1;
+        StoppageConfig stoppage = StoppageConfig.defaults();
         ShotConfig shot = ShotConfig.defaults();
         SetPieceConfig setPiece = SetPieceConfig.defaults();
         CrossConfig cross = CrossConfig.defaults();
@@ -47,11 +61,13 @@ public record EngineConfig(
         PlayStyleModifiers playStyles = PlayStyleModifiers.defaults();
         FoulConfig foul = FoulConfig.defaults();
         OffsideConfig offside = OffsideConfig.defaults();
+        InjuryConfig injury = InjuryConfig.defaults();
         LineupConfig lineup = LineupConfig.defaults();
         double homeAdvantage = 1.08;
+        double duelSharpness = 1.0;
         return new EngineConfig(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability,
-                minimumStoppageMinutes, shot, setPiece, cross, counterAttack, playStyles, foul, offside,
-                lineup, homeAdvantage);
+                stoppage, shot, setPiece, cross, counterAttack, playStyles, foul, offside, injury,
+                lineup, homeAdvantage, duelSharpness);
     }
 
     private static void requireProbability(double dribbleProbability) {
@@ -59,13 +75,6 @@ public record EngineConfig(
         if (!isProbability) {
             throw new IllegalArgumentException("dribble probability must be between 0.0 and 1.0, was "
                     + dribbleProbability);
-        }
-    }
-
-    private static void requireAtLeastOneMinute(int minimumStoppageMinutes) {
-        if (minimumStoppageMinutes < 1) {
-            throw new IllegalArgumentException("minimum stoppage must be at least 1 minute, was "
-                    + minimumStoppageMinutes);
         }
     }
 

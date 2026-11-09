@@ -264,7 +264,7 @@ class MatchShotsAndRestartsTest {
 
     private Optional<Integer> playedEventAfter(List<MatchEvent> events, int index) {
         int next = index + 1;
-        while (next < events.size() && events.get(next).type() == EventType.STOPPAGE_ANNOUNCED) {
+        while (next < events.size() && isInterruption(events.get(next))) {
             next++;
         }
         boolean periodEndsFirst = next >= events.size() || PERIOD_END_TYPES.contains(events.get(next).type());
@@ -292,5 +292,10 @@ class MatchShotsAndRestartsTest {
             match.step();
         }
         return match.events();
+    }
+
+    private boolean isInterruption(MatchEvent event) {
+        return event.type() == EventType.STOPPAGE_ANNOUNCED || event.type() == EventType.INJURY
+                || event.type() == EventType.SUBSTITUTION;
     }
 }

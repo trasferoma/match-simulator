@@ -34,8 +34,10 @@ public record PlayerAttributes(
 
     private static void requireInScale(String attribute, int value) {
         if (value < MIN_VALUE || value > MAX_VALUE) {
-            throw new IllegalArgumentException("attribute " + attribute + " must be between " + MIN_VALUE
-                    + " and " + MAX_VALUE + ", was " + value);
+            String message = "attribute " + attribute + " must be between " + MIN_VALUE + " and " + MAX_VALUE
+                    + ", was " + value;
+            throw new TeamRuleViolation(TeamRule.ATTRIBUTE_OUT_OF_SCALE, message, attribute, MIN_VALUE, MAX_VALUE,
+                    value);
         }
     }
 }

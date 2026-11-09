@@ -20,13 +20,21 @@ public final class Matchups {
     private final double homeAdvantage;
     private final double inferiorityMultiplier;
 
+    private final double duelSharpness;
+
     public Matchups(PitchLayout layout, PlayerPicker picker, PlayStyleModifiers playStyles, double homeAdvantage,
             double inferiorityMultiplier) {
+        this(layout, picker, playStyles, homeAdvantage, inferiorityMultiplier, NEUTRAL);
+    }
+
+    public Matchups(PitchLayout layout, PlayerPicker picker, PlayStyleModifiers playStyles, double homeAdvantage,
+            double inferiorityMultiplier, double duelSharpness) {
         this.layout = layout;
         this.picker = picker;
         this.playStyles = playStyles;
         this.homeAdvantage = homeAdvantage;
         this.inferiorityMultiplier = inferiorityMultiplier;
+        this.duelSharpness = duelSharpness;
     }
 
     public Player pickAttacker(MatchState state, TeamOnPitch attackers) {
@@ -51,7 +59,8 @@ public final class Matchups {
         double defenderStrength = defenceStrength(defenderStyle, attackingRole);
         double attackerModifier = modifierOf(attackerStrength, attackingSide, attackers, attackingRole);
         double defenderModifier = modifierOf(defenderStrength, defendingSide, defenders, defendingRole);
-        return base.withAttackModifier(attackerModifier).withDefenceModifier(defenderModifier);
+        Duel modified = base.withAttackModifier(attackerModifier).withDefenceModifier(defenderModifier);
+        return modified.sharpened(duelSharpness);
     }
 
     public Duel counterAttackDuel(Duel base, MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {
@@ -63,7 +72,8 @@ public final class Matchups {
         double advance = attackerStyle.counterAttackAdvance();
         double attackerModifier = modifierOf(advance, attackingSide, attackers, attackingRole);
         double defenderModifier = modifierOf(NEUTRAL, defendingSide, defenders, defendingRole);
-        return base.withAttackModifier(attackerModifier).withDefenceModifier(defenderModifier);
+        Duel modified = base.withAttackModifier(attackerModifier).withDefenceModifier(defenderModifier);
+        return modified.sharpened(duelSharpness);
     }
 
     private double modifierOf(double styleStrength, MatchSide side, TeamOnPitch team, ZoneRole zoneRole) {

@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine;
 
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
+import org.tasktelemetry.matchsimulator.engine.config.InjuryConfig;
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
 import org.tasktelemetry.matchsimulator.engine.config.SetPieceConfig;
 
@@ -15,8 +16,8 @@ public final class TestConfigs {
 
     public static EngineConfig withHomeAdvantage(EngineConfig base, double homeAdvantage) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
-                base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.lineup(), homeAdvantage);
+                base.dribbleProbability(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), homeAdvantage);
     }
 
     public static EngineConfig withoutHomeAdvantage(EngineConfig base) {
@@ -25,20 +26,27 @@ public final class TestConfigs {
 
     public static EngineConfig withFoul(EngineConfig base, FoulConfig foul) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
-                base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), foul, base.offside(), base.lineup(), base.homeAdvantage());
+                base.dribbleProbability(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
+                base.counterAttack(), base.playStyles(), foul, base.offside(), base.injury(), base.lineup(), base.homeAdvantage());
     }
 
     public static EngineConfig withLineup(EngineConfig base, LineupConfig lineup) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
-                base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), lineup, base.homeAdvantage());
+                base.dribbleProbability(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), lineup, base.homeAdvantage());
+    }
+
+    public static EngineConfig withInjury(EngineConfig base, InjuryConfig injury) {
+        return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
+                base.dribbleProbability(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), injury, base.lineup(),
+                base.homeAdvantage());
     }
 
     public static EngineConfig withSetPiece(EngineConfig base, SetPieceConfig setPiece) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
-                base.dribbleProbability(), base.minimumStoppageMinutes(), base.shot(), setPiece, base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.lineup(), base.homeAdvantage());
+                base.dribbleProbability(), base.stoppage(), base.shot(), setPiece, base.cross(),
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.homeAdvantage());
     }
 
     public static EngineConfig withoutFouls(EngineConfig base) {

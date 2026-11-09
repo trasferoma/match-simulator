@@ -1,0 +1,260 @@
+{
+  "name": "Sporting Collina",
+  "style": "contropiede",
+  "starters": [
+    {
+      "name": "Carlo Rossetti",
+      "role": "portiere",
+      "attributes": {
+        "passing": 54,
+        "dribbling": 51,
+        "shooting": 48,
+        "tackling": 51,
+        "positioning": 74,
+        "pace": 52,
+        "aerial": 65,
+        "goalkeeping": 80
+      }
+    },
+    {
+      "name": "Massimo Orlando",
+      "role": "difensore",
+      "attributes": {
+        "passing": 59,
+        "dribbling": 54,
+        "shooting": 46,
+        "tackling": 71,
+        "positioning": 72,
+        "pace": 61,
+        "aerial": 72,
+        "goalkeeping": 28
+      }
+    },
+    {
+      "name": "Vincenzo Basile",
+      "role": "difensore",
+      "attributes": {
+        "passing": 57,
+        "dribbling": 52,
+        "shooting": 49,
+        "tackling": 74,
+        "positioning": 70,
+        "pace": 59,
+        "aerial": 70,
+        "goalkeeping": 31
+      }
+    },
+    {
+      "name": "Gabriele Monti",
+      "role": "difensore",
+      "attributes": {
+        "passing": 60,
+        "dribbling": 50,
+        "shooting": 47,
+        "tackling": 72,
+        "positioning": 73,
+        "pace": 62,
+        "aerial": 68,
+        "goalkeeping": 29
+      }
+    },
+    {
+      "name": "Lorenzo Fabbri",
+      "role": "difensore",
+      "attributes": {
+        "passing": 58,
+        "dribbling": 53,
+        "shooting": 50,
+        "tackling": 70,
+        "positioning": 71,
+        "pace": 60,
+        "aerial": 71,
+        "goalkeeping": 32
+      }
+    },
+    {
+      "name": "Filippo Giordano",
+      "role": "centrocampista",
+      "attributes": {
+        "passing": 70,
+        "dribbling": 65,
+        "shooting": 60,
+        "tackling": 65,
+        "positioning": 66,
+        "pace": 60,
+        "aerial": 55,
+        "goalkeeping": 28
+      }
+    },
+    {
+      "name": "Riccardo Mancini",
+      "role": "centrocampista",
+      "attributes": {
+        "passing": 73,
+        "dribbling": 68,
+        "shooting": 58,
+        "tackling": 63,
+        "positioning": 64,
+        "pace": 63,
+        "aerial": 58,
+        "goalkeeping": 26
+      }
+    },
+    {
+      "name": "Samuele Bruno",
+      "role": "centrocampista",
+      "attributes": {
+        "passing": 71,
+        "dribbling": 66,
+        "shooting": 61,
+        "tackling": 66,
+        "positioning": 62,
+        "pace": 61,
+        "aerial": 56,
+        "goalkeeping": 29
+      }
+    },
+    {
+      "name": "Leonardo Santoro",
+      "role": "centrocampista",
+      "attributes": {
+        "passing": 74,
+        "dribbling": 64,
+        "shooting": 59,
+        "tackling": 64,
+        "positioning": 65,
+        "pace": 64,
+        "aerial": 54,
+        "goalkeeping": 27
+      }
+    },
+    {
+      "name": "Michele Caruso",
+      "role": "attaccante",
+      "attributes": {
+        "passing": 62,
+        "dribbling": 73,
+        "shooting": 76,
+        "tackling": 38,
+        "positioning": 61,
+        "pace": 70,
+        "aerial": 67,
+        "goalkeeping": 30
+      }
+    },
+    {
+      "name": "Federico Barbieri",
+      "role": "attaccante",
+      "attributes": {
+        "passing": 60,
+        "dribbling": 71,
+        "shooting": 74,
+        "tackling": 41,
+        "positioning": 64,
+        "pace": 68,
+        "aerial": 65,
+        "goalkeeping": 28
+      }
+    }
+  ],
+  "bench": [
+    {
+      "name": "Pietro Silvestri",
+      "role": "portiere",
+      "attributes": {
+        "passing": 57,
+        "dribbling": 54,
+        "shooting": 46,
+        "tackling": 49,
+        "positioning": 72,
+        "pace": 55,
+        "aerial": 68,
+        "goalkeeping": 78
+      }
+    },
+    {
+      "name": "Alberto Cattaneo",
+      "role": "difensore",
+      "attributes": {
+        "passing": 57,
+        "dribbling": 52,
+        "shooting": 49,
+        "tackling": 74,
+        "positioning": 70,
+        "pace": 59,
+        "aerial": 70,
+        "goalkeeping": 31
+      }
+    },
+    {
+      "name": "Giacomo Leone",
+      "role": "difensore",
+      "attributes": {
+        "passing": 60,
+        "dribbling": 50,
+        "shooting": 47,
+        "tackling": 72,
+        "positioning": 73,
+        "pace": 62,
+        "aerial": 68,
+        "goalkeeping": 29
+      }
+    },
+    {
+      "name": "Cristian Palumbo",
+      "role": "centrocampista",
+      "attributes": {
+        "passing": 72,
+        "dribbling": 67,
+        "shooting": 62,
+        "tackling": 62,
+        "positioning": 63,
+        "pace": 62,
+        "aerial": 57,
+        "goalkeeping": 30
+      }
+    },
+    {
+      "name": "Valerio Donati",
+      "role": "centrocampista",
+      "attributes": {
+        "passing": 70,
+        "dribbling": 65,
+        "shooting": 60,
+        "tackling": 65,
+        "positioning": 66,
+        "pace": 60,
+        "aerial": 55,
+        "goalkeeping": 28
+      }
+    },
+    {
+      "name": "Antonio Messina",
+      "role": "attaccante",
+      "attributes": {
+        "passing": 63,
+        "dribbling": 74,
+        "shooting": 72,
+        "tackling": 39,
+        "positioning": 62,
+        "pace": 71,
+        "aerial": 68,
+        "goalkeeping": 26
+      }
+    },
+    {
+      "name": "Salvatore Gentile",
+      "role": "attaccante",
+      "attributes": {
+        "passing": 61,
+        "dribbling": 72,
+        "shooting": 75,
+        "tackling": 42,
+        "positioning": 60,
+        "pace": 69,
+        "aerial": 66,
+        "goalkeeping": 29
+      }
+    }
+  ]
+}

@@ -1,8 +1,12 @@
 package org.tasktelemetry.matchsimulator.engine.config;
 
-public record LineupConfig(int maximumSubstitutions, double inferiorityMultiplier) {
+import java.util.Objects;
+
+public record LineupConfig(int maximumSubstitutions, double inferiorityMultiplier,
+        DurationRange substitutionDuration) {
 
     public LineupConfig {
+        Objects.requireNonNull(substitutionDuration, "substitution duration must not be null");
         requireAtLeastOneSubstitution(maximumSubstitutions);
         requireWeakeningMultiplier(inferiorityMultiplier);
     }
@@ -10,7 +14,8 @@ public record LineupConfig(int maximumSubstitutions, double inferiorityMultiplie
     public static LineupConfig defaults() {
         int maximumSubstitutions = 5;
         double inferiorityMultiplier = 0.90;
-        return new LineupConfig(maximumSubstitutions, inferiorityMultiplier);
+        DurationRange substitutionDuration = new DurationRange(30, 45);
+        return new LineupConfig(maximumSubstitutions, inferiorityMultiplier, substitutionDuration);
     }
 
     private static void requireAtLeastOneSubstitution(int maximumSubstitutions) {

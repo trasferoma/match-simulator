@@ -77,7 +77,7 @@ class EngineConfigTest {
         EngineConfig config = EngineConfig.defaults();
 
         assertThat(config.dribbleProbability()).isStrictlyBetween(0.0, 1.0);
-        assertThat(config.minimumStoppageMinutes()).isGreaterThanOrEqualTo(1);
+        assertThat(config.stoppage().minimumMinutes()).isGreaterThanOrEqualTo(1);
     }
 
     @ParameterizedTest
@@ -105,8 +105,8 @@ class EngineConfigTest {
     void rejectsAHomeAdvantageThatIsNotPositiveAndFinite(double homeAdvantage) {
         DurationRange range = new DurationRange(1, 2);
 
-        assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, 1, shot, setPiece, cross, counterAttack,
-                playStyles, FoulConfig.defaults(), OffsideConfig.defaults(), LineupConfig.defaults(),
+        assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, StoppageConfig.defaults(), shot, setPiece, cross, counterAttack,
+                playStyles, FoulConfig.defaults(), OffsideConfig.defaults(), InjuryConfig.defaults(), LineupConfig.defaults(),
                 homeAdvantage))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("home advantage must be positive and finite");
@@ -153,8 +153,16 @@ class EngineConfigTest {
     private EngineConfig configWith(DurationRange buildUp, DurationRange attacking, double dribbleProbability,
             int minimumStoppageMinutes, ShotConfig shotConfig, SetPieceConfig setPieceConfig,
             CrossConfig crossConfig, CounterAttackConfig counterAttackConfig, PlayStyleModifiers styles) {
-        return new EngineConfig(buildUp, attacking, dribbleProbability, minimumStoppageMinutes, shotConfig,
+        StoppageConfig stoppage = stoppageWithMinimum(minimumStoppageMinutes);
+        return new EngineConfig(buildUp, attacking, dribbleProbability, stoppage, shotConfig,
                 setPieceConfig, crossConfig, counterAttackConfig, styles, FoulConfig.defaults(), OffsideConfig.defaults(),
+                InjuryConfig.defaults(),
                 LineupConfig.defaults(), HOME_ADVANTAGE);
+    }
+
+    private StoppageConfig stoppageWithMinimum(int minimumMinutes) {
+        StoppageConfig defaults = StoppageConfig.defaults();
+        return new StoppageConfig(minimumMinutes, defaults.secondsPerEvent(), defaults.maximumFirstHalfMinutes(),
+                defaults.maximumSecondHalfMinutes());
     }
 }

@@ -103,6 +103,7 @@ public final class LeagueMetrics {
         double offsides = averageContour(matches, ContourCounters::offsides);
         double substitutions = averageContour(matches, ContourCounters::substitutions);
         double penalties = averageContour(matches, ContourCounters::penalties);
+        double injuries = averageContour(matches, ContourCounters::injuries);
         double suspendedShare = percentageOf(matches, this::isSuspended);
         orientation.put("tiri in porta a partita", shotsOnTarget);
         orientation.put("xG a partita", expectedGoals);
@@ -112,6 +113,7 @@ public final class LeagueMetrics {
         orientation.put("gialli a partita", yellowCards);
         orientation.put("rossi a partita", redCards);
         orientation.put("fuorigioco a partita", offsides);
+        orientation.put("infortuni a partita", injuries);
         orientation.put("cambi a partita", substitutions);
         orientation.put("rigori a partita", penalties);
         orientation.put("partite sospese (%)", suspendedShare);

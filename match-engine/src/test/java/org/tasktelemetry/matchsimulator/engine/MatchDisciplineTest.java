@@ -37,7 +37,7 @@ class MatchDisciplineTest {
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> NOT_PLAYED_TYPES = EnumSet.of(EventType.STOPPAGE_ANNOUNCED,
             EventType.FIRST_HALF_END, EventType.MATCH_END, EventType.SUBSTITUTION, EventType.YELLOW_CARD,
-            EventType.SECOND_YELLOW_CARD, EventType.RED_CARD);
+            EventType.SECOND_YELLOW_CARD, EventType.RED_CARD, EventType.INJURY);
 
     private final Team home = TestTeams.team("Home", PlayStyle.BALANCED, 60);
     private final Team away = TestTeams.team("Away", PlayStyle.BALANCED, 60);

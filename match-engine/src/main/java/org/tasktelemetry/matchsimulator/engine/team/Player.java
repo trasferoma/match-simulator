@@ -9,7 +9,7 @@ public record Player(String name, Role role, PlayerAttributes attributes) {
         Objects.requireNonNull(role, "player role must not be null");
         Objects.requireNonNull(attributes, "player attributes must not be null");
         if (name.isBlank()) {
-            throw new IllegalArgumentException("player name must not be blank");
+            throw new TeamRuleViolation(TeamRule.PLAYER_NAME_BLANK, "player name must not be blank");
         }
     }
 }

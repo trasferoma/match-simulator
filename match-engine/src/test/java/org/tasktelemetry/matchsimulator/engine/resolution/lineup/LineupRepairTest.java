@@ -288,6 +288,58 @@ class LineupRepairTest {
     }
 
     @Test
+    void afterAnInjuryTheTeamThatStillHasAGoalkeeperIsLeftAsItIs() {
+        Team team = shape(4, 4, 2, false);
+        TeamOnPitch afterTheInjury = pitch(team, "M4");
+
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+
+        assertThat(repaired.players()).containsExactlyElementsOf(afterTheInjury.players());
+        assertThat(repaired.reassigned()).isEmpty();
+    }
+
+    @Test
+    void afterTheInjuryOfTheGoalkeeperTheBestGoalkeepingGoesInGoal() {
+        Team team = shapeWithGoalkeepingSpecialist();
+        TeamOnPitch afterTheInjury = pitch(team, "GK");
+
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+
+        Player specialist = find(team, "M1");
+        assertThat(repaired.goalkeeper()).isEqualTo(specialist);
+        assertThat(repaired.roleOf(specialist)).isEqualTo(Role.GOALKEEPER);
+        assertThat(repaired.players()).hasSize(10);
+    }
+
+    @Test
+    void afterTheInjuryOfTheGoalkeeperTheGoalComesBeforeTheSectorWhoseLastPlayerGoesInGoal() {
+        List<Player> starters = new ArrayList<>();
+        starters.add(player("GK", Role.GOALKEEPER, 65));
+        starters.add(new Player("D1", Role.DEFENDER, new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 95)));
+        starters.addAll(outfield("M", Role.MIDFIELDER, 4, 50));
+        starters.addAll(outfield("F", Role.FORWARD, 5, 70));
+        Team team = new Team("T", PlayStyle.BALANCED, starters, List.of());
+        TeamOnPitch afterTheInjury = pitch(team, "GK");
+
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+
+        assertThat(repaired.goalkeeper()).isEqualTo(find(team, "D1"));
+        assertThat(repaired.playersIn(Role.DEFENDER)).containsExactly(find(team, "M4"));
+        assertThat(repaired.playersIn(Role.MIDFIELDER)).hasSize(3);
+    }
+
+    @Test
+    void afterAnInjuryASectorEmptiedWithoutSubstituteIsRefilledFromTheMidfield() {
+        Team team = shape(1, 7, 2, false);
+        TeamOnPitch afterTheInjury = pitch(team, "D1");
+
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+
+        assertThat(repaired.playersIn(Role.DEFENDER)).containsExactly(find(team, "M7"));
+        assertThat(repaired.playersIn(Role.MIDFIELDER)).hasSize(6);
+    }
+
+    @Test
     void theRepairLeavesTheOriginalTeamUntouched() {
         Team team = shape(4, 4, 2, true);
         TeamOnPitch afterTheExpulsion = pitch(team, "GK");

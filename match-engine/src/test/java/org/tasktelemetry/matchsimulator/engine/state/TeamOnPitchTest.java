@@ -121,6 +121,45 @@ class TeamOnPitchTest {
     }
 
     @Test
+    void aSubstituteWhoEnteredAndThenLeftIsNoLongerOnTheBench() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player leaving = onPitch.playersIn(Role.DEFENDER).get(0);
+        Player entering = team.bench().stream().filter(player -> player.role() == Role.DEFENDER).findFirst()
+                .orElseThrow();
+        TeamOnPitch changed = onPitch.withSubstitution(leaving, entering, Role.DEFENDER);
+
+        TeamOnPitch afterLeavingAgain = changed.withoutPlayer(entering);
+
+        assertThat(afterLeavingAgain.availableBench()).doesNotContain(entering);
+        assertThat(afterLeavingAgain.availableBench()).hasSize(team.bench().size() - 1);
+    }
+
+    @Test
+    void aSubstituteWhoWasSubstitutedInTurnDoesNotComeBackEither() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player first = team.bench().stream().filter(player -> player.role() == Role.MIDFIELDER).findFirst()
+                .orElseThrow();
+        Player second = team.bench().stream().filter(player -> player.role() == Role.FORWARD).findFirst()
+                .orElseThrow();
+        TeamOnPitch changed = onPitch.withSubstitution(onPitch.playersIn(Role.MIDFIELDER).get(0), first,
+                Role.MIDFIELDER);
+
+        TeamOnPitch changedAgain = changed.withSubstitution(first, second, Role.MIDFIELDER);
+
+        assertThat(changedAgain.availableBench()).doesNotContain(first, second);
+        assertThat(changedAgain.substitutionsMade()).isEqualTo(2);
+    }
+
+    @Test
+    void aPlayerWhoLeftTheStartersIsNotAddedToTheBench() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+
+        TeamOnPitch reduced = onPitch.withoutPlayer(onPitch.players().get(3));
+
+        assertThat(reduced.availableBench()).containsExactlyElementsOf(team.bench());
+    }
+
+    @Test
     void theGoalkeeperIsTheFirstPlayerCountingAsGoalkeeperEvenWhenHisRoleIsAnother() {
         TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
         Player midfielder = onPitch.playersIn(Role.MIDFIELDER).get(0);
