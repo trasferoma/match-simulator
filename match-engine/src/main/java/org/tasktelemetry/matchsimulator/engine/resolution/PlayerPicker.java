@@ -1,6 +1,7 @@
 package org.tasktelemetry.matchsimulator.engine.resolution;
 
 import java.util.List;
+import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
@@ -20,6 +21,18 @@ public final class PlayerPicker {
         Role sector = sectorOf(zoneRole);
         List<Player> candidates = team.playersIn(sector);
         return pickWeighted(candidates);
+    }
+
+    public Optional<Player> pickOtherThan(TeamOnPitch team, ZoneRole zoneRole, Player excluded) {
+        Role sector = sectorOf(zoneRole);
+        List<Player> candidates = team.playersIn(sector).stream()
+                .filter(player -> !player.equals(excluded))
+                .toList();
+        if (candidates.isEmpty()) {
+            return Optional.empty();
+        }
+        Player picked = pickWeighted(candidates);
+        return Optional.of(picked);
     }
 
     private Player pickWeighted(List<Player> candidates) {

@@ -16,18 +16,7 @@ public record EngineConfig(
         OffsideConfig offside,
         InjuryConfig injury,
         LineupConfig lineup,
-        double homeAdvantage,
-        double duelSharpness) {
-
-    private static final double NEUTRAL_SHARPNESS = 1.0;
-
-    public EngineConfig(DurationRange buildUpAndMidfieldDuration, DurationRange attackingThirdDuration,
-            double dribbleProbability, StoppageConfig stoppage, ShotConfig shot, SetPieceConfig setPiece,
-            CrossConfig cross, CounterAttackConfig counterAttack, PlayStyleModifiers playStyles, FoulConfig foul,
-            OffsideConfig offside, InjuryConfig injury, LineupConfig lineup, double homeAdvantage) {
-        this(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability, stoppage, shot, setPiece, cross,
-                counterAttack, playStyles, foul, offside, injury, lineup, homeAdvantage, NEUTRAL_SHARPNESS);
-    }
+        double homeAdvantage) {
 
     public EngineConfig {
         Objects.requireNonNull(buildUpAndMidfieldDuration, "build-up and midfield duration must not be null");
@@ -44,7 +33,6 @@ public record EngineConfig(
         Objects.requireNonNull(lineup, "lineup configuration must not be null");
         requireProbability(dribbleProbability);
         requirePositiveAndFinite("home advantage", homeAdvantage);
-        requirePositiveAndFinite("duel sharpness", duelSharpness);
         requireCrossProbabilityBelowOneForEveryStyle(cross, playStyles);
         requireCounterAttackStartBelowOneForEveryStyle(counterAttack, playStyles);
     }
@@ -64,10 +52,9 @@ public record EngineConfig(
         InjuryConfig injury = InjuryConfig.defaults();
         LineupConfig lineup = LineupConfig.defaults();
         double homeAdvantage = 1.08;
-        double duelSharpness = 1.0;
         return new EngineConfig(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability,
                 stoppage, shot, setPiece, cross, counterAttack, playStyles, foul, offside, injury,
-                lineup, homeAdvantage, duelSharpness);
+                lineup, homeAdvantage);
     }
 
     private static void requireProbability(double dribbleProbability) {

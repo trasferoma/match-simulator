@@ -19,6 +19,7 @@ import org.tasktelemetry.matchsimulator.teamfile.TeamFileDocument.PlayerEntry;
 
 import tools.jackson.core.JacksonException;
 import tools.jackson.core.TokenStreamLocation;
+import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.DeserializationFeature;
 import tools.jackson.databind.json.JsonMapper;
@@ -94,7 +95,7 @@ public final class TeamFileReader {
     }
 
     private InvalidTeamFileException translateParsingFailure(JacksonException exception, Path file) {
-        if (exception instanceof StreamReadException) {
+        if (isSyntaxError(exception)) {
             return describeSyntaxError(exception, file);
         }
         String field = describePath(exception);
@@ -102,6 +103,10 @@ public final class TeamFileReader {
             return errors.inFileCausedBy(file, exception, TeamFileProblem.NOT_A_TEAM_OBJECT);
         }
         return errors.inField(file, field, TeamFileProblem.WRONG_VALUE_TYPE);
+    }
+
+    private boolean isSyntaxError(JacksonException exception) {
+        return exception instanceof StreamReadException && !(exception instanceof InputCoercionException);
     }
 
     private InvalidTeamFileException describeSyntaxError(JacksonException exception, Path file) {

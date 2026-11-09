@@ -45,8 +45,28 @@ class MatchOffsideTest {
             Player offsidePlayer = offside.participants().primary().orElseThrow();
             Player passer = offside.participants().secondary().orElseThrow();
             assertThat(teamOf(offside)).contains(offsidePlayer, passer);
-            assertThat(offsidePlayer.role()).isEqualTo(Role.FORWARD);
             assertThat(offside.phase()).isEqualTo(PlayPhase.BUILD_UP);
+        });
+    }
+
+    @Test
+    void anOffsideNeverNamesTheSamePlayerAsOffsidePlayerAndPasser() {
+        List<MatchEvent> offsides = eventsOfType(EventType.OFFSIDE);
+
+        assertThat(offsides).isNotEmpty().allSatisfy(offside -> {
+            Player offsidePlayer = offside.participants().primary().orElseThrow();
+            Player passer = offside.participants().secondary().orElseThrow();
+            assertThat(offsidePlayer).isNotEqualTo(passer);
+        });
+    }
+
+    @Test
+    void anOffsideBeforeAnyForcedLineupChangeNamesAForwardAsTheOffsidePlayer() {
+        List<MatchEvent> offsides = offsidesBeforeAnyForcedLineupChange();
+
+        assertThat(offsides).isNotEmpty().allSatisfy(offside -> {
+            Player offsidePlayer = offside.participants().primary().orElseThrow();
+            assertThat(offsidePlayer.role()).isEqualTo(Role.FORWARD);
         });
     }
 
@@ -97,6 +117,27 @@ class MatchOffsideTest {
                     .forEach(selected::add);
         }
         return selected;
+    }
+
+    private List<MatchEvent> offsidesBeforeAnyForcedLineupChange() {
+        List<MatchEvent> selected = new ArrayList<>();
+        for (List<MatchEvent> events : matches) {
+            for (MatchEvent event : events) {
+                if (forcesALineupChange(event)) {
+                    break;
+                }
+                if (event.type() == EventType.OFFSIDE) {
+                    selected.add(event);
+                }
+            }
+        }
+        return selected;
+    }
+
+    private boolean forcesALineupChange(MatchEvent event) {
+        return event.type() == EventType.RED_CARD
+                || event.type() == EventType.SECOND_YELLOW_CARD
+                || event.type() == EventType.INJURY;
     }
 
     private List<Player> teamOf(MatchEvent event) {

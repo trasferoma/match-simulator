@@ -41,8 +41,8 @@ public record ShotConfig(
 
     public static ShotConfig defaults() {
         ExpectedGoalsConfig expectedGoals = ExpectedGoalsConfig.defaults();
-        int neutralGoalkeeping = 75;
-        double goalkeepingSlope = 0.02;
+        int neutralGoalkeeping = 80;
+        double goalkeepingSlope = 0.006;
         double blockedShare = 0.30;
         double offTargetShare = 0.33;
         double blockedRecoveredByAttackShare = 0.40;

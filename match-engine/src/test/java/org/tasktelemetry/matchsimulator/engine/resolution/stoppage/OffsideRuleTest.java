@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
 
 import java.util.List;
+import java.util.Optional;
 import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
@@ -185,6 +186,33 @@ class OffsideRuleTest {
     }
 
     @Test
+    void theOffsidePlayerIsNeverThePasserEvenWhenBothBelongToTheArrivalSector() {
+        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
+        Player passer = attackers.playersIn(Role.FORWARD).getFirst();
+        ActionOutcome pass = passFrom(passer, MatchSide.HOME, ZoneRole.OPPONENT_BOX);
+
+        List<ActionOutcome> outcomes = callMany(rule, pass, attackers, 500);
+
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(outcome.type()).isEqualTo(EventType.OFFSIDE);
+            assertThat(outcome.participants().primary()).isNotEmpty().isNotEqualTo(Optional.of(passer));
+        });
+    }
+
+    @Test
+    void aPassFromTheOnlyPlayerOfTheArrivalSectorCannotBeOffside() {
+        TeamOnPitch attackers = attackersWithASingleForward();
+        OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
+        Player onlyForward = attackers.playersIn(Role.FORWARD).getFirst();
+        ActionOutcome pass = passFrom(onlyForward, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
+
+        List<ActionOutcome> outcomes = callMany(rule, pass, attackers, 500);
+
+        assertThat(outcomes).allSatisfy(outcome -> assertThat(outcome).isSameAs(pass));
+    }
+
+    @Test
     void theOffsideKeepsTheDurationOfThePassAndCarriesNoDetail() {
         TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
@@ -245,6 +273,17 @@ class OffsideRuleTest {
         return IntStream.range(0, count)
                 .mapToObj(index -> rule.callOffsideIfCaught(pass, attackers))
                 .toList();
+    }
+
+    private ActionOutcome passFrom(Player passer, MatchSide side, ZoneRole arrivalRole) {
+        Zone arrival = zoneWithRole(side, arrivalRole);
+        MatchState next = MatchState.openPlay(side, arrival);
+        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, next, PASS_SECONDS);
+    }
+
+    private TeamOnPitch attackersWithASingleForward() {
+        List<Player> starters = TestTeams.squad("Home", "S", ordinary, 1, 4, 5, 1);
+        return TeamOnPitch.startingWith(TestTeams.teamOf("Home", starters));
     }
 
     private ActionOutcome passArrivingIn(MatchSide side, ZoneRole arrivalRole, TeamOnPitch attackers) {

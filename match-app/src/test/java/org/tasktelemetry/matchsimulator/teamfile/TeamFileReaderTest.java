@@ -177,6 +177,14 @@ class TeamFileReaderTest {
     }
 
     @Test
+    void anAttributeTooBigForAnIntegerIsRefusedNamingThePlayerAndTheAttribute() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        ((ObjectNode) team.get("starters").get(0).get("attributes")).put("passing", 99_999_999_999L);
+
+        assertRefused(team, "starters[0].attributes.passing", "il tipo atteso");
+    }
+
+    @Test
     void anAttributeWrittenAsTextIsRefusedNamingThePlayerAndTheAttribute() {
         ObjectNode team = TeamFileFixture.validTeam();
         ((ObjectNode) team.get("starters").get(2).get("attributes")).put("shooting", "alto");

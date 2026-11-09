@@ -52,8 +52,8 @@ public record ExpectedGoalsConfig(
         multiplierByKind.put(ShotKind.DIRECT_FREE_KICK, 1.3);
         double minimumExpectedGoals = 0.001;
         double maximumExpectedGoals = 0.99;
-        int neutralShooting = 70;
-        double shootingSlope = 0.03;
+        int neutralShooting = 49;
+        double shootingSlope = 0.006;
         double penaltyBase = 0.79;
         int penaltyNeutralShooting = 70;
         double penaltyShootingSlope = 0.02;

@@ -21,11 +21,6 @@ public record Duel(double attack, double defence) {
         return new Duel(attack, defence * modifier);
     }
 
-    public Duel sharpened(double sharpness) {
-        requirePositive("sharpness", sharpness);
-        return new Duel(StrictMath.pow(attack, sharpness), StrictMath.pow(defence, sharpness));
-    }
-
     public double attackerWinProbability() {
         return attack / (attack + defence);
     }

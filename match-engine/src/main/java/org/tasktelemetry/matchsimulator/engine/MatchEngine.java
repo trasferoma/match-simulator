@@ -54,7 +54,7 @@ public final class MatchEngine {
         FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random);
         OffsideRule offsideRule = new OffsideRule(config.offside(), layout, random, picker);
         Matchups matchups = new Matchups(layout, picker, config.playStyles(), config.homeAdvantage(),
-                config.lineup().inferiorityMultiplier(), config.duelSharpness());
+                config.lineup().inferiorityMultiplier());
         PossessionActionResolver possessionResolver = new PossessionActionResolver(config, layout, random, matchups,
                 shotResolver, crossResolver, foulResolver);
         CounterAttackResolver counterAttackResolver = new CounterAttackResolver(config.counterAttack(),

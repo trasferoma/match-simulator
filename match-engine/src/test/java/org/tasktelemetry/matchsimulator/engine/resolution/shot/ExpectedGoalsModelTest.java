@@ -24,8 +24,10 @@ import org.tasktelemetry.matchsimulator.engine.team.Role;
 class ExpectedGoalsModelTest {
 
     private static final double EXACT = 1e-9;
-    private static final int NEUTRAL_SHOOTING = 70;
-    private static final int NEUTRAL_GOALKEEPING = 75;
+    private static final int NEUTRAL_SHOOTING = ShotConfig.defaults().expectedGoals().neutralShooting();
+    private static final int NEUTRAL_GOALKEEPING = ShotConfig.defaults().neutralGoalkeeping();
+    private static final int PENALTY_NEUTRAL_SHOOTING =
+            ShotConfig.defaults().expectedGoals().penaltyNeutralShooting();
 
     private final ShotConfig config = ShotConfig.defaults();
     private final ExpectedGoalsModel model = new ExpectedGoalsModel(config);
@@ -89,10 +91,10 @@ class ExpectedGoalsModelTest {
 
     @Test
     void theShootingCorrectionMultipliesTheOddsOfTheBase() {
-        double expected = oddsShifted(0.085, 0.03 * 10);
+        double expected = oddsShifted(0.085, config.expectedGoals().shootingSlope() * 10);
 
         double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT,
-                shooterWith(80));
+                shooterWith(NEUTRAL_SHOOTING + 10));
 
         assertThat(expectedGoals).isCloseTo(expected, within(EXACT));
     }
@@ -150,7 +152,7 @@ class ExpectedGoalsModelTest {
 
     @Test
     void aPenaltyByANeutralTakerIsTheConfiguredBase() {
-        double expectedGoals = model.penaltyExpectedGoals(shooterWith(NEUTRAL_SHOOTING));
+        double expectedGoals = model.penaltyExpectedGoals(shooterWith(PENALTY_NEUTRAL_SHOOTING));
 
         assertThat(expectedGoals).isCloseTo(0.79, within(EXACT));
     }
@@ -185,13 +187,13 @@ class ExpectedGoalsModelTest {
     @ParameterizedTest
     @ValueSource(doubles = {0.02, 0.12, 0.79})
     void aBetterGoalkeeperLowersTheProbabilityOfAGoal(double expectedGoals) {
-        double weak = model.goalProbability(expectedGoals, keeperWith(55));
+        double weak = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING - 20));
         double neutral = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING));
-        double strong = model.goalProbability(expectedGoals, keeperWith(95));
+        double strong = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING + 20));
 
         assertThat(weak).isGreaterThan(neutral);
         assertThat(neutral).isGreaterThan(strong);
-        assertThat(strong).isCloseTo(oddsShifted(expectedGoals, -0.02 * 20), within(EXACT));
+        assertThat(strong).isCloseTo(oddsShifted(expectedGoals, -config.goalkeepingSlope() * 20), within(EXACT));
     }
 
     @ParameterizedTest

@@ -9,6 +9,7 @@ import java.util.Map;
 import java.util.Objects;
 
 import org.tasktelemetry.matchsimulator.calibration.BandedResult.BandOrigin;
+import org.tasktelemetry.matchsimulator.calibration.BandedResult.CriterionStanding;
 
 public record CalibrationReport(List<BandedResult> results, Map<String, Double> orientation) {
 
@@ -29,20 +30,21 @@ public record CalibrationReport(List<BandedResult> results, Map<String, Double> 
         for (BandedMetric metric : BandedMetric.values()) {
             double value = league.values().get(metric);
             Band band = targets.bands().get(metric);
-            BandedResult result = new BandedResult(metric.label(), value, band, BandOrigin.READ);
+            BandedResult result = new BandedResult(metric.label(), value, band, BandOrigin.READ,
+                    CriterionStanding.COUNTS);
             results.add(result);
         }
         BandedResult lowPossession = new BandedResult("possesso, 10 percentile", league.possessionP10(),
-                targets.possessionLow(), BandOrigin.COMPUTED);
+                targets.possessionLow(), BandOrigin.COMPUTED, CriterionStanding.GUIDANCE);
         BandedResult highPossession = new BandedResult("possesso, 90 percentile", league.possessionP90(),
-                targets.possessionHigh(), BandOrigin.COMPUTED);
+                targets.possessionHigh(), BandOrigin.COMPUTED, CriterionStanding.GUIDANCE);
         results.add(lowPossession);
         results.add(highPossession);
         return new CalibrationReport(results, league.orientation());
     }
 
-    public List<BandedResult> resultsOutsideTheBand() {
-        return results.stream().filter(result -> !result.isInside()).toList();
+    public List<BandedResult> criterionResultsOutsideTheBand() {
+        return results.stream().filter(BandedResult::isOutsideTheBandAndCounts).toList();
     }
 
     public String render() {

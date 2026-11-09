@@ -1,5 +1,7 @@
 package org.tasktelemetry.matchsimulator.engine.resolution.stoppage;
 
+import java.util.Optional;
+
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.OffsideConfig;
@@ -40,16 +42,20 @@ public final class OffsideRule {
         if (!isAdvanceTowardsTheOpponentBox(outcome)) {
             return outcome;
         }
-        Player receiver = pickReceiver(outcome, attackers);
-        if (!isCaughtOffside(receiver)) {
+        Player passer = passerOf(outcome);
+        Optional<Player> receiver = pickReceiver(outcome, attackers, passer);
+        if (receiver.isEmpty() || !isCaughtOffside(receiver.get())) {
             return outcome;
         }
-        return offsideAgainst(receiver, outcome);
+        return offsideAgainst(receiver.get(), passer, outcome);
     }
 
-    private ActionOutcome offsideAgainst(Player receiver, ActionOutcome pass) {
-        Player passer = pass.participants().primary()
+    private Player passerOf(ActionOutcome pass) {
+        return pass.participants().primary()
                 .orElseThrow(() -> new IllegalArgumentException("a completed pass must name the passer"));
+    }
+
+    private ActionOutcome offsideAgainst(Player receiver, Player passer, ActionOutcome pass) {
         MatchSide defendingSide = pass.next().possession().opposite();
         Zone defenceZone = layout.defenceZone(defendingSide);
         MatchState next = MatchState.forSetPiece(defendingSide, defenceZone, SetPieceKind.OFFSIDE_FREE_KICK);
@@ -66,9 +72,9 @@ public final class OffsideRule {
         return arrivalRole == ZoneRole.ATTACKING_THIRD || arrivalRole == ZoneRole.OPPONENT_BOX;
     }
 
-    private Player pickReceiver(ActionOutcome pass, TeamOnPitch attackers) {
+    private Optional<Player> pickReceiver(ActionOutcome pass, TeamOnPitch attackers, Player passer) {
         ZoneRole arrivalRole = arrivalRoleOf(pass);
-        return picker.pickFrom(attackers, arrivalRole);
+        return picker.pickOtherThan(attackers, arrivalRole, passer);
     }
 
     private ZoneRole arrivalRoleOf(ActionOutcome outcome) {

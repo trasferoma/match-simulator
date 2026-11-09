@@ -45,7 +45,8 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
 
 ### Secondo giallo nel conteggio dei rossi
 - **Oggi:** il secondo giallo conta sia fra i gialli sia fra i rossi del tabellino. I rossi simulati sono troppi
-  rispetto ai campionati reali, quasi tutti da secondo giallo: un ammonito continua a fare falli come prima.
+  rispetto ai campionati reali (0,50 a partita contro 0,11–0,29), quasi tutti da secondo giallo: un ammonito continua
+  a fare falli come prima.
 - **Da decidere:** come la fonte reale (football-data) conta il secondo giallo; se un ammonito deve rischiare di meno.
 - **Dal:** 2026-11-08.
 
@@ -78,7 +79,7 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
 
 ### Quando può esserci fuorigioco
 - **Oggi:** solo su un passaggio riuscito che arriva in trequarti o nell'area avversaria. Dribbling, contropiede e
-  cross non danno mai fuorigioco. Il fuorigioco è un attaccante scelto come gli altri giocatori, non il destinatario
+  cross non danno mai fuorigioco. Il fuorigioco è un compagno di chi passa (mai chi passa) scelto come gli altri giocatori, non il destinatario
   di un passaggio nominato. Il banco non ha un obiettivo reale per i fuorigioco: oggi sono circa 2 a partita,
   probabilmente pochi.
 - **Alternative:** fuorigioco anche sul cross e sul lancio del contropiede.
@@ -157,21 +158,14 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
 
 ## SPEC v1: taratura
 
-### Possesso troppo equilibrato
-- **Oggi:** le partite simulate stanno quasi tutte fra 45% e 55% di possesso; nella realtà vanno da circa 35% a 65%.
-  Con le forze del banco (da 55 a 80) il duello non va oltre 59/41, e gli stili non bastano ad allargare la
-  distribuzione.
-- **Alternative:** un parametro che renda il duello più netto; stili con effetto più forte sul possesso; cambiare la
-  forbice o il modo di misurarla nella SPEC.
-- **Dal:** 2026-11-08.
-
-### Pochi pareggi
-- **Oggi:** i pareggi sono sotto la forbice reale (circa 21% contro un minimo di 22%). Sono rientrati una volta, sul
-  limite, e sono riusciti quando è cambiata la sequenza dei numeri casuali. Abbassare i gol li fa salire, ma porta i gol
-  fuori forbice: con i soli valori di tiro non si chiude.
-- **Da decidere:** quale leva usare: quote dei non-gol, forza del portiere, distanza di forza fra le squadre del banco,
-  fattore campo.
-- **Dal:** 2026-11-08.
+### Peso del talento di chi tira e del portiere
+- **Oggi:** per portare i pareggi nella forbice reale (ora 22,9% contro un minimo di 22,1%, margine sottile) la
+  bravura di chi tira e del portiere pesa poco: un tiratore 20 punti sopra il neutro moltiplica le quote di gol per
+  circa 1,13 (prima 1,8). La forza della squadra conta ancora attraverso i duelli, che decidono quanti tiri si fanno.
+  Compromesso accettato dall'utente il 2026-11-09.
+- **Da decidere:** se nella versione successiva il talento individuale deve pesare di più; in quel caso pareggi e
+  possesso vanno ritarati insieme (il giro palla è il candidato per il possesso).
+- **Dal:** 2026-11-09.
 
 ### Pochi calci d'angolo
 - **Oggi:** circa 2,5 angoli a partita contro circa 10 reali. L'angolo nasce solo da parate, tiri murati e respinte
@@ -248,4 +242,25 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
 - **Oggi:** un percorso che il sistema non accetta (per esempio con `|` su Windows) è un errore d'uso: messaggio,
   riga d'uso e codice 2.
 - **Alternativa:** trattarlo come file squadra non leggibile: messaggio con il file e codice 1, senza riga d'uso.
+- **Dal:** 2026-11-09.
+
+### Passaggio verso un reparto senza compagni
+- **Oggi:** un passaggio non nomina chi lo riceve. Così una squadra con un solo attaccante può passare dalla
+  trequarti verso l'area anche se in area non c'è nessun altro compagno; solo il fuorigioco, su quel passaggio, non
+  può avvenire.
+- **Alternativa:** un passaggio verso un reparto dove non c'è nessun compagno non è possibile (o diventa un
+  avanzamento palla al piede).
+- **Dal:** 2026-11-09.
+
+### Errori del banco di taratura
+- **Oggi:** il banco, avviato da una cartella diversa dalla radice senza indicare i dati, si ferma con un errore
+  tecnico in inglese e lo stack trace. Per decisione dell'utente il banco è uno strumento interno e non segue la regola
+  dei messaggi in italiano.
+- **Alternativa:** messaggio in italiano senza stack trace, come per la riga di comando.
+- **Dal:** 2026-11-09.
+
+### Doppietta con lo stesso file per casa e ospite
+- **Oggi:** la cronaca conta doppiette e triplette confrontando il giocatore, non la squadra. Con lo stesso file per
+  casa e ospite due giocatori identici potrebbero sommare i gol (sospetto della revisione finale, non dimostrato).
+- **Alternativa:** confrontare anche la squadra dell'evento.
 - **Dal:** 2026-11-09.

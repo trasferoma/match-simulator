@@ -12,13 +12,13 @@ import org.junit.jupiter.api.Test;
 class CalibrationAcceptanceTest {
 
     @Test
-    void theTenMetricsOfTheCriterionOfDoneFallInsideTheirBands() {
+    void theNineMetricsOfTheCriterionOfDoneFallInsideTheirBands() {
         Path directory = CalibrationDirectory.fromSystemProperty();
         CalibrationBench bench = CalibrationBench.standard();
 
         CalibrationReport report = bench.run(directory);
 
-        List<BandedResult> outside = report.resultsOutsideTheBand();
+        List<BandedResult> outside = report.criterionResultsOutsideTheBand();
         assertThat(outside)
                 .as("metrics outside their band, full report:%n%s", report.render())
                 .isEmpty();

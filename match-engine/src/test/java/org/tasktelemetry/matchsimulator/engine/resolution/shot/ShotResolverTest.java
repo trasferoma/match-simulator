@@ -42,8 +42,10 @@ class ShotResolverTest {
     private static final int TRIALS = 20_000;
     private static final int MANY_TRIALS = 100_000;
     private static final double ONE_POINT = 0.01;
-    private static final int NEUTRAL_SHOOTING = 70;
-    private static final int NEUTRAL_GOALKEEPING = 75;
+    private static final int NEUTRAL_SHOOTING = ShotConfig.defaults().expectedGoals().neutralShooting();
+    private static final int NEUTRAL_GOALKEEPING = ShotConfig.defaults().neutralGoalkeeping();
+    private static final int PENALTY_NEUTRAL_SHOOTING =
+            ShotConfig.defaults().expectedGoals().penaltyNeutralShooting();
 
     private final PitchLayout layout = PitchLayout.standard();
     private final ShotConfig config = ShotConfig.defaults();
@@ -51,6 +53,7 @@ class ShotResolverTest {
     private final ShotQualityScale scale = new ShotQualityScale(config);
     private final TeamOnPitch attackers = teamOnPitch("Home", NEUTRAL_SHOOTING, NEUTRAL_GOALKEEPING);
     private final TeamOnPitch defenders = teamOnPitch("Away", NEUTRAL_SHOOTING, NEUTRAL_GOALKEEPING);
+    private final TeamOnPitch penaltyTakers = teamOnPitch("Home", PENALTY_NEUTRAL_SHOOTING, NEUTRAL_GOALKEEPING);
     private final Zone box = layout.ownBoxZone(MatchSide.AWAY);
     private final MatchState state = MatchState.openPlay(MatchSide.HOME, box);
 
@@ -302,10 +305,10 @@ class ShotResolverTest {
 
     @Test
     void aPenaltyGoesInWithTheProbabilityOfThePenaltyModel() {
-        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(attackers));
+        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(penaltyTakers));
         double expected = model.goalProbability(expectedGoals, defenders.goalkeeper());
 
-        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), attackers, defenders, TRIALS);
+        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), penaltyTakers, defenders, TRIALS);
 
         assertThat(expected).isCloseTo(0.79, within(1e-9));
         assertThat(share(outcomes, EventType.GOAL)).isCloseTo(expected, within(ONE_POINT));
@@ -313,7 +316,7 @@ class ShotResolverTest {
 
     @Test
     void aPenaltyIsNeverBlockedAndSplitsTheMissesBetweenOffTargetAndSaved() {
-        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), attackers, defenders, MANY_TRIALS);
+        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), penaltyTakers, defenders, MANY_TRIALS);
 
         MissShares shares = MissShares.ofPenalty(config);
         double miss = 1.0 - 0.79;
@@ -336,7 +339,7 @@ class ShotResolverTest {
 
     @Test
     void thePenaltyDetailMarksThePenaltyAndTheDurationIsThatOfAPenaltyOrOfAGoal() {
-        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), attackers, defenders, 2_000);
+        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), penaltyTakers, defenders, 2_000);
 
         assertThat(outcomes).allSatisfy(outcome -> {
             assertThat(profileOf(outcome).penalty()).isTrue();

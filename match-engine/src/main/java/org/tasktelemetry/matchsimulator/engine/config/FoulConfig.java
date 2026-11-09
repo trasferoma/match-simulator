@@ -34,7 +34,7 @@ public record FoulConfig(
     }
 
     public static FoulConfig defaults() {
-        double baseFoulProbability = 0.75;
+        double baseFoulProbability = 0.85;
         int neutralTackling = 70;
         double tacklingSlope = 0.03;
         double penaltyAreaFoulFactor = 0.08;

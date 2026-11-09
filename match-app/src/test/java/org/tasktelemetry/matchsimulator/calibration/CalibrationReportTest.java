@@ -33,8 +33,9 @@ class CalibrationReportTest {
         String text = report.render();
 
         assertThat(lineOf(text, "possesso, 10 percentile")).contains("calcolata").contains("34,00")
-                .contains("32,00").contains("38,00").endsWith("DENTRO");
-        assertThat(lineOf(text, "possesso, 90 percentile")).contains("calcolata").endsWith("FUORI");
+                .contains("32,00").contains("38,00").contains("DENTRO").contains("orientamento");
+        assertThat(lineOf(text, "possesso, 90 percentile")).contains("calcolata").contains("FUORI")
+                .contains("orientamento");
     }
 
     @Test
@@ -55,12 +56,20 @@ class CalibrationReportTest {
     }
 
     @Test
-    void theResultsOutsideTheBandAreListed() {
+    void theCriterionResultsOutsideTheBandAreListedWithoutTheGuidanceOnes() {
         CalibrationReport report = reportWithGoalsAboveTheBand();
 
-        assertThat(report.resultsOutsideTheBand())
+        assertThat(report.criterionResultsOutsideTheBand())
                 .extracting(BandedResult::label)
-                .containsExactly("gol a partita", "possesso, 90 percentile");
+                .containsExactly("gol a partita");
+    }
+
+    @Test
+    void thePossessionOutsideItsBandDoesNotBreakTheCriterion() {
+        CalibrationReport report = reportWithEveryMetricInsideAndPossessionOutside();
+
+        assertThat(report.render()).contains("FUORI");
+        assertThat(report.criterionResultsOutsideTheBand()).isEmpty();
     }
 
     private CalibrationReport reportWithGoalsAboveTheBand() {
@@ -74,6 +83,18 @@ class CalibrationReportTest {
         Band possessionLow = new Band(32.0, 38.0);
         Band possessionHigh = new Band(62.0, 68.0);
         MeasuredLeague league = new MeasuredLeague(values, 34.0, 55.0, orientation);
+        CalibrationTargets targets = new CalibrationTargets(bands, possessionLow, possessionHigh);
+        return CalibrationReport.compare(league, targets);
+    }
+
+    private CalibrationReport reportWithEveryMetricInsideAndPossessionOutside() {
+        for (BandedMetric metric : BandedMetric.values()) {
+            values.put(metric, 1.5);
+            bands.put(metric, new Band(1.0, 2.0));
+        }
+        Band possessionLow = new Band(32.0, 38.0);
+        Band possessionHigh = new Band(62.0, 68.0);
+        MeasuredLeague league = new MeasuredLeague(values, 45.0, 55.0, orientation);
         CalibrationTargets targets = new CalibrationTargets(bands, possessionLow, possessionHigh);
         return CalibrationReport.compare(league, targets);
     }
