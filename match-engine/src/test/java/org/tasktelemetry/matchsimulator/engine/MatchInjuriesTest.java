@@ -395,7 +395,7 @@ class MatchInjuriesTest {
         EngineConfig base = TestConfigs.withoutFouls(EngineConfig.defaults());
         InjuryConfig injury = new InjuryConfig(probability, base.injury().duration());
         LineupConfig lineup = new LineupConfig(maximumSubstitutions, base.lineup().inferiorityMultiplier(),
-                base.lineup().substitutionDuration());
+                base.lineup().outOfPositionMultiplier(), base.lineup().substitutionDuration());
         return TestConfigs.withLineup(TestConfigs.withInjury(base, injury), lineup);
     }
 

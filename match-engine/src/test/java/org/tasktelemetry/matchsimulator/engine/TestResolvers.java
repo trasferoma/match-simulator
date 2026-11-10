@@ -1,10 +1,12 @@
 package org.tasktelemetry.matchsimulator.engine;
 
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
 import org.tasktelemetry.matchsimulator.engine.config.ShotConfig;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.resolution.CounterAttackResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
+import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
@@ -19,19 +21,45 @@ public final class TestResolvers {
     }
 
     public static ShotResolver shotResolver(EngineConfig config, PitchLayout layout, MatchRandom random) {
-        return shotResolver(config.shot(), layout, random);
+        Matchups matchups = matchups(config, layout, random);
+        return shotResolver(config.shot(), layout, random, matchups);
+    }
+
+    public static ShotResolver shotResolver(ShotConfig shotConfig, PitchLayout layout, MatchRandom random) {
+        EngineConfig neutralVenue = TestConfigs.withoutHomeAdvantage(EngineConfig.defaults());
+        Matchups matchups = matchups(neutralVenue, layout, random);
+        return shotResolver(shotConfig, layout, random, matchups);
+    }
+
+    public static ShotResolver shotResolver(ShotConfig shotConfig, PitchLayout layout, MatchRandom random,
+            Matchups matchups) {
+        ExpectedGoalsModel model = new ExpectedGoalsModel(shotConfig);
+        ShotQualityScale qualityScale = new ShotQualityScale(shotConfig);
+        return new ShotResolver(shotConfig, layout, random, model, qualityScale, matchups);
     }
 
     public static CrossResolver crossResolver(EngineConfig config, PitchLayout layout, MatchRandom random,
             ShotResolver shotResolver) {
         PlayerPicker picker = new PlayerPicker(random);
-        return new CrossResolver(config.cross(), config.playStyles(), layout, random, picker, shotResolver);
+        Matchups matchups = matchups(config, layout, random);
+        return new CrossResolver(config.cross(), config.playStyles(), layout, random, picker, shotResolver,
+                matchups);
     }
 
     public static Matchups matchups(EngineConfig config, PitchLayout layout, MatchRandom random) {
         PlayerPicker picker = new PlayerPicker(random);
+        OutOfPositionPenalty outOfPosition = outOfPositionPenalty(config);
         return new Matchups(layout, picker, config.playStyles(), config.homeAdvantage(),
-                config.lineup().inferiorityMultiplier());
+                config.lineup().inferiorityMultiplier(), outOfPosition);
+    }
+
+    public static OutOfPositionPenalty outOfPositionPenalty(EngineConfig config) {
+        return new OutOfPositionPenalty(config.lineup().outOfPositionMultiplier());
+    }
+
+    public static FoulResolver foulResolver(FoulConfig foulConfig, PitchLayout layout, MatchRandom random) {
+        OutOfPositionPenalty outOfPosition = outOfPositionPenalty(EngineConfig.defaults());
+        return new FoulResolver(foulConfig, layout, random, outOfPosition);
     }
 
     public static CounterAttackResolver counterAttackResolver(EngineConfig config, PitchLayout layout,
@@ -46,14 +74,8 @@ public final class TestResolvers {
         Matchups matchups = matchups(config, layout, random);
         ShotResolver shotResolver = shotResolver(config, layout, random);
         CrossResolver crossResolver = crossResolver(config, layout, random, shotResolver);
-        FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random);
+        FoulResolver foulResolver = foulResolver(config.foul(), layout, random);
         return new PossessionActionResolver(config, layout, random, matchups, shotResolver, crossResolver,
                 foulResolver);
-    }
-
-    public static ShotResolver shotResolver(ShotConfig shotConfig, PitchLayout layout, MatchRandom random) {
-        ExpectedGoalsModel model = new ExpectedGoalsModel(shotConfig);
-        ShotQualityScale qualityScale = new ShotQualityScale(shotConfig);
-        return new ShotResolver(shotConfig, layout, random, model, qualityScale);
     }
 }

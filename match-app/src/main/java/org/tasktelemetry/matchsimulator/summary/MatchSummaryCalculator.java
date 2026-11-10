@@ -9,17 +9,22 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
+import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class MatchSummaryCalculator {
 
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(
             EventType.GOAL, EventType.SHOT_SAVED, EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
-    private static final Set<EventType> CROSS_TYPES = EnumSet.of(EventType.CROSS_COMPLETED, EventType.CROSS_FAILED);
+    private static final Set<EventType> CROSS_TYPES = EnumSet.of(EventType.CROSS_COMPLETED, EventType.CROSS_FAILED,
+            EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final Set<EventType> SHOT_ON_TARGET_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED);
     private static final Set<EventType> YELLOW_TYPES = EnumSet.of(EventType.YELLOW_CARD,
             EventType.SECOND_YELLOW_CARD);
     private static final Set<EventType> RED_TYPES = EnumSet.of(EventType.RED_CARD, EventType.SECOND_YELLOW_CARD);
+    private static final Set<EventType> DIRECT_RED_TYPES = EnumSet.of(EventType.RED_CARD);
+    private static final Set<EventType> SECOND_YELLOW_TYPES = EnumSet.of(EventType.SECOND_YELLOW_CARD);
+    private static final Set<EventType> DEFLECTED_CROSS_TYPES = EnumSet.of(EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final Set<EventType> FOUL_TYPES = EnumSet.of(EventType.FOUL);
     private static final Set<EventType> CORNER_TYPES = EnumSet.of(EventType.CORNER_KICK);
     private static final Set<EventType> SUBSTITUTION_TYPES = EnumSet.of(EventType.SUBSTITUTION);
@@ -78,7 +83,7 @@ public final class MatchSummaryCalculator {
         List<MatchEvent> sideEvents = selectEventsOf(events, side);
         List<MatchEvent> fouledSideEvents = selectEventsOf(events, side.opposite());
         int corners = countOfTypes(sideEvents, CORNER_TYPES);
-        int crosses = countOfTypes(sideEvents, CROSS_TYPES);
+        int crosses = countOpenPlayCrosses(sideEvents);
         int fouls = countOfTypes(fouledSideEvents, FOUL_TYPES);
         int yellowCards = countOfTypes(sideEvents, YELLOW_TYPES);
         int redCards = countOfTypes(sideEvents, RED_TYPES);
@@ -86,8 +91,11 @@ public final class MatchSummaryCalculator {
         int offsides = countOfTypes(sideEvents, OFFSIDE_TYPES);
         int penalties = countPenaltiesAwarded(sideEvents);
         int injuries = countOfTypes(sideEvents, INJURY_TYPES);
+        int directRedCards = countOfTypes(sideEvents, DIRECT_RED_TYPES);
+        int secondYellowCards = countOfTypes(sideEvents, SECOND_YELLOW_TYPES);
+        int deflectedCrosses = countOfTypes(sideEvents, DEFLECTED_CROSS_TYPES);
         return new ContourCounters(corners, crosses, fouls, yellowCards, redCards, offsides, substitutions, penalties,
-                injuries);
+                injuries, directRedCards, secondYellowCards, deflectedCrosses);
     }
 
     private List<MatchEvent> selectEventsOf(List<MatchEvent> events, MatchSide side) {
@@ -100,6 +108,13 @@ public final class MatchSummaryCalculator {
 
     private int countShotsOnTarget(List<MatchEvent> sideEvents) {
         return countOfTypes(sideEvents, SHOT_ON_TARGET_TYPES);
+    }
+
+    private int countOpenPlayCrosses(List<MatchEvent> sideEvents) {
+        return (int) sideEvents.stream()
+                .filter(event -> CROSS_TYPES.contains(event.type()))
+                .filter(event -> event.phase() != PlayPhase.SET_PIECE)
+                .count();
     }
 
     private int countPenaltiesAwarded(List<MatchEvent> sideEvents) {

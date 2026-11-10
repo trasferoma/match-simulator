@@ -78,6 +78,7 @@ public final class Match {
             return;
         }
         announceStoppageIfDue();
+        completeCrossInFlightAtTheWhistle();
         takePenaltyAwardedAtTheWhistle();
         closePeriodIfExpired();
     }
@@ -90,6 +91,16 @@ public final class Match {
         state = outcome.next();
         countGoal(before, outcome);
         sanctionFoul(before, outcome);
+    }
+
+    private void completeCrossInFlightAtTheWhistle() {
+        if (isCrossAwaitedAtTheWhistle()) {
+            resolveAndRecordNextAction();
+        }
+    }
+
+    private boolean isCrossAwaitedAtTheWhistle() {
+        return clock.hasExpired() && state.hasCrossInFlight();
     }
 
     private void takePenaltyAwardedAtTheWhistle() {
@@ -128,8 +139,15 @@ public final class Match {
 
     private void treatInjury(MatchSide side, Player injured) {
         recordInjury(side, injured);
+        forgetPassOf(injured);
         LineupOutcome outcome = replaceInjured(side, injured);
         applyLineupOutcome(side, outcome);
+    }
+
+    private void forgetPassOf(Player injured) {
+        if (injured.equals(state.lastPasser())) {
+            state = state.withoutLastPasser();
+        }
     }
 
     private LineupOutcome replaceInjured(MatchSide side, Player injured) {
@@ -147,7 +165,7 @@ public final class Match {
 
     private ActionOutcome resolveNextAction() {
         if (state.hasCrossInFlight()) {
-            return resolveAerialDuel();
+            return resolveCrossInFlight();
         }
         if (state.phase() == PlayPhase.SET_PIECE) {
             return resolveSetPiece();
@@ -158,11 +176,11 @@ public final class Match {
         return resolveOpenPlay();
     }
 
-    private ActionOutcome resolveAerialDuel() {
+    private ActionOutcome resolveCrossInFlight() {
         TeamOnPitch attackers = teams.get(state.possession());
         MatchSide defendingSide = state.possession().opposite();
         TeamOnPitch defenders = teams.get(defendingSide);
-        return resolvers.cross().resolveAerialDuel(state, score, attackers, defenders);
+        return resolvers.cross().resolveCrossInFlight(state, score, attackers, defenders);
     }
 
     private ActionOutcome resolveSetPiece() {
@@ -177,7 +195,7 @@ public final class Match {
         MatchSide defendingSide = state.possession().opposite();
         TeamOnPitch defenders = teams.get(defendingSide);
         ActionOutcome outcome = resolvers.possession().resolve(state, score, attackers, defenders);
-        ActionOutcome checkedForOffside = resolvers.offside().callOffsideIfCaught(outcome, attackers);
+        ActionOutcome checkedForOffside = resolvers.offside().callOffsideIfCaught(outcome, attackers, defenders);
         return resolvers.counterAttack().openCounterAttackIfBallRecovered(checkedForOffside, defenders);
     }
 

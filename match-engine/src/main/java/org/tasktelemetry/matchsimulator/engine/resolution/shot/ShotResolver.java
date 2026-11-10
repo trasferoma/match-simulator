@@ -18,6 +18,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
@@ -26,24 +27,28 @@ import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class ShotResolver {
 
+    private static final double NEUTRAL = 1.0;
+
     private final ShotConfig config;
     private final PitchLayout layout;
     private final MatchRandom random;
     private final ExpectedGoalsModel model;
     private final ShotQualityScale qualityScale;
+    private final Matchups matchups;
 
     public ShotResolver(ShotConfig config, PitchLayout layout, MatchRandom random, ExpectedGoalsModel model,
-            ShotQualityScale qualityScale) {
+            ShotQualityScale qualityScale, Matchups matchups) {
         this.config = config;
         this.layout = layout;
         this.random = random;
         this.model = model;
         this.qualityScale = qualityScale;
+        this.matchups = matchups;
     }
 
-    public ActionOutcome resolveShot(MatchState state, Score score, Player shooter, ShotKind kind,
-            TeamOnPitch defenders) {
-        Attempt attempt = prepareShot(state, shooter, kind, defenders);
+    public ActionOutcome resolveShot(MatchState state, Score score, TeamOnPitch attackers, Player shooter,
+            ShotKind kind, TeamOnPitch defenders) {
+        Attempt attempt = prepareShot(state, attackers, shooter, kind, defenders);
         return conclude(state, score, attempt);
     }
 
@@ -54,19 +59,22 @@ public final class ShotResolver {
     }
 
     public Player penaltyTakerOf(TeamOnPitch attackers) {
-        Comparator<Player> byShooting = Comparator.comparingInt(this::shootingOf);
+        Comparator<Player> byShooting = Comparator.comparingInt(player -> player.attributes().shooting());
         return attackers.players().stream()
                 .max(byShooting)
                 .orElseThrow();
     }
 
-    private Attempt prepareShot(MatchState state, Player shooter, ShotKind kind, TeamOnPitch defenders) {
+    private Attempt prepareShot(MatchState state, TeamOnPitch attackers, Player shooter, ShotKind kind,
+            TeamOnPitch defenders) {
         ZoneRole zoneRole = layout.roleOf(state.zone(), state.possession());
-        double expectedGoals = model.expectedGoals(zoneRole, state.phase(), kind, shooter);
+        double shootingMultiplier = matchups.shootingMultiplier(state, attackers, shooter);
+        double expectedGoals = model.expectedGoals(zoneRole, state.phase(), kind, shooter, shootingMultiplier);
         ShotQuality danger = qualityScale.dangerOf(expectedGoals);
         ShotProfile profile = ShotProfile.ofShot(expectedGoals, kind, danger);
         Player goalkeeper = defenders.goalkeeper();
-        double goalProbability = model.goalProbability(expectedGoals, goalkeeper);
+        double goalkeepingMultiplier = matchups.goalkeepingMultiplier(state, defenders);
+        double goalProbability = model.goalProbability(expectedGoals, goalkeeper, goalkeepingMultiplier);
         MissShares misses = MissShares.ofShot(config);
         DurationRange missDuration = config.shotDuration();
         return new Attempt(profile, shooter, goalkeeper, goalProbability, misses, missDuration);
@@ -78,7 +86,7 @@ public final class ShotResolver {
         ShotQuality danger = qualityScale.dangerOf(expectedGoals);
         ShotProfile profile = ShotProfile.ofPenalty(expectedGoals, danger);
         Player goalkeeper = defenders.goalkeeper();
-        double goalProbability = model.goalProbability(expectedGoals, goalkeeper);
+        double goalProbability = model.goalProbability(expectedGoals, goalkeeper, NEUTRAL);
         MissShares misses = MissShares.ofPenalty(config);
         DurationRange missDuration = config.penaltyDuration();
         return new Attempt(profile, taker, goalkeeper, goalProbability, misses, missDuration);
@@ -112,7 +120,7 @@ public final class ShotResolver {
         Zone kickOffZone = layout.kickOffZone();
         MatchState next = MatchState.forSetPiece(concedingSide, kickOffZone, SetPieceKind.KICK_OFF);
         int duration = drawDuration(config.goalWithRestartDuration());
-        Participants participants = shooterWithCrosser(state, attempt);
+        Participants participants = scorerWithAssistant(state, attempt);
         return new ActionOutcome(EventType.GOAL, participants, next, duration, detail);
     }
 
@@ -174,6 +182,21 @@ public final class ShotResolver {
         return MatchState.forSetPiece(attackingSide, opponentBox, SetPieceKind.CORNER);
     }
 
+    private Participants scorerWithAssistant(MatchState state, Attempt attempt) {
+        Player scorer = attempt.shooter();
+        if (state.hasCrossInFlight()) {
+            return Participants.of(scorer, state.crosser());
+        }
+        if (isAssistedByLastPasser(state, scorer)) {
+            return Participants.of(scorer, state.lastPasser());
+        }
+        return Participants.of(scorer);
+    }
+
+    private boolean isAssistedByLastPasser(MatchState state, Player scorer) {
+        return state.hasLastPasser() && !state.lastPasser().equals(scorer);
+    }
+
     private Participants shooterWithCrosser(MatchState state, Attempt attempt) {
         if (state.hasCrossInFlight()) {
             return Participants.of(attempt.shooter(), state.crosser());
@@ -183,10 +206,6 @@ public final class ShotResolver {
 
     private int drawDuration(DurationRange range) {
         return random.nextIntInclusive(range.minSeconds(), range.maxSeconds());
-    }
-
-    private int shootingOf(Player player) {
-        return player.attributes().shooting();
     }
 
     private record Attempt(ShotProfile profile, Player shooter, Player goalkeeper, double goalProbability,

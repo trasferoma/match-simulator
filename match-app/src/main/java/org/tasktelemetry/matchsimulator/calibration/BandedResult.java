@@ -52,7 +52,7 @@ public record BandedResult(String label, double value, Band band, BandOrigin ori
 
     public String render() {
         String verdict = isInside() ? "DENTRO" : "FUORI";
-        return String.format(Locale.ITALY, "%-30s %9.2f   forbice %s %7.2f - %7.2f   %s%s", label, value,
+        return String.format(Locale.ITALY, "%-34s %9.2f   forbice %s %7.2f - %7.2f   %s%s", label, value,
                 origin.description(), band.low(), band.high(), verdict, standing.suffix());
     }
 }

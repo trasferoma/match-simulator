@@ -151,4 +151,60 @@ void rejectsMissingValues() {
                 .withCrossInFlightFrom(crosser))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void anOpenPlayStateRemembersTheLastPasserAndMovingKeepsHim() {
+        Player passer = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+        Zone other = PitchLayout.standard().zones().getFirst();
+
+        MatchState afterPass = MatchState.openPlay(MatchSide.HOME, zone).withLastPasser(passer);
+
+        assertThat(afterPass.hasLastPasser()).isTrue();
+        assertThat(afterPass.lastPasser()).isEqualTo(passer);
+        assertThat(afterPass.movedTo(other).lastPasser()).isEqualTo(passer);
+        assertThat(afterPass.movedTo(other).zone()).isEqualTo(other);
+        assertThat(MatchState.openPlay(MatchSide.HOME, zone).hasLastPasser()).isFalse();
+    }
+
+    @Test
+    void openingPlayAgainOrStartingACrossForgetsTheLastPasser() {
+        Player passer = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+        MatchState afterPass = MatchState.openPlay(MatchSide.HOME, zone).withLastPasser(passer);
+
+        assertThat(afterPass.inOpenPlay().hasLastPasser()).isFalse();
+        assertThat(afterPass.withCrossInFlightFrom(passer).hasLastPasser()).isFalse();
+    }
+
+    @Test
+    void withoutTheLastPasserTheStateIsTheSameButForHim() {
+        Player passer = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+        MatchState afterPass = MatchState.openPlay(MatchSide.HOME, zone).withLastPasser(passer);
+
+        MatchState forgotten = afterPass.withoutLastPasser();
+
+        assertThat(forgotten.hasLastPasser()).isFalse();
+        assertThat(forgotten).isEqualTo(MatchState.openPlay(MatchSide.HOME, zone));
+    }
+
+    @Test
+    void rejectsALastPasserOutsideOpenBuildUpPlay() {
+        Player passer = TestTeams.player("Rossi", Role.MIDFIELDER, TestTeams.uniform(60));
+
+        assertThatThrownBy(() -> MatchState.forSetPiece(MatchSide.HOME, zone, SetPieceKind.CORNER)
+                .withLastPasser(passer))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("a last passer can be remembered only in open build-up play");
+        assertThatThrownBy(() -> MatchState.openPlay(MatchSide.HOME, zone).inCounterAttack()
+                .withLastPasser(passer))
+                .isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> MatchState.openPlay(MatchSide.HOME, zone).withCrossInFlightFrom(passer)
+                .withLastPasser(passer))
+                .isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void rejectsANullLastPasser() {
+        assertThatThrownBy(() -> MatchState.openPlay(MatchSide.HOME, zone).withLastPasser(null))
+                .isInstanceOf(NullPointerException.class);
+    }
 }

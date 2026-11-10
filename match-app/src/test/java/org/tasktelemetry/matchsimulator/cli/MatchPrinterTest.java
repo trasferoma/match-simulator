@@ -96,8 +96,8 @@ class MatchPrinterTest {
 
     private MatchSummary summaryWithOneHomeGoalAt(MatchTime time) {
         ScoredGoal goal = new ScoredGoal(MatchSide.HOME, SCORER, time);
-        ContourCounters homeContour = new ContourCounters(6, 8, 11, 2, 0, 3, 3, 0, 0);
-        ContourCounters awayContour = new ContourCounters(3, 7, 12, 1, 1, 2, 5, 0, 0);
+        ContourCounters homeContour = new ContourCounters(6, 8, 11, 2, 0, 3, 3, 0, 0, 0, 0, 0);
+        ContourCounters awayContour = new ContourCounters(3, 7, 12, 1, 1, 2, 5, 0, 0, 0, 0, 0);
         TeamStatistics home = new TeamStatistics(10, 5, 1.25, 600, homeContour);
         TeamStatistics away = new TeamStatistics(4, 2, 0.5, 400, awayContour);
         return new MatchSummary(List.of(goal), home, away);

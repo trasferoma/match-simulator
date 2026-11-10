@@ -19,14 +19,16 @@ public final class Matchups {
     private final PlayStyleModifiers playStyles;
     private final double homeAdvantage;
     private final double inferiorityMultiplier;
+    private final OutOfPositionPenalty outOfPosition;
 
     public Matchups(PitchLayout layout, PlayerPicker picker, PlayStyleModifiers playStyles, double homeAdvantage,
-            double inferiorityMultiplier) {
+            double inferiorityMultiplier, OutOfPositionPenalty outOfPosition) {
         this.layout = layout;
         this.picker = picker;
         this.playStyles = playStyles;
         this.homeAdvantage = homeAdvantage;
         this.inferiorityMultiplier = inferiorityMultiplier;
+        this.outOfPosition = outOfPosition;
     }
 
     public Player pickAttacker(MatchState state, TeamOnPitch attackers) {
@@ -40,30 +42,63 @@ public final class Matchups {
         return picker.pickFrom(defenders, zoneRole);
     }
 
-    public Duel openPlayDuel(Duel base, MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {
-        MatchSide attackingSide = state.possession();
-        MatchSide defendingSide = attackingSide.opposite();
-        ZoneRole attackingRole = layout.roleOf(state.zone(), attackingSide);
-        ZoneRole defendingRole = layout.roleOf(state.zone(), defendingSide);
-        StyleEffect attackerStyle = styleOf(attackers);
-        StyleEffect defenderStyle = styleOf(defenders);
-        double attackerStrength = attackStrength(attackerStyle, attackingRole);
-        double defenderStrength = defenceStrength(defenderStyle, attackingRole);
-        double attackerModifier = modifierOf(attackerStrength, attackingSide, attackers, attackingRole);
-        double defenderModifier = modifierOf(defenderStrength, defendingSide, defenders, defendingRole);
+    public Duel openPlayDuel(Duel base, MatchState state, TeamOnPitch attackers, Player attacker,
+            TeamOnPitch defenders, Player defender) {
+        double attackerModifier = attackingModifier(state, attackers, attacker);
+        double defenderModifier = defendingModifier(state, defenders, defender);
         return base.withAttackModifier(attackerModifier).withDefenceModifier(defenderModifier);
     }
 
-    public Duel counterAttackDuel(Duel base, MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {
+    public Duel counterAttackDuel(Duel base, MatchState state, TeamOnPitch attackers, Player attacker,
+            TeamOnPitch defenders, Player defender) {
         MatchSide attackingSide = state.possession();
         MatchSide defendingSide = attackingSide.opposite();
         ZoneRole attackingRole = layout.roleOf(state.zone(), attackingSide);
         ZoneRole defendingRole = layout.roleOf(state.zone(), defendingSide);
-        StyleEffect attackerStyle = styleOf(attackers);
-        double advance = attackerStyle.counterAttackAdvance();
-        double attackerModifier = modifierOf(advance, attackingSide, attackers, attackingRole);
-        double defenderModifier = modifierOf(NEUTRAL, defendingSide, defenders, defendingRole);
+        double advance = styleOf(attackers).counterAttackAdvance();
+        double attackerTeamModifier = modifierOf(advance, attackingSide, attackers, attackingRole);
+        double defenderTeamModifier = modifierOf(NEUTRAL, defendingSide, defenders, defendingRole);
+        double attackerPositionFactor = outOfPosition.factorOf(attackers, attacker);
+        double defenderPositionFactor = outOfPosition.factorOf(defenders, defender);
+        double attackerModifier = attackerTeamModifier * attackerPositionFactor;
+        double defenderModifier = defenderTeamModifier * defenderPositionFactor;
         return base.withAttackModifier(attackerModifier).withDefenceModifier(defenderModifier);
+    }
+
+    public double shootingMultiplier(MatchState state, TeamOnPitch attackers, Player shooter) {
+        return attackingModifier(state, attackers, shooter);
+    }
+
+    public double goalkeepingMultiplier(MatchState state, TeamOnPitch defenders) {
+        return defendingTeamModifier(state, defenders);
+    }
+
+    private double attackingModifier(MatchState state, TeamOnPitch attackers, Player attacker) {
+        double teamModifier = attackingTeamModifier(state, attackers);
+        double positionFactor = outOfPosition.factorOf(attackers, attacker);
+        return teamModifier * positionFactor;
+    }
+
+    private double defendingModifier(MatchState state, TeamOnPitch defenders, Player defender) {
+        double teamModifier = defendingTeamModifier(state, defenders);
+        double positionFactor = outOfPosition.factorOf(defenders, defender);
+        return teamModifier * positionFactor;
+    }
+
+    private double attackingTeamModifier(MatchState state, TeamOnPitch attackers) {
+        MatchSide attackingSide = state.possession();
+        ZoneRole attackingRole = layout.roleOf(state.zone(), attackingSide);
+        double strength = attackStrength(styleOf(attackers), attackingRole);
+        return modifierOf(strength, attackingSide, attackers, attackingRole);
+    }
+
+    private double defendingTeamModifier(MatchState state, TeamOnPitch defenders) {
+        MatchSide attackingSide = state.possession();
+        MatchSide defendingSide = attackingSide.opposite();
+        ZoneRole attackingRole = layout.roleOf(state.zone(), attackingSide);
+        ZoneRole defendingRole = layout.roleOf(state.zone(), defendingSide);
+        double strength = defenceStrength(styleOf(defenders), attackingRole);
+        return modifierOf(strength, defendingSide, defenders, defendingRole);
     }
 
     private double modifierOf(double styleStrength, MatchSide side, TeamOnPitch team, ZoneRole zoneRole) {

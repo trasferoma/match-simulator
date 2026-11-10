@@ -62,16 +62,17 @@ public final class CounterAttackResolver {
         Player runner = pickRunner(state, attackers);
         Player chaser = pickChaser(state, defenders);
         Duel attributeDuel = paceDuel(runner, chaser);
-        Duel duel = applyStyleAndVenue(attributeDuel, state, attackers, defenders);
+        Duel duel = applyStyleAndVenue(attributeDuel, state, attackers, runner, defenders, chaser);
         if (attackerWins(duel)) {
-            return completeRun(state, score, runner, defenders);
+            return completeRun(state, score, attackers, runner, defenders);
         }
         return loseRun(state, chaser);
     }
 
-    private ActionOutcome completeRun(MatchState state, Score score, Player runner, TeamOnPitch defenders) {
+    private ActionOutcome completeRun(MatchState state, Score score, TeamOnPitch attackers, Player runner,
+            TeamOnPitch defenders) {
         if (isInOpponentBox(state)) {
-            return shotResolver.resolveShot(state, score, runner, ShotKind.FOOT, defenders);
+            return shotResolver.resolveShot(state, score, attackers, runner, ShotKind.FOOT, defenders);
         }
         Zone target = forwardZone(state);
         MatchState next = new MatchState(state.possession(), target, state.phase());
@@ -94,9 +95,9 @@ public final class CounterAttackResolver {
         return matchups.pickDefender(state, defenders);
     }
 
-    private Duel applyStyleAndVenue(Duel attributeDuel, MatchState state, TeamOnPitch attackers,
-            TeamOnPitch defenders) {
-        return matchups.counterAttackDuel(attributeDuel, state, attackers, defenders);
+    private Duel applyStyleAndVenue(Duel attributeDuel, MatchState state, TeamOnPitch attackers, Player attacker,
+            TeamOnPitch defenders, Player defender) {
+        return matchups.counterAttackDuel(attributeDuel, state, attackers, attacker, defenders, defender);
     }
 
     private boolean isBallRecovered(ActionOutcome outcome) {

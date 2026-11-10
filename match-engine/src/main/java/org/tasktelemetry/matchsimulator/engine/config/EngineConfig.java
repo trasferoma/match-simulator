@@ -6,6 +6,7 @@ public record EngineConfig(
         DurationRange buildUpAndMidfieldDuration,
         DurationRange attackingThirdDuration,
         double dribbleProbability,
+        double noTeammateDribbleThreshold,
         StoppageConfig stoppage,
         ShotConfig shot,
         SetPieceConfig setPiece,
@@ -31,7 +32,8 @@ public record EngineConfig(
         Objects.requireNonNull(offside, "offside configuration must not be null");
         Objects.requireNonNull(injury, "injury configuration must not be null");
         Objects.requireNonNull(lineup, "lineup configuration must not be null");
-        requireProbability(dribbleProbability);
+        requireProbability("dribble probability", dribbleProbability);
+        requireProbability("no-teammate dribble threshold", noTeammateDribbleThreshold);
         requirePositiveAndFinite("home advantage", homeAdvantage);
         requireCrossProbabilityBelowOneForEveryStyle(cross, playStyles);
         requireCounterAttackStartBelowOneForEveryStyle(counterAttack, playStyles);
@@ -41,6 +43,7 @@ public record EngineConfig(
         DurationRange buildUpAndMidfieldDuration = new DurationRange(12, 33);
         DurationRange attackingThirdDuration = new DurationRange(10, 37);
         double dribbleProbability = 0.30;
+        double noTeammateDribbleThreshold = 0.50;
         StoppageConfig stoppage = StoppageConfig.defaults();
         ShotConfig shot = ShotConfig.defaults();
         SetPieceConfig setPiece = SetPieceConfig.defaults();
@@ -53,15 +56,14 @@ public record EngineConfig(
         LineupConfig lineup = LineupConfig.defaults();
         double homeAdvantage = 1.08;
         return new EngineConfig(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability,
-                stoppage, shot, setPiece, cross, counterAttack, playStyles, foul, offside, injury,
-                lineup, homeAdvantage);
+                noTeammateDribbleThreshold, stoppage, shot, setPiece, cross, counterAttack, playStyles, foul,
+                offside, injury, lineup, homeAdvantage);
     }
 
-    private static void requireProbability(double dribbleProbability) {
-        boolean isProbability = dribbleProbability >= 0.0 && dribbleProbability <= 1.0;
+    private static void requireProbability(String name, double value) {
+        boolean isProbability = value >= 0.0 && value <= 1.0;
         if (!isProbability) {
-            throw new IllegalArgumentException("dribble probability must be between 0.0 and 1.0, was "
-                    + dribbleProbability);
+            throw new IllegalArgumentException(name + " must be between 0.0 and 1.0, was " + value);
         }
     }
 

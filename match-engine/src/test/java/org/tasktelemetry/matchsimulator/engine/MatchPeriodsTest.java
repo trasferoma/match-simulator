@@ -191,7 +191,7 @@ class MatchPeriodsTest {
         DurationRange attacking = defaults.attackingThirdDuration();
         StoppageConfig stoppage = new StoppageConfig(minutes, defaults.stoppage().secondsPerEvent(),
                 defaults.stoppage().maximumFirstHalfMinutes(), defaults.stoppage().maximumSecondHalfMinutes());
-        return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), stoppage, defaults.shot(),
+        return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), defaults.noTeammateDribbleThreshold(), stoppage, defaults.shot(),
                 defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
                 defaults.offside(), defaults.injury(), defaults.lineup(), defaults.homeAdvantage());
     }
@@ -216,10 +216,15 @@ class MatchPeriodsTest {
     }
 
     private int longestStepSeconds(EngineConfig config) {
+        int actionThatPassesTheWhistle = longestConfiguredActionSeconds(config);
+        int aerialDuelAndOutcomeOfACrossAwaitedAtTheWhistle = longestConfiguredActionSeconds(config);
         int penaltyConcededByTheLastAction = config.shot().penaltyDuration().maxSeconds();
         int substitutionCausedByTheLastAction = config.lineup().substitutionDuration().maxSeconds();
-        return longestConfiguredActionSeconds(config) + penaltyConcededByTheLastAction
-                + substitutionCausedByTheLastAction;
+        int injuryFollowingTheLastAction = config.injury().duration().maxSeconds();
+        int substitutionOrInjuryFollowingTheLastAction = Math.max(substitutionCausedByTheLastAction,
+                injuryFollowingTheLastAction);
+        return actionThatPassesTheWhistle + aerialDuelAndOutcomeOfACrossAwaitedAtTheWhistle
+                + penaltyConcededByTheLastAction + substitutionOrInjuryFollowingTheLastAction;
     }
 
     private List<MatchEvent> playToEnd(EngineConfig config, long seed) {

@@ -30,7 +30,9 @@ class MatchCrossesAndCornersTest {
     private static final Set<EventType> AERIAL_OUTCOMES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED, EventType.CLEARANCE);
     private static final Set<EventType> CORNER_CAUSES = EnumSet.of(EventType.SHOT_SAVED, EventType.SHOT_BLOCKED,
-            EventType.CLEARANCE);
+            EventType.CLEARANCE, EventType.CROSS_DEFLECTED_TO_CORNER);
+    private static final Set<EventType> CROSS_FAILURES = EnumSet.of(EventType.CROSS_FAILED,
+            EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final Set<EventType> PERIOD_END_TYPES = EnumSet.of(EventType.FIRST_HALF_END,
             EventType.MATCH_END);
 
@@ -45,21 +47,37 @@ class MatchCrossesAndCornersTest {
     void crossesCornersAndHeadersAppearInAMatch() {
         assertThat(eventsOf(EventType.CROSS_COMPLETED)).isNotEmpty();
         assertThat(eventsOf(EventType.CROSS_FAILED)).isNotEmpty();
+        assertThat(eventsOf(EventType.CROSS_DEFLECTED_TO_CORNER)).isNotEmpty();
         assertThat(eventsOf(EventType.CORNER_KICK)).isNotEmpty();
         assertThat(eventsOf(EventType.CLEARANCE)).isNotEmpty();
         assertThat(headerShots()).isNotEmpty();
     }
 
     @Test
-    void aCrossIsAttemptedOnlyOnTheAttackingThirdInOpenPlay() {
+    void aCrossIsAttemptedOnlyOnTheAttackingThirdInOpenPlayOrFromACornerOrAFreeKickCross() {
         List<MatchEvent> crosses = eventsOf(EventType.CROSS_COMPLETED);
         crosses.addAll(eventsOf(EventType.CROSS_FAILED));
+        crosses.addAll(eventsOf(EventType.CROSS_DEFLECTED_TO_CORNER));
 
         assertThat(crosses).isNotEmpty().allSatisfy(cross -> {
+            boolean inOpenPlay = cross.phase() == PlayPhase.BUILD_UP && cross.zoneRole() == ZoneRole.ATTACKING_THIRD;
+            boolean fromASetPiece = cross.phase() == PlayPhase.SET_PIECE && cross.zoneRole() == ZoneRole.OPPONENT_BOX;
+            assertThat(inOpenPlay || fromASetPiece).isTrue();
+        });
+        assertThat(eventsOf(EventType.CROSS_COMPLETED)).allSatisfy(cross -> {
             assertThat(cross.zoneRole()).isEqualTo(ZoneRole.ATTACKING_THIRD);
             assertThat(cross.phase()).isEqualTo(PlayPhase.BUILD_UP);
-            assertThat(cross.participants().primary().orElseThrow().role()).isEqualTo(Role.MIDFIELDER);
         });
+    }
+
+    @Test
+    void crossersComeFromEveryLineAndNeverFromTheGoalkeeper() {
+        List<MatchEvent> crosses = eventsOf(EventType.CROSS_COMPLETED);
+        crosses.addAll(eventsOf(EventType.CORNER_KICK));
+
+        assertThat(crosses).extracting(cross -> cross.participants().primary().orElseThrow().role())
+                .contains(Role.DEFENDER, Role.MIDFIELDER, Role.FORWARD)
+                .doesNotContain(Role.GOALKEEPER);
     }
 
     @Test
@@ -99,7 +117,7 @@ class MatchCrossesAndCornersTest {
     }
 
     @Test
-    void aCornerKickIsTakenInTheSetPiecePhaseAndFollowedByAHeaderOrAClearanceOfTheSameAttackers() {
+    void aCornerKickIsTakenInTheSetPiecePhaseAndFollowedByAHeaderAClearanceOrAFailedCrossOfTheSameAttackers() {
         int checked = 0;
         for (List<MatchEvent> events : matches) {
             for (int index = 0; index < events.size(); index++) {
@@ -110,8 +128,12 @@ class MatchCrossesAndCornersTest {
                 }
                 assertThat(corner.phase()).isEqualTo(PlayPhase.SET_PIECE);
                 assertThat(corner.zoneRole()).isEqualTo(ZoneRole.OPPONENT_BOX);
-                assertThat(corner.participants().primary().orElseThrow().role()).isEqualTo(Role.MIDFIELDER);
-                assertAerialOutcome(corner, next.get(), PlayPhase.SET_PIECE);
+                if (CROSS_FAILURES.contains(next.get().type())) {
+                    assertThat(next.get().side()).isEqualTo(corner.side());
+                    assertThat(next.get().phase()).isEqualTo(PlayPhase.SET_PIECE);
+                } else {
+                    assertAerialOutcome(corner, next.get(), PlayPhase.SET_PIECE);
+                }
                 checked++;
             }
         }
@@ -119,7 +141,7 @@ class MatchCrossesAndCornersTest {
     }
 
     @Test
-    void aCornerIsAlwaysAwardedByASaveABlockOrAClearanceOfTheSameAttackers() {
+    void aCornerIsAlwaysAwardedByASaveABlockAClearanceOrADeflectedCrossOfTheSameAttackers() {
         int checked = 0;
         for (List<MatchEvent> events : matches) {
             for (int index = 0; index < events.size(); index++) {

@@ -130,7 +130,7 @@ class TeamFileReaderTest {
         ObjectNode team = TeamFileFixture.validTeam();
         ((ObjectNode) team.get("starters").get(1)).put("role", "portiere");
 
-        assertRefused(team, "starters, bench", "esattamente un portiere", "ne ha 2");
+        assertRefused(team, "starters", "esattamente un portiere", "ne ha 2");
     }
 
     @Test
@@ -140,7 +140,7 @@ class TeamFileReaderTest {
             ((ObjectNode) team.get("starters").get(index)).put("role", "centrocampista");
         }
 
-        assertRefused(team, "starters, bench", "almeno un difensore");
+        assertRefused(team, "starters", "almeno un difensore");
     }
 
     @Test
@@ -205,7 +205,7 @@ class TeamFileReaderTest {
         ObjectNode team = TeamFileFixture.validTeam();
         ((ArrayNode) team.get("starters")).remove(10);
 
-        assertRefused(team, "starters, bench", "esattamente 11 titolari", "ne ha 10");
+        assertRefused(team, "starters", "esattamente 11 titolari", "ne ha 10");
     }
 
     @Test
@@ -261,13 +261,35 @@ class TeamFileReaderTest {
     }
 
     @Test
-    void anExtraFieldInTheFileIsIgnored() {
+    void anUnknownTeamFieldIsRefusedNamingIt() {
         ObjectNode team = TeamFileFixture.validTeam();
         team.put("stile", "offensivo");
 
-        Team read = reader.read(TeamFileFixture.write(directory, team));
+        assertRefused(team, "stile", "il campo non è previsto");
+    }
 
-        assertThat(read.name()).isEqualTo("Atletico Mare");
+    @Test
+    void anUnknownPlayerFieldIsRefusedNamingItWithItsPath() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        ((ObjectNode) team.get("starters").get(3)).put("ruolo", "ala");
+
+        assertRefused(team, "starters[3].ruolo", "il campo non è previsto");
+    }
+
+    @Test
+    void anUnknownBenchPlayerFieldIsRefusedNamingItWithItsPath() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        ((ObjectNode) team.get("bench").get(2)).put("ruolo", "ala");
+
+        assertRefused(team, "bench[2].ruolo", "il campo non è previsto");
+    }
+
+    @Test
+    void anUnknownAttributeIsRefusedNamingItWithItsPath() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        ((ObjectNode) team.get("starters").get(0).get("attributes")).put("speed", 70);
+
+        assertRefused(team, "starters[0].attributes.speed", "il campo non è previsto");
     }
 
     private void assertRefused(ObjectNode team, String field, String... expectedFragments) {

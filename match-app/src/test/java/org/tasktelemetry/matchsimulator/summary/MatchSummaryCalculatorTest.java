@@ -127,6 +127,23 @@ class MatchSummaryCalculatorTest {
     }
 
     @Test
+    void theBallCirculationCountsAsPossessionOfTheSideThatHasTheBallAndAsNothingElse() {
+        events.add(plainEvent(EventType.BALL_CIRCULATED, MatchSide.HOME, homeMidfielder, 25));
+        events.add(plainEvent(EventType.PASS_COMPLETED, MatchSide.AWAY, awayDefender, 15));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.home().possessionSeconds()).isEqualTo(25);
+        assertThat(summary.away().possessionSeconds()).isEqualTo(15);
+        assertThat(summary.home().shots()).isZero();
+        assertThat(summary.home().shotsOnTarget()).isZero();
+        assertThat(summary.home().contour().crosses()).isZero();
+        assertThat(summary.home().contour().corners()).isZero();
+        assertThat(summary.home().contour().fouls()).isZero();
+        assertThat(summary.goals()).isEmpty();
+    }
+
+    @Test
     void aTurnoverCountsForTheSideThatHeldTheBallNotForTheSideOfItsPrimaryPlayer() {
         events.add(plainEvent(EventType.INTERCEPTION, MatchSide.HOME, awayDefender, 6));
         events.add(plainEvent(EventType.TACKLE, MatchSide.AWAY, homeMidfielder, 4));
@@ -197,6 +214,19 @@ void crossesCountBothTheCompletedAndTheFailedOnesForTheSideThatCrossed() {
 }
 
 @Test
+void aCrossDeflectedToACornerCountsAsACrossOfTheSideThatCrossedOnlyWhenItWasAnOpenPlayCross() {
+    events.add(plainEvent(EventType.CROSS_DEFLECTED_TO_CORNER, MatchSide.HOME, awayDefender, 4));
+    events.add(setPieceEvent(EventType.CROSS_DEFLECTED_TO_CORNER, MatchSide.HOME, awayDefender, 4));
+    events.add(setPieceEvent(EventType.CROSS_FAILED, MatchSide.HOME, homeMidfielder, 4));
+
+    MatchSummary summary = calculator.summarize(events);
+
+    assertThat(summary.home().contour().crosses()).isEqualTo(1);
+    assertThat(summary.home().contour().deflectedCrosses()).isEqualTo(2);
+    assertThat(summary.away().contour()).isEqualTo(ContourCounters.none());
+}
+
+@Test
 void aClearanceIsNeitherACornerNorACrossAndTheDeliveryOfACornerIsNotACross() {
     events.add(plainEvent(EventType.CLEARANCE, MatchSide.HOME, awayDefender, 2));
     events.add(plainEvent(EventType.CORNER_KICK, MatchSide.HOME, homeMidfielder, 30));
@@ -252,6 +282,10 @@ void aGoalWithoutAScorerIsRejected() {
         assertThat(summary.home().contour().redCards()).isEqualTo(1);
         assertThat(summary.away().contour().yellowCards()).isEqualTo(2);
         assertThat(summary.away().contour().redCards()).isEqualTo(1);
+        assertThat(summary.home().contour().directRedCards()).isEqualTo(1);
+        assertThat(summary.home().contour().secondYellowCards()).isZero();
+        assertThat(summary.away().contour().directRedCards()).isZero();
+        assertThat(summary.away().contour().secondYellowCards()).isEqualTo(1);
     }
 
     @Test
@@ -402,6 +436,12 @@ void aGoalWithoutAScorerIsRejected() {
     private MatchEvent plainEvent(EventType type, MatchSide side, Player primary, int seconds) {
         Participants participants = primary == null ? Participants.nobody() : Participants.of(primary);
         return event(type, side, firstHalf(10), participants, seconds, EventDetail.none());
+    }
+
+    private MatchEvent setPieceEvent(EventType type, MatchSide side, Player primary, int seconds) {
+        int order = events.size() + 1;
+        return new MatchEvent(order, firstHalf(10), type, side, ZoneRole.OPPONENT_BOX, PlayPhase.SET_PIECE,
+                Participants.of(primary), seconds, EventDetail.none());
     }
 
     private MatchEvent event(EventType type, MatchSide side, MatchTime time, Participants participants, int seconds,

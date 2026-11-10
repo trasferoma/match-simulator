@@ -13,7 +13,9 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
+import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
@@ -49,7 +51,7 @@ class FoulResolverTest {
     void theFoulProbabilityOfAnAverageDefenderIsTheBaseOfTheConfiguration() {
         Player average = tacklingPlayer(config.neutralTackling());
 
-        double probability = resolver(SEED).foulProbability(average);
+        double probability = resolver(SEED).foulProbability(awayTeam, average);
 
         assertThat(probability).isCloseTo(config.baseFoulProbability(), within(EXACT));
     }
@@ -60,10 +62,25 @@ class FoulResolverTest {
         double base = config.baseFoulProbability();
         double inTheArea = base * config.penaltyAreaFoulFactor();
 
-        double probability = resolver(SEED).penaltyAreaFoulProbability(average);
+        double probability = resolver(SEED).penaltyAreaFoulProbability(awayTeam, average);
 
-        assertThat(probability).isLessThan(resolver(SEED).foulProbability(average));
+        assertThat(probability).isLessThan(resolver(SEED).foulProbability(awayTeam, average));
         assertThat(probability).isCloseTo(inTheArea, within(EXACT));
+    }
+
+    @Test
+    void aDefenderOutOfPositionFoulsMoreLikeAPlayerWhoseTacklingIsWeakenedByTheConfiguredMultiplier() {
+        double multiplier = EngineConfig.defaults().lineup().outOfPositionMultiplier();
+        int weakenedTackling = (int) Math.round(defender.attributes().tackling() * multiplier);
+        TeamOnPitch movedToMidfield = awayTeam.withRole(defender, Role.MIDFIELDER);
+        FoulResolver resolver = resolver(SEED);
+
+        double outOfPosition = resolver.foulProbability(movedToMidfield, defender);
+        double inPosition = resolver.foulProbability(awayTeam, defender);
+        double weakened = resolver.foulProbability(awayTeam, tacklingPlayer(weakenedTackling));
+
+        assertThat(outOfPosition).isGreaterThan(inPosition);
+        assertThat(outOfPosition).isCloseTo(weakened, within(EXACT));
     }
 
     @Test
@@ -72,10 +89,10 @@ class FoulResolverTest {
         FoulResolver resolver = resolver(SEED);
 
         long fouls = IntStream.range(0, TRIALS)
-                .filter(trial -> resolver.resolveFoul(state, defender, attacker).isPresent())
+                .filter(trial -> resolver.resolveFoul(state, awayTeam, defender, attacker).isPresent())
                 .count();
 
-        assertThat((double) fouls / TRIALS).isCloseTo(resolver.foulProbability(defender), within(ONE_POINT));
+        assertThat((double) fouls / TRIALS).isCloseTo(resolver.foulProbability(awayTeam, defender), within(ONE_POINT));
     }
 
     @Test
@@ -84,11 +101,11 @@ class FoulResolverTest {
         FoulResolver resolver = resolver(SEED);
 
         long fouls = IntStream.range(0, TRIALS)
-                .filter(trial -> resolver.resolveFoul(state, defender, attacker).isPresent())
+                .filter(trial -> resolver.resolveFoul(state, awayTeam, defender, attacker).isPresent())
                 .count();
 
         assertThat((double) fouls / TRIALS)
-                .isCloseTo(resolver.penaltyAreaFoulProbability(defender), within(ONE_POINT));
+                .isCloseTo(resolver.penaltyAreaFoulProbability(awayTeam, defender), within(ONE_POINT));
     }
 
     @Test
@@ -247,13 +264,13 @@ class FoulResolverTest {
         FoulConfig alwaysFouling = new FoulConfig(0.99, config.neutralTackling(), config.tacklingSlope(), 1.0,
                 config.lightShare(), config.hardShare(), config.yellowProbability(), config.redProbability(),
                 config.foulDuration());
-        FoulResolver resolver = new FoulResolver(alwaysFouling, layout, new MatchRandom(SEED));
+        FoulResolver resolver = TestResolvers.foulResolver(alwaysFouling, layout, new MatchRandom(SEED));
         return foulsWith(resolver, state, minimumFouls * 2);
     }
 
     private List<ActionOutcome> foulsWith(FoulResolver resolver, MatchState state, int trials) {
         return IntStream.range(0, trials)
-                .mapToObj(trial -> resolver.resolveFoul(state, defender, attacker))
+                .mapToObj(trial -> resolver.resolveFoul(state, awayTeam, defender, attacker))
                 .flatMap(Optional::stream)
                 .toList();
     }
@@ -286,6 +303,6 @@ class FoulResolverTest {
     }
 
     private FoulResolver resolver(long seed) {
-        return new FoulResolver(config, layout, new MatchRandom(seed));
+        return TestResolvers.foulResolver(config, layout, new MatchRandom(seed));
     }
 }

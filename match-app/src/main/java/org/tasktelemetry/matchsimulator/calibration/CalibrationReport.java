@@ -57,7 +57,7 @@ public record CalibrationReport(List<BandedResult> results, Map<String, Double> 
         appendLine(text, "");
         appendLine(text, "Orientamento (senza forbice)");
         for (Map.Entry<String, Double> entry : orientation.entrySet()) {
-            String line = String.format(Locale.ITALY, "%-30s %9.2f", entry.getKey(), entry.getValue());
+            String line = String.format(Locale.ITALY, "%-34s %9.2f", entry.getKey(), entry.getValue());
             appendLine(text, line);
         }
         appendLine(text, "");

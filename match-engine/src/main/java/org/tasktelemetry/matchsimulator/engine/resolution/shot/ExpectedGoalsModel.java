@@ -9,33 +9,37 @@ import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class ExpectedGoalsModel {
 
+    private static final double NEUTRAL_MULTIPLIER = 1.0;
+
     private final ShotConfig config;
 
     public ExpectedGoalsModel(ShotConfig config) {
         this.config = config;
     }
 
-    public double expectedGoals(ZoneRole zoneRole, PlayPhase phase, ShotKind kind, Player shooter) {
+    public double expectedGoals(ZoneRole zoneRole, PlayPhase phase, ShotKind kind, Player shooter,
+            double shootingMultiplier) {
         ExpectedGoalsConfig expectedGoals = config.expectedGoals();
         double base = expectedGoals.baseByZoneRole().get(zoneRole);
         double phaseMultiplier = expectedGoals.multiplierByPhase().get(phase);
         double kindMultiplier = expectedGoals.multiplierByKind().get(kind);
         double situationalChance = base * phaseMultiplier * kindMultiplier;
         double boundedChance = boundedToConfiguredLimits(situationalChance);
-        double shootingShift = shootingShift(shooter, expectedGoals.neutralShooting(), expectedGoals.shootingSlope());
+        double shootingShift = shootingShift(shooter, shootingMultiplier, expectedGoals.neutralShooting(),
+                expectedGoals.shootingSlope());
         return shiftOdds(boundedChance, shootingShift);
     }
 
     public double penaltyExpectedGoals(Player taker) {
         ExpectedGoalsConfig expectedGoals = config.expectedGoals();
-        double shootingShift = shootingShift(taker, expectedGoals.penaltyNeutralShooting(),
+        double shootingShift = shootingShift(taker, NEUTRAL_MULTIPLIER, expectedGoals.penaltyNeutralShooting(),
                 expectedGoals.penaltyShootingSlope());
         return shiftOdds(expectedGoals.penaltyBase(), shootingShift);
     }
 
-    public double goalProbability(double expectedGoals, Player goalkeeper) {
-        int goalkeeping = goalkeeper.attributes().goalkeeping();
-        int goalkeepingBelowNeutral = config.neutralGoalkeeping() - goalkeeping;
+    public double goalProbability(double expectedGoals, Player goalkeeper, double goalkeepingMultiplier) {
+        double goalkeeping = goalkeeper.attributes().goalkeeping() * goalkeepingMultiplier;
+        double goalkeepingBelowNeutral = config.neutralGoalkeeping() - goalkeeping;
         double goalkeeperShift = config.goalkeepingSlope() * goalkeepingBelowNeutral;
         return shiftOdds(expectedGoals, goalkeeperShift);
     }
@@ -46,8 +50,9 @@ public final class ExpectedGoalsModel {
         return Math.min(atLeastMinimum, expectedGoals.maximumExpectedGoals());
     }
 
-    private static double shootingShift(Player shooter, int neutralShooting, double slope) {
-        int shootingAboveNeutral = shooter.attributes().shooting() - neutralShooting;
+    private static double shootingShift(Player shooter, double multiplier, int neutralShooting, double slope) {
+        double shooting = shooter.attributes().shooting() * multiplier;
+        double shootingAboveNeutral = shooting - neutralShooting;
         return slope * shootingAboveNeutral;
     }
 

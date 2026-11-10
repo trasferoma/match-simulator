@@ -31,7 +31,7 @@ final class ProducibleEvents {
     private static final Set<EventType> WITHOUT_PLAYERS = EnumSet.of(EventType.KICK_OFF, EventType.SECOND_HALF_START,
             EventType.FIRST_HALF_END, EventType.MATCH_END, EventType.KICK_OFF_AFTER_GOAL);
     private static final Set<EventType> WITH_BOTH_PLAYERS = EnumSet.of(EventType.CLEARANCE, EventType.OFFSIDE,
-            EventType.SUBSTITUTION);
+            EventType.SUBSTITUTION, EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final Set<EventType> WITH_SPECIFIC_DETAIL = EnumSet.of(EventType.STOPPAGE_ANNOUNCED,
             EventType.MATCH_SUSPENDED, EventType.FOUL, EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
@@ -96,11 +96,13 @@ final class ProducibleEvents {
         Participants alone = Participants.of(HOME_FORWARD);
         Participants withCrosser = Participants.of(HOME_FORWARD, HOME_MIDFIELDER);
         MatchEvent foot = goalOf(ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.BIG_CHANCE), alone);
+        MatchEvent assistedFoot = goalOf(ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.BIG_CHANCE),
+                withCrosser);
         MatchEvent freeKick = goalOf(ShotProfile.ofShot(0.1, ShotKind.DIRECT_FREE_KICK, ShotQuality.HALF_CHANCE),
                 alone);
         MatchEvent header = goalOf(ShotProfile.ofShot(0.3, ShotKind.HEADER, ShotQuality.BIG_CHANCE), withCrosser);
         MatchEvent penalty = goalOf(ShotProfile.ofPenalty(0.79, ShotQuality.BIG_CHANCE), alone);
-        return Stream.of(foot, freeKick, header, penalty);
+        return Stream.of(foot, assistedFoot, freeKick, header, penalty);
     }
 
     private MatchEvent goalOf(ShotProfile profile, Participants participants) {

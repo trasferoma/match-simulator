@@ -96,6 +96,18 @@ class NarratedEventFilterTest {
         assertThat(selected).contains(dribble, shot);
     }
 
+    @Test
+    void theBallCirculationIsNarratedOnlyWhenItPreparesAShot() {
+        fixture.add(EventType.BALL_CIRCULATED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.AWAY, AWAY_DEFENDER);
+        MatchEvent circulation = fixture.add(EventType.BALL_CIRCULATED, MatchSide.HOME, HOME_MIDFIELDER);
+        MatchEvent shot = shotEvent(EventType.SHOT_OFF_TARGET, MatchSide.HOME, HOME_FORWARD);
+
+        List<MatchEvent> selected = filter.select(fixture.list(), ChronicleMode.DEFAULT);
+
+        assertThat(selected).containsExactly(circulation, shot);
+    }
+
     private void buildMatchWithOneEventForEveryRuleAndOneForEveryExclusion() {
         addMatchFlowAndRestarts();
         addPlayThatIsNotNarrated();
@@ -122,7 +134,10 @@ class NarratedEventFilterTest {
         excluded(EventType.FREE_KICK, MatchSide.HOME, ZoneRole.DEFENCE, Participants.of(HOME_MIDFIELDER), NO_DETAIL);
         excluded(EventType.OFFSIDE_FREE_KICK, MatchSide.AWAY, ZoneRole.DEFENCE, Participants.of(AWAY_DEFENDER),
                 NO_DETAIL);
+        excluded(EventType.BALL_CIRCULATED, MatchSide.HOME, HOME_MIDFIELDER);
         excluded(EventType.CROSS_FAILED, MatchSide.HOME, HOME_MIDFIELDER);
+        excluded(EventType.CROSS_DEFLECTED_TO_CORNER, MatchSide.HOME, ZoneRole.ATTACKING_THIRD,
+                Participants.of(AWAY_DEFENDER, HOME_MIDFIELDER), NO_DETAIL);
         excluded(EventType.CLEARANCE, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
                 Participants.of(AWAY_DEFENDER, HOME_MIDFIELDER), NO_DETAIL);
         excluded(EventType.CROSS_COMPLETED, MatchSide.AWAY, AWAY_FORWARD);

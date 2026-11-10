@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
@@ -22,24 +23,28 @@ public final class FoulResolver {
     private final FoulConfig config;
     private final PitchLayout layout;
     private final MatchRandom random;
+    private final OutOfPositionPenalty outOfPosition;
 
-    public FoulResolver(FoulConfig config, PitchLayout layout, MatchRandom random) {
+    public FoulResolver(FoulConfig config, PitchLayout layout, MatchRandom random,
+            OutOfPositionPenalty outOfPosition) {
         this.config = config;
         this.layout = layout;
         this.random = random;
+        this.outOfPosition = outOfPosition;
     }
 
-    public double foulProbability(Player defender) {
-        return foulProbabilityFrom(config.baseFoulProbability(), defender);
+    public double foulProbability(TeamOnPitch foulingTeam, Player defender) {
+        return foulProbabilityFrom(config.baseFoulProbability(), foulingTeam, defender);
     }
 
-    public double penaltyAreaFoulProbability(Player defender) {
+    public double penaltyAreaFoulProbability(TeamOnPitch foulingTeam, Player defender) {
         double base = config.baseFoulProbability() * config.penaltyAreaFoulFactor();
-        return foulProbabilityFrom(base, defender);
+        return foulProbabilityFrom(base, foulingTeam, defender);
     }
 
-    public Optional<ActionOutcome> resolveFoul(MatchState state, Player fouler, Player fouled) {
-        double probability = foulProbabilityIn(state, fouler);
+    public Optional<ActionOutcome> resolveFoul(MatchState state, TeamOnPitch foulingTeam, Player fouler,
+            Player fouled) {
+        double probability = foulProbabilityIn(state, foulingTeam, fouler);
         if (!random.occurs(probability)) {
             return Optional.empty();
         }
@@ -67,17 +72,23 @@ public final class FoulResolver {
         return Optional.empty();
     }
 
-    private double foulProbabilityIn(MatchState state, Player defender) {
+    private double foulProbabilityIn(MatchState state, TeamOnPitch foulingTeam, Player defender) {
         if (isInsideTheBoxOfTheFouler(state)) {
-            return penaltyAreaFoulProbability(defender);
+            return penaltyAreaFoulProbability(foulingTeam, defender);
         }
-        return foulProbability(defender);
+        return foulProbability(foulingTeam, defender);
     }
 
-    private double foulProbabilityFrom(double baseProbability, Player defender) {
-        int tacklingBelowNeutral = config.neutralTackling() - defender.attributes().tackling();
+    private double foulProbabilityFrom(double baseProbability, TeamOnPitch foulingTeam, Player defender) {
+        double tackling = effectiveTacklingOf(foulingTeam, defender);
+        double tacklingBelowNeutral = config.neutralTackling() - tackling;
         double tacklingShift = config.tacklingSlope() * tacklingBelowNeutral;
         return shiftOdds(baseProbability, tacklingShift);
+    }
+
+    private double effectiveTacklingOf(TeamOnPitch team, Player player) {
+        double factor = outOfPosition.factorOf(team, player);
+        return player.attributes().tackling() * factor;
     }
 
     private ActionOutcome concedeFoul(MatchState state, Player fouler, Player fouled) {

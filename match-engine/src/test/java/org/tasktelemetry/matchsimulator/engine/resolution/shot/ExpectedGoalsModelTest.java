@@ -24,6 +24,7 @@ import org.tasktelemetry.matchsimulator.engine.team.Role;
 class ExpectedGoalsModelTest {
 
     private static final double EXACT = 1e-9;
+    private static final double NEUTRAL = 1.0;
     private static final int NEUTRAL_SHOOTING = ShotConfig.defaults().expectedGoals().neutralShooting();
     private static final int NEUTRAL_GOALKEEPING = ShotConfig.defaults().neutralGoalkeeping();
     private static final int PENALTY_NEUTRAL_SHOOTING =
@@ -47,7 +48,7 @@ class ExpectedGoalsModelTest {
             double expected) {
         Player shooter = shooterWith(NEUTRAL_SHOOTING);
 
-        double expectedGoals = model.expectedGoals(zoneRole, phase, kind, shooter);
+        double expectedGoals = model.expectedGoals(zoneRole, phase, kind, shooter, NEUTRAL);
 
         assertThat(expectedGoals).isCloseTo(expected, within(EXACT));
     }
@@ -57,8 +58,8 @@ class ExpectedGoalsModelTest {
         Player shooter = shooterWith(NEUTRAL_SHOOTING);
 
         for (ZoneRole zoneRole : ZoneRole.values()) {
-            double buildUp = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter);
-            double counterAttack = model.expectedGoals(zoneRole, PlayPhase.COUNTER_ATTACK, ShotKind.FOOT, shooter);
+            double buildUp = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, NEUTRAL);
+            double counterAttack = model.expectedGoals(zoneRole, PlayPhase.COUNTER_ATTACK, ShotKind.FOOT, shooter, NEUTRAL);
 
             assertThat(counterAttack).isGreaterThan(buildUp);
         }
@@ -71,7 +72,7 @@ class ExpectedGoalsModelTest {
                 ZoneRole.ATTACKING_THIRD, ZoneRole.OPPONENT_BOX);
 
         List<Double> chances = fromFarToNear.stream()
-                .map(zoneRole -> model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter))
+                .map(zoneRole -> model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, NEUTRAL))
                 .toList();
 
         assertThat(chances).isSorted().doesNotHaveDuplicates();
@@ -80,9 +81,9 @@ class ExpectedGoalsModelTest {
     @Test
     void aBetterShooterRaisesExpectedGoalsInEveryZone() {
         for (ZoneRole zoneRole : ZoneRole.values()) {
-            double weak = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooterWith(50));
-            double neutral = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooterWith(70));
-            double strong = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooterWith(90));
+            double weak = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooterWith(50), NEUTRAL);
+            double neutral = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooterWith(70), NEUTRAL);
+            double strong = model.expectedGoals(zoneRole, PlayPhase.BUILD_UP, ShotKind.FOOT, shooterWith(90), NEUTRAL);
 
             assertThat(weak).isLessThan(neutral);
             assertThat(neutral).isLessThan(strong);
@@ -94,9 +95,35 @@ class ExpectedGoalsModelTest {
         double expected = oddsShifted(0.085, config.expectedGoals().shootingSlope() * 10);
 
         double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT,
-                shooterWith(NEUTRAL_SHOOTING + 10));
+                shooterWith(NEUTRAL_SHOOTING + 10), NEUTRAL);
 
         assertThat(expectedGoals).isCloseTo(expected, within(EXACT));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1.10, 77", "0.80, 56", "1.00, 70"})
+    void theShootingMultiplierActsOnTheShootingOfTheShooterBeforeTheCorrection(double multiplier,
+            int equivalentShooting) {
+        Player shooter = shooterWith(70);
+
+        double multiplied = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                multiplier);
+        double equivalent = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT,
+                shooterWith(equivalentShooting), NEUTRAL);
+
+        assertThat(multiplied).isCloseTo(equivalent, within(EXACT));
+    }
+
+    @ParameterizedTest
+    @CsvSource({"1.25, 100", "0.75, 60", "1.00, 80"})
+    void theGoalkeepingMultiplierActsOnTheGoalkeepingOfTheKeeperBeforeTheCorrection(double multiplier,
+            int equivalentGoalkeeping) {
+        Player keeper = keeperWith(NEUTRAL_GOALKEEPING);
+
+        double multiplied = model.goalProbability(0.12, keeper, multiplier);
+        double equivalent = model.goalProbability(0.12, keeperWith(equivalentGoalkeeping), NEUTRAL);
+
+        assertThat(multiplied).isCloseTo(equivalent, within(EXACT));
     }
 
     @Test
@@ -109,8 +136,8 @@ class ExpectedGoalsModelTest {
         ExpectedGoalsModel tuned = modelWith(defaults.baseByZoneRole(), phases, kinds, 0.001, 0.99);
         Player shooter = shooterWith(NEUTRAL_SHOOTING);
 
-        double setPiece = tuned.expectedGoals(ZoneRole.ATTACKING_THIRD, PlayPhase.SET_PIECE, ShotKind.FOOT, shooter);
-        double header = tuned.expectedGoals(ZoneRole.ATTACKING_THIRD, PlayPhase.BUILD_UP, ShotKind.HEADER, shooter);
+        double setPiece = tuned.expectedGoals(ZoneRole.ATTACKING_THIRD, PlayPhase.SET_PIECE, ShotKind.FOOT, shooter, NEUTRAL);
+        double header = tuned.expectedGoals(ZoneRole.ATTACKING_THIRD, PlayPhase.BUILD_UP, ShotKind.HEADER, shooter, NEUTRAL);
 
         assertThat(setPiece).isCloseTo(0.045 * 2.0, within(EXACT));
         assertThat(header).isCloseTo(0.045 * 0.5, within(EXACT));
@@ -127,8 +154,8 @@ class ExpectedGoalsModelTest {
         ExpectedGoalsModel tuned = modelWith(bases, defaults.multiplierByPhase(), kinds, 0.01, 0.5);
         Player shooter = shooterWith(NEUTRAL_SHOOTING);
 
-        double capped = tuned.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter);
-        double floored = tuned.expectedGoals(ZoneRole.OWN_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter);
+        double capped = tuned.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, NEUTRAL);
+        double floored = tuned.expectedGoals(ZoneRole.OWN_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, NEUTRAL);
 
         assertThat(capped).isCloseTo(0.5, within(EXACT));
         assertThat(floored).isCloseTo(0.01, within(EXACT));
@@ -142,7 +169,7 @@ class ExpectedGoalsModelTest {
         for (ZoneRole zoneRole : ZoneRole.values()) {
             for (PlayPhase phase : PlayPhase.values()) {
                 for (ShotKind kind : ShotKind.values()) {
-                    double expectedGoals = model.expectedGoals(zoneRole, phase, kind, shooter);
+                    double expectedGoals = model.expectedGoals(zoneRole, phase, kind, shooter, NEUTRAL);
 
                     assertThat(expectedGoals).isStrictlyBetween(0.0, 1.0);
                 }
@@ -179,7 +206,7 @@ class ExpectedGoalsModelTest {
     @ParameterizedTest
     @ValueSource(doubles = {0.02, 0.12, 0.79})
     void aNeutralGoalkeeperLeavesTheExpectedGoalsUnchanged(double expectedGoals) {
-        double goalProbability = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING));
+        double goalProbability = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING), NEUTRAL);
 
         assertThat(goalProbability).isCloseTo(expectedGoals, within(EXACT));
     }
@@ -187,9 +214,9 @@ class ExpectedGoalsModelTest {
     @ParameterizedTest
     @ValueSource(doubles = {0.02, 0.12, 0.79})
     void aBetterGoalkeeperLowersTheProbabilityOfAGoal(double expectedGoals) {
-        double weak = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING - 20));
-        double neutral = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING));
-        double strong = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING + 20));
+        double weak = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING - 20), NEUTRAL);
+        double neutral = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING), NEUTRAL);
+        double strong = model.goalProbability(expectedGoals, keeperWith(NEUTRAL_GOALKEEPING + 20), NEUTRAL);
 
         assertThat(weak).isGreaterThan(neutral);
         assertThat(neutral).isGreaterThan(strong);
@@ -200,7 +227,7 @@ class ExpectedGoalsModelTest {
     @CsvSource({"1, 0.02", "100, 0.02", "1, 0.79", "100, 0.79"})
     void theProbabilityOfAGoalStaysInsideTheOpenUnitIntervalAtTheEdgesOfTheScale(int goalkeeping,
             double expectedGoals) {
-        double goalProbability = model.goalProbability(expectedGoals, keeperWith(goalkeeping));
+        double goalProbability = model.goalProbability(expectedGoals, keeperWith(goalkeeping), NEUTRAL);
 
         assertThat(goalProbability).isStrictlyBetween(0.0, 1.0);
     }

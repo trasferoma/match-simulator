@@ -194,9 +194,24 @@ class MatchCommandLineTest {
         assertThat(run.exitCode()).isNotZero();
         assertThat(run.outBytes()).isEmpty();
         assertThat(run.err())
-                .contains("campo starters, bench")
+                .contains("campo starters:")
                 .contains("la squadra deve avere esattamente un portiere tra i titolari")
                 .doesNotContain("must");
+    }
+
+    @Test
+    void anUnknownFieldIsReportedInItalianWithFileAndFieldAndSimulatesNothing() throws IOException {
+        Path invalid = writeVariantOfTheHomeTeam("\"style\"", "\"stile\"");
+
+        CliRun run = CliRun.of(invalid.toString(), away);
+
+        assertThat(run.exitCode()).isEqualTo(MatchCommandLine.EXIT_INVALID_TEAM_FILE);
+        assertThat(run.outBytes()).isEmpty();
+        assertThat(run.err())
+                .contains(invalid.toString())
+                .contains("campo stile")
+                .contains("il campo non è previsto dal formato del file squadra")
+                .doesNotContain("Unrecognized");
     }
 
     @Test

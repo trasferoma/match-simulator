@@ -89,7 +89,7 @@ class TeamOnPitchTest {
     }
 
     @Test
-    void aPlayerMovedToAnotherSectorCountsThereAndLeavesAGapInHisOwn() {
+    void aPlayerMovedToAnotherSectorCountsThereAndAtElevenMenLeavesNoMissingManInHisOwn() {
         TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
         Player midfielder = onPitch.playersIn(Role.MIDFIELDER).get(0);
 
@@ -98,9 +98,35 @@ class TeamOnPitchTest {
         assertThat(moved.roleOf(midfielder)).isEqualTo(Role.DEFENDER);
         assertThat(moved.playersIn(Role.DEFENDER)).hasSize(5).contains(midfielder);
         assertThat(moved.playersIn(Role.MIDFIELDER)).hasSize(3).doesNotContain(midfielder);
-        assertThat(moved.missingIn(Role.MIDFIELDER)).isEqualTo(1);
+        assertThat(moved.missingIn(Role.MIDFIELDER)).isZero();
         assertThat(moved.missingIn(Role.DEFENDER)).isZero();
         assertThat(moved.players()).containsExactlyElementsOf(onPitch.players());
+    }
+
+    @Test
+    void theMenMissingInASectorNeverExceedHowManyMenTheTeamIsShortOfEleven() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player sentOff = onPitch.playersIn(Role.MIDFIELDER).get(0);
+        Player movedToDefence = onPitch.playersIn(Role.MIDFIELDER).get(1);
+
+        TeamOnPitch shortAndReshuffled = onPitch.withoutPlayer(sentOff).withRole(movedToDefence, Role.DEFENDER);
+
+        assertThat(shortAndReshuffled.players()).hasSize(10);
+        assertThat(shortAndReshuffled.missingIn(Role.MIDFIELDER)).isEqualTo(1);
+    }
+
+    @Test
+    void aPlayerIsOutOfPositionWhenHisRoleOnThePitchIsNotTheOneOfHisRegistration() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player midfielder = onPitch.playersIn(Role.MIDFIELDER).get(0);
+        Player forward = onPitch.playersIn(Role.FORWARD).get(0);
+
+        TeamOnPitch moved = onPitch.withRole(midfielder, Role.DEFENDER);
+
+        assertThat(moved.isOutOfPosition(midfielder)).isTrue();
+        assertThat(moved.isOutOfPosition(forward)).isFalse();
+        assertThat(onPitch.isOutOfPosition(midfielder)).isFalse();
+        assertThat(moved.withRole(midfielder, Role.MIDFIELDER).isOutOfPosition(midfielder)).isFalse();
     }
 
     @Test

@@ -134,7 +134,7 @@ class LeagueMetricsTest {
 
     @Test
     void theContourOrientationCountsFoulsAndCardsFromTheEvents() {
-        ContourCounters counters = new ContourCounters(1, 2, 20, 4, 1, 0, 3, 2, 1);
+        ContourCounters counters = new ContourCounters(1, 2, 20, 4, 3, 0, 3, 2, 1, 1, 2, 5);
         TeamStatistics withContour = new TeamStatistics(5, 2, 0.0, 300, counters);
         PlayedMatch played = match(0, 0, withContour, statistics(5, 300));
 
@@ -142,7 +142,10 @@ class LeagueMetricsTest {
 
         assertThat(league.orientation().get("falli a partita")).isCloseTo(20.0, within(TOLERANCE));
         assertThat(league.orientation().get("gialli a partita")).isCloseTo(4.0, within(TOLERANCE));
-        assertThat(league.orientation().get("rossi a partita")).isCloseTo(1.0, within(TOLERANCE));
+        assertThat(league.orientation().get("rossi a partita")).isCloseTo(3.0, within(TOLERANCE));
+        assertThat(league.orientation().get("rossi diretti a partita")).isCloseTo(1.0, within(TOLERANCE));
+        assertThat(league.orientation().get("secondi gialli a partita")).isCloseTo(2.0, within(TOLERANCE));
+        assertThat(league.orientation().get("cross deviati in angolo a partita")).isCloseTo(5.0, within(TOLERANCE));
         assertThat(league.orientation().get("cambi a partita")).isCloseTo(3.0, within(TOLERANCE));
         assertThat(league.orientation().get("rigori a partita")).isCloseTo(2.0, within(TOLERANCE));
         assertThat(league.orientation().get("infortuni a partita")).isCloseTo(1.0, within(TOLERANCE));

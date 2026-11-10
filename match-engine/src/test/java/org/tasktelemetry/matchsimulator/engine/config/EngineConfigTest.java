@@ -92,6 +92,23 @@ class EngineConfigTest {
     }
 
     @Test
+    void defaultsCarryTheDribbleThresholdWhenThereIsNoTeammateToPassTo() {
+        assertThat(EngineConfig.defaults().noTeammateDribbleThreshold()).isStrictlyBetween(0.0, 1.0);
+    }
+
+    @ParameterizedTest
+    @ValueSource(doubles = {-0.1, 1.1, Double.NaN})
+    void rejectsADribbleThresholdOutsideZeroAndOne(double threshold) {
+        DurationRange range = new DurationRange(1, 2);
+
+        assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, threshold, StoppageConfig.defaults(), shot,
+                setPiece, cross, counterAttack, playStyles, FoulConfig.defaults(), OffsideConfig.defaults(),
+                InjuryConfig.defaults(), LineupConfig.defaults(), HOME_ADVANTAGE))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("no-teammate dribble threshold must be between 0.0 and 1.0");
+    }
+
+    @Test
     void rejectsAMinimumStoppageBelowOneMinute() {
         DurationRange range = new DurationRange(1, 2);
 
@@ -105,7 +122,7 @@ class EngineConfigTest {
     void rejectsAHomeAdvantageThatIsNotPositiveAndFinite(double homeAdvantage) {
         DurationRange range = new DurationRange(1, 2);
 
-        assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, StoppageConfig.defaults(), shot, setPiece, cross, counterAttack,
+        assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, 0.5, StoppageConfig.defaults(), shot, setPiece, cross, counterAttack,
                 playStyles, FoulConfig.defaults(), OffsideConfig.defaults(), InjuryConfig.defaults(), LineupConfig.defaults(),
                 homeAdvantage))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -115,7 +132,7 @@ class EngineConfigTest {
     @Test
     void rejectsAStylePropensityThatPushesTheCrossProbabilityAboveOne() {
         DurationRange range = new DurationRange(1, 2);
-        CrossConfig likelyCross = new CrossConfig(0.9, 200.0, 0.2, range, range);
+        CrossConfig likelyCross = new CrossConfig(0.9, 0.3, 0.2, range, range);
 
         assertThatThrownBy(() -> configWith(range, range, 0.5, 1, shot, setPiece, likelyCross, counterAttack,
                 playStyles))
@@ -142,7 +159,7 @@ class EngineConfigTest {
         }
         PlayStyleModifiers allNeutral = new PlayStyleModifiers(neutralOnly);
         DurationRange range = new DurationRange(1, 2);
-        CrossConfig certainCross = new CrossConfig(0.99, 200.0, 0.2, range, range);
+        CrossConfig certainCross = new CrossConfig(0.99, 0.3, 0.2, range, range);
 
         EngineConfig config = configWith(range, range, 0.5, 1, shot, setPiece, certainCross, counterAttack,
                 allNeutral);
@@ -154,7 +171,7 @@ class EngineConfigTest {
             int minimumStoppageMinutes, ShotConfig shotConfig, SetPieceConfig setPieceConfig,
             CrossConfig crossConfig, CounterAttackConfig counterAttackConfig, PlayStyleModifiers styles) {
         StoppageConfig stoppage = stoppageWithMinimum(minimumStoppageMinutes);
-        return new EngineConfig(buildUp, attacking, dribbleProbability, stoppage, shotConfig,
+        return new EngineConfig(buildUp, attacking, dribbleProbability, 0.5, stoppage, shotConfig,
                 setPieceConfig, crossConfig, counterAttackConfig, styles, FoulConfig.defaults(), OffsideConfig.defaults(),
                 InjuryConfig.defaults(),
                 LineupConfig.defaults(), HOME_ADVANTAGE);

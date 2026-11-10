@@ -22,6 +22,7 @@ import tools.jackson.core.TokenStreamLocation;
 import tools.jackson.core.exc.InputCoercionException;
 import tools.jackson.core.exc.StreamReadException;
 import tools.jackson.databind.DeserializationFeature;
+import tools.jackson.databind.exc.UnrecognizedPropertyException;
 import tools.jackson.databind.json.JsonMapper;
 
 public final class TeamFileReader {
@@ -32,7 +33,6 @@ public final class TeamFileReader {
     private static final String STARTERS_FIELD = "starters";
     private static final String BENCH_FIELD = "bench";
     private static final String ATTRIBUTES_FIELD = "attributes";
-    private static final String LINEUP_FIELDS = "starters, bench";
     private static final String PASSING_FIELD = "passing";
     private static final String DRIBBLING_FIELD = "dribbling";
     private static final String SHOOTING_FIELD = "shooting";
@@ -44,20 +44,24 @@ public final class TeamFileReader {
 
     private final TeamFileTerms terms;
     private final TeamFileErrors errors;
+    private final TeamRuleFields ruleFields;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
+            .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
-    TeamFileReader(TeamFileTerms terms, TeamFileErrors errors) {
+    TeamFileReader(TeamFileTerms terms, TeamFileErrors errors, TeamRuleFields ruleFields) {
         this.terms = terms;
         this.errors = errors;
+        this.ruleFields = ruleFields;
     }
 
     public static TeamFileReader italian() {
         TeamFileTerms terms = new TeamFileTerms();
         UserMessages messages = UserMessages.italian();
         TeamFileErrors errors = new TeamFileErrors(messages, terms);
-        return new TeamFileReader(terms, errors);
+        TeamRuleFields ruleFields = new TeamRuleFields();
+        return new TeamFileReader(terms, errors, ruleFields);
     }
 
     public Team read(Path file) {
@@ -101,6 +105,9 @@ public final class TeamFileReader {
         String field = describePath(exception);
         if (field.isEmpty()) {
             return errors.inFileCausedBy(file, exception, TeamFileProblem.NOT_A_TEAM_OBJECT);
+        }
+        if (exception instanceof UnrecognizedPropertyException) {
+            return errors.inField(file, field, TeamFileProblem.UNKNOWN_FIELD);
         }
         return errors.inField(file, field, TeamFileProblem.WRONG_VALUE_TYPE);
     }
@@ -188,7 +195,8 @@ public final class TeamFileReader {
         try {
             return new Team(name, style, starters, bench);
         } catch (TeamRuleViolation violation) {
-            throw errors.inField(file, LINEUP_FIELDS, violation);
+            String field = ruleFields.fieldOf(violation.rule());
+            throw errors.inField(file, field, violation);
         }
     }
 

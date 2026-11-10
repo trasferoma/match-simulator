@@ -19,6 +19,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsMode
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
+import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
@@ -26,6 +27,7 @@ import org.tasktelemetry.matchsimulator.engine.team.Role;
 class PlayerAttributeInfluenceTest {
 
     private static final double EXACT = 1e-9;
+    private static final double NEUTRAL = 1.0;
     private static final int BASE = 50;
     private static final int RAISED = 70;
 
@@ -33,6 +35,7 @@ class PlayerAttributeInfluenceTest {
     private final CrossResolver crossResolver = newCrossResolver();
     private final CounterAttackResolver counterAttackResolver = newCounterAttackResolver();
     private final FoulResolver foulResolver = newFoulResolver();
+    private final TeamOnPitch team = TeamOnPitch.startingWith(TestTeams.uniformTeam("T", BASE));
     private final ExpectedGoalsModel goalsModel = new ExpectedGoalsModel(ShotConfig.defaults());
 
     @Test
@@ -127,15 +130,28 @@ class PlayerAttributeInfluenceTest {
 
     @Test
     void passingRaisesTheProbabilityThatACrossReachesTheBox() {
+        Player defender = playerWith(BASE, BASE, BASE, BASE);
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(RAISED, BASE, BASE, BASE);
-        double difficulty = EngineConfig.defaults().cross().crossDifficulty();
 
-        double base = crossResolver.crossDuel(average).attackerWinProbability();
-        double raised = crossResolver.crossDuel(better).attackerWinProbability();
+        double base = crossResolver.crossDuel(average, defender).attackerWinProbability();
+        double raised = crossResolver.crossDuel(better, defender).attackerWinProbability();
 
         assertThat(raised).isGreaterThan(base);
-        assertThat(raised).isCloseTo(RAISED / (RAISED + difficulty), within(EXACT));
+        assertThat(raised).isCloseTo(70.0 / 120.0, within(EXACT));
+    }
+
+    @Test
+    void positioningOfTheDefenderLowersTheProbabilityThatACrossReachesTheBox() {
+        Player crosser = playerWith(BASE, BASE, BASE, BASE);
+        Player average = playerWith(BASE, BASE, BASE, BASE);
+        Player better = playerWith(BASE, BASE, BASE, RAISED);
+
+        double base = crossResolver.crossDuel(crosser, average).attackerWinProbability();
+        double lowered = crossResolver.crossDuel(crosser, better).attackerWinProbability();
+
+        assertThat(lowered).isLessThan(base);
+        assertThat(lowered).isCloseTo(50.0 / 120.0, within(EXACT));
     }
 
     @Test
@@ -171,9 +187,9 @@ class PlayerAttributeInfluenceTest {
         Player clumsy = tacklingPlayer(foul.neutralTackling() - 20);
         Player skilled = tacklingPlayer(foul.neutralTackling() + 20);
 
-        double base = foulResolver.foulProbability(neutral);
-        double clumsyProbability = foulResolver.foulProbability(clumsy);
-        double skilledProbability = foulResolver.foulProbability(skilled);
+        double base = foulResolver.foulProbability(team, neutral);
+        double clumsyProbability = foulResolver.foulProbability(team, clumsy);
+        double skilledProbability = foulResolver.foulProbability(team, skilled);
 
         assertThat(base).isCloseTo(foul.baseFoulProbability(), within(EXACT));
         assertThat(clumsyProbability).isGreaterThan(base);
@@ -191,8 +207,8 @@ class PlayerAttributeInfluenceTest {
         Player weak = TestTeams.player("Weak", Role.DEFENDER, tacklingOnly);
         Player strong = TestTeams.player("Strong", Role.DEFENDER, everythingButTackling);
 
-        double weakProbability = foulResolver.foulProbability(weak);
-        double strongProbability = foulResolver.foulProbability(strong);
+        double weakProbability = foulResolver.foulProbability(team, weak);
+        double strongProbability = foulResolver.foulProbability(team, strong);
 
         assertThat(strongProbability).isCloseTo(weakProbability, within(EXACT));
     }
@@ -202,8 +218,8 @@ class PlayerAttributeInfluenceTest {
         ExpectedGoalsConfig expectedGoals = ShotConfig.defaults().expectedGoals();
         Player average = shootingPlayer(expectedGoals.neutralShooting());
         Player better = shootingPlayer(expectedGoals.neutralShooting() + 20);
-        double base = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, average);
-        double raised = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, better);
+        double base = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, average, NEUTRAL);
+        double raised = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, better, NEUTRAL);
         double penaltyBase = goalsModel.penaltyExpectedGoals(shootingPlayer(expectedGoals.penaltyNeutralShooting()));
         double penaltyRaised = goalsModel.penaltyExpectedGoals(shootingPlayer(
                 expectedGoals.penaltyNeutralShooting() + 20));
@@ -222,8 +238,8 @@ class PlayerAttributeInfluenceTest {
         Player better = keeperPlayer(shotConfig.neutralGoalkeeping() + 20);
         double expectedGoals = 0.30;
 
-        double base = goalsModel.goalProbability(expectedGoals, average);
-        double raised = goalsModel.goalProbability(expectedGoals, better);
+        double base = goalsModel.goalProbability(expectedGoals, average, NEUTRAL);
+        double raised = goalsModel.goalProbability(expectedGoals, better, NEUTRAL);
 
         assertThat(base).isCloseTo(expectedGoals, within(EXACT));
         assertThat(raised).isLessThan(base);
@@ -294,6 +310,6 @@ class PlayerAttributeInfluenceTest {
         MatchRandom random = new MatchRandom(1L);
         EngineConfig config = EngineConfig.defaults();
         PitchLayout layout = PitchLayout.standard();
-        return new FoulResolver(config.foul(), layout, random);
+        return TestResolvers.foulResolver(config.foul(), layout, random);
     }
 }

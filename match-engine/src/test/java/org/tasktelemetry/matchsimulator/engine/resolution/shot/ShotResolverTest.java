@@ -9,17 +9,21 @@ import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.TestConfigs;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestShotConfig;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
+import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.ShotConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
+import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
@@ -27,11 +31,13 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
@@ -42,12 +48,14 @@ class ShotResolverTest {
     private static final int TRIALS = 20_000;
     private static final int MANY_TRIALS = 100_000;
     private static final double ONE_POINT = 0.01;
+    private static final double NEUTRAL = 1.0;
     private static final int NEUTRAL_SHOOTING = ShotConfig.defaults().expectedGoals().neutralShooting();
     private static final int NEUTRAL_GOALKEEPING = ShotConfig.defaults().neutralGoalkeeping();
     private static final int PENALTY_NEUTRAL_SHOOTING =
             ShotConfig.defaults().expectedGoals().penaltyNeutralShooting();
 
     private final PitchLayout layout = PitchLayout.standard();
+    private final EngineConfig engine = EngineConfig.defaults();
     private final ShotConfig config = ShotConfig.defaults();
     private final ExpectedGoalsModel model = new ExpectedGoalsModel(config);
     private final ShotQualityScale scale = new ShotQualityScale(config);
@@ -159,7 +167,7 @@ class ShotResolverTest {
         ShotResolver resolver = resolver(config, SEED);
 
         List<ActionOutcome> outcomes = IntStream.range(0, 5_000)
-                .mapToObj(index -> resolver.resolveShot(crossInFlight, Score.goalless(), header, ShotKind.HEADER,
+                .mapToObj(index -> resolver.resolveShot(crossInFlight, Score.goalless(), attackers, header, ShotKind.HEADER,
                         defenders))
                 .toList();
 
@@ -173,11 +181,11 @@ class ShotResolverTest {
     @Test
     void aHeaderCarriesTheHeaderKindAndTheExpectedGoalsOfAHeader() {
         Player header = attackers.playersIn(Role.FORWARD).get(0);
-        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.HEADER, header);
+        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.HEADER, header, NEUTRAL);
         double expectedWithTheFoot = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT,
-                header);
+                header, NEUTRAL);
 
-        ActionOutcome outcome = resolver(config, SEED).resolveShot(state, Score.goalless(), header,
+        ActionOutcome outcome = resolver(config, SEED).resolveShot(state, Score.goalless(), attackers, header,
                 ShotKind.HEADER, defenders);
 
         ShotProfile profile = profileOf(outcome.detail());
@@ -191,7 +199,7 @@ class ShotResolverTest {
         Player shooter = attackers.playersIn(Role.FORWARD).get(1);
 
         List<ActionOutcome> outcomes = IntStream.range(0, 500)
-                .mapToObj(index -> resolver(config, index).resolveShot(state, Score.goalless(), shooter,
+                .mapToObj(index -> resolver(config, index).resolveShot(state, Score.goalless(), attackers, shooter,
                         ShotKind.FOOT, defenders))
                 .toList();
 
@@ -202,7 +210,7 @@ class ShotResolverTest {
     void theDetailCarriesTheExpectedGoalsBeforeTheGoalkeeperAndTheDangerOfTheShot() {
         Player shooter = attackers.playersIn(Role.FORWARD).get(0);
         double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT,
-                shooter);
+                shooter, NEUTRAL);
         ShotQuality danger = scale.dangerOf(expectedGoals);
         TeamOnPitch greatKeeper = teamOnPitch("Wall", NEUTRAL_SHOOTING, 99);
 
@@ -235,7 +243,7 @@ class ShotResolverTest {
         ShotResolver resolver = resolver(config, SEED);
 
         List<ActionOutcome> goals = IntStream.range(0, TRIALS)
-                .mapToObj(index -> resolver.resolveShot(state, new Score(1, 3), shooter, ShotKind.FOOT, defenders))
+                .mapToObj(index -> resolver.resolveShot(state, new Score(1, 3), attackers, shooter, ShotKind.FOOT, defenders))
                 .filter(outcome -> outcome.type() == EventType.GOAL)
                 .toList();
 
@@ -250,10 +258,10 @@ class ShotResolverTest {
         Zone midfield = layout.kickOffZone();
         MatchState longRange = MatchState.openPlay(MatchSide.HOME, midfield);
 
-        ActionOutcome outcome = resolver(config, SEED).resolveShot(longRange, Score.goalless(), shooter,
+        ActionOutcome outcome = resolver(config, SEED).resolveShot(longRange, Score.goalless(), attackers, shooter,
                 ShotKind.FOOT, defenders);
 
-        double expected = model.expectedGoals(ZoneRole.MIDFIELD, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter);
+        double expected = model.expectedGoals(ZoneRole.MIDFIELD, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, NEUTRAL);
         assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
     }
 
@@ -262,10 +270,10 @@ class ShotResolverTest {
         Player shooter = attackers.playersIn(Role.FORWARD).get(0);
         MatchState setPiece = MatchState.forSetPiece(MatchSide.HOME, box, SetPieceKind.GOAL_KICK);
 
-        ActionOutcome outcome = resolver(config, SEED).resolveShot(setPiece, Score.goalless(), shooter,
+        ActionOutcome outcome = resolver(config, SEED).resolveShot(setPiece, Score.goalless(), attackers, shooter,
                 ShotKind.HEADER, defenders);
 
-        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.SET_PIECE, ShotKind.HEADER, shooter);
+        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.SET_PIECE, ShotKind.HEADER, shooter, NEUTRAL);
         assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
         assertThat(profileOf(outcome).kind()).isEqualTo(ShotKind.HEADER);
     }
@@ -306,7 +314,7 @@ class ShotResolverTest {
     @Test
     void aPenaltyGoesInWithTheProbabilityOfThePenaltyModel() {
         double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(penaltyTakers));
-        double expected = model.goalProbability(expectedGoals, defenders.goalkeeper());
+        double expected = model.goalProbability(expectedGoals, defenders.goalkeeper(), NEUTRAL);
 
         List<ActionOutcome> outcomes = penalties(resolver(config, SEED), penaltyTakers, defenders, TRIALS);
 
@@ -357,7 +365,7 @@ class ShotResolverTest {
     void shootingMovesTheFrequencyOfGoalsOfAPenaltyAsTheModelSays(int shooting) {
         TeamOnPitch tuned = teamOnPitch("Tuned", shooting, NEUTRAL_GOALKEEPING);
         double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(tuned));
-        double expected = model.goalProbability(expectedGoals, defenders.goalkeeper());
+        double expected = model.goalProbability(expectedGoals, defenders.goalkeeper(), NEUTRAL);
 
         List<ActionOutcome> outcomes = penalties(resolver(config, SEED), tuned, defenders, TRIALS);
 
@@ -368,7 +376,7 @@ class ShotResolverTest {
     void goalkeepingMovesTheFrequencyOfGoalsOfAPenaltyAsTheModelSays() {
         TeamOnPitch strongKeeper = teamOnPitch("Wall", NEUTRAL_SHOOTING, 99);
         double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(attackers));
-        double expected = model.goalProbability(expectedGoals, strongKeeper.goalkeeper());
+        double expected = model.goalProbability(expectedGoals, strongKeeper.goalkeeper(), NEUTRAL);
 
         List<ActionOutcome> outcomes = penalties(resolver(config, SEED), attackers, strongKeeper, TRIALS);
 
@@ -409,11 +417,267 @@ class ShotResolverTest {
     }
 
     @Test
+    void aGoalAfterAPassHasThePasserAsSecondaryPlayer() {
+        Player passer = attackers.playersIn(Role.MIDFIELDER).getFirst();
+        Player scorer = attackers.playersIn(Role.FORWARD).getFirst();
+        MatchState afterPass = state.withLastPasser(passer);
+
+        List<ActionOutcome> goals = goalsFrom(afterPass, scorer, ShotKind.FOOT);
+
+        assertThat(goals).isNotEmpty().allSatisfy(outcome ->
+                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, passer)));
+    }
+
+    @Test
+    void aGoalHasNoAssistWhenTheLastPasserIsTheScorerHimself() {
+        Player scorer = attackers.playersIn(Role.FORWARD).getFirst();
+        MatchState afterOwnPass = state.withLastPasser(scorer);
+
+        List<ActionOutcome> goals = goalsFrom(afterOwnPass, scorer, ShotKind.FOOT);
+
+        assertThat(goals).isNotEmpty().allSatisfy(outcome ->
+                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer)));
+    }
+
+    @Test
+    void aGoalWithoutARememberedPassHasNoAssist() {
+        Player scorer = attackers.playersIn(Role.FORWARD).getFirst();
+
+        List<ActionOutcome> goals = goalsFrom(state, scorer, ShotKind.FOOT);
+
+        assertThat(goals).isNotEmpty().allSatisfy(outcome ->
+                assertThat(outcome.participants().secondary()).isEmpty());
+    }
+
+    @Test
+    void aGoalFromACrossHasTheCrosserAsSecondaryPlayer() {
+        Player crosser = attackers.playersIn(Role.MIDFIELDER).getFirst();
+        Player scorer = attackers.playersIn(Role.FORWARD).getFirst();
+        MatchState crossInFlight = state.withCrossInFlightFrom(crosser);
+
+        List<ActionOutcome> goals = goalsFrom(crossInFlight, scorer, ShotKind.HEADER);
+
+        assertThat(goals).isNotEmpty().allSatisfy(outcome ->
+                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, crosser)));
+    }
+
+    @Test
+    void theShotsWhichAreNotGoalsDoNotNameTheLastPasser() {
+        Player passer = attackers.playersIn(Role.MIDFIELDER).getFirst();
+        Player shooter = attackers.playersIn(Role.FORWARD).getFirst();
+        MatchState afterPass = state.withLastPasser(passer);
+        ShotResolver resolver = resolver(config, SEED);
+
+        List<ActionOutcome> shots = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolveShot(afterPass, Score.goalless(), attackers, shooter, ShotKind.FOOT, defenders))
+                .toList();
+
+        assertThat(shots).filteredOn(outcome -> outcome.type() == EventType.SHOT_OFF_TARGET
+                || outcome.type() == EventType.SHOT_BLOCKED).isNotEmpty()
+                .allSatisfy(outcome -> assertThat(outcome.participants().secondary()).isEmpty());
+        assertThat(shots).filteredOn(outcome -> outcome.type() == EventType.SHOT_SAVED).isNotEmpty()
+                .allSatisfy(outcome ->
+                        assertThat(outcome.participants().secondary()).contains(defenders.goalkeeper()));
+    }
+
+    @Test
+    void aBlockedShotWhichReturnsToTheAttackForgetsTheLastPasser() {
+        Player passer = attackers.playersIn(Role.MIDFIELDER).getFirst();
+        Player shooter = attackers.playersIn(Role.FORWARD).getFirst();
+        MatchState afterPass = state.withLastPasser(passer);
+        ShotResolver resolver = resolver(config, SEED);
+
+        List<ActionOutcome> keptByAttack = IntStream.range(0, MANY_TRIALS)
+                .mapToObj(index -> resolver.resolveShot(afterPass, Score.goalless(), attackers, shooter, ShotKind.FOOT, defenders))
+                .filter(outcome -> outcome.type() == EventType.SHOT_BLOCKED)
+                .filter(outcome -> outcome.next().possession() == MatchSide.HOME)
+                .filter(outcome -> outcome.next().phase() == PlayPhase.BUILD_UP)
+                .toList();
+
+        assertThat(keptByAttack).isNotEmpty().allSatisfy(outcome ->
+                assertThat(outcome.next().hasLastPasser()).isFalse());
+    }
+
+    @Test
     void theSameSeedGivesTheSameOutcomes() {
         List<ActionOutcome> first = shots(resolver(config, SEED), attackers, defenders, 300);
         List<ActionOutcome> second = shots(resolver(config, SEED), attackers, defenders, 300);
 
         assertThat(first).containsExactlyElementsOf(second);
+    }
+
+    @Test
+    void theHomeAdvantageMultipliesTheShootingOfAHomeShooterAndNotOfAnAwayOne() {
+        TeamOnPitch home = styledTeam(PlayStyle.BALANCED);
+        TeamOnPitch away = styledTeam(PlayStyle.BALANCED);
+        Player shooter = home.playersIn(Role.FORWARD).getFirst();
+        double homeAdvantage = engine.homeAdvantage();
+
+        ActionOutcome atHome = resolverWithStyleAndVenue(SEED)
+                .resolveShot(inTheBoxOfTheOpponent(MatchSide.HOME), Score.goalless(), home, shooter, ShotKind.FOOT, away);
+        ActionOutcome awayFromHome = resolverWithStyleAndVenue(SEED)
+                .resolveShot(inTheBoxOfTheOpponent(MatchSide.AWAY), Score.goalless(), home, shooter, ShotKind.FOOT, away);
+
+        double boosted = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                homeAdvantage);
+        double unchanged = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                NEUTRAL);
+        assertThat(profileOf(atHome).expectedGoals()).isCloseTo(boosted, within(1e-9));
+        assertThat(profileOf(awayFromHome).expectedGoals()).isCloseTo(unchanged, within(1e-9));
+        assertThat(boosted).isGreaterThan(unchanged);
+    }
+
+    @ParameterizedTest
+    @EnumSource(PlayStyle.class)
+    void theStyleOfTheAttackersMultipliesTheShootingWithTheAttackValueOutsideTheMidfield(PlayStyle style) {
+        TeamOnPitch attacking = styledTeam(style);
+        TeamOnPitch defending = styledTeam(PlayStyle.BALANCED);
+        Player shooter = attacking.playersIn(Role.FORWARD).getFirst();
+        double multiplier = engine.playStyles().effectOf(style).attack();
+
+        ActionOutcome outcome = resolverWithStyleAndVenue(SEED).resolveShot(
+                inTheBoxOfTheOpponent(MatchSide.AWAY), Score.goalless(), attacking, shooter, ShotKind.FOOT, defending);
+
+        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                multiplier);
+        assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
+    }
+
+    @ParameterizedTest
+    @EnumSource(PlayStyle.class)
+    void theStyleOfTheAttackersMultipliesTheShootingWithTheMidfieldValueFromTheMidfield(PlayStyle style) {
+        TeamOnPitch attacking = styledTeam(style);
+        TeamOnPitch defending = styledTeam(PlayStyle.BALANCED);
+        Player shooter = attacking.playersIn(Role.FORWARD).getFirst();
+        MatchState longRange = MatchState.openPlay(MatchSide.AWAY, layout.kickOffZone());
+        double multiplier = engine.playStyles().effectOf(style).midfield();
+
+        ActionOutcome outcome = resolverWithStyleAndVenue(SEED)
+                .resolveShot(longRange, Score.goalless(), attacking, shooter, ShotKind.FOOT, defending);
+
+        double expected = model.expectedGoals(ZoneRole.MIDFIELD, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                multiplier);
+        assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
+    }
+
+    @Test
+    void theHomeAdvantageAndTheDefensiveStyleMultiplyTheGoalkeepingOfTheDefenders() {
+        ShotConfig steepKeeper = TestShotConfig.withGoalkeepingSlope(0.05);
+        ExpectedGoalsModel steepModel = new ExpectedGoalsModel(steepKeeper);
+        TeamOnPitch attacking = styledTeam(PlayStyle.BALANCED);
+        TeamOnPitch defending = styledTeam(PlayStyle.DEFENSIVE);
+        Player shooter = attacking.playersIn(Role.FORWARD).getFirst();
+        double multiplier = engine.homeAdvantage() * engine.playStyles().effectOf(PlayStyle.DEFENSIVE).defence();
+        double expectedGoals = steepModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT,
+                shooter, NEUTRAL);
+        double strengthened = steepModel.goalProbability(expectedGoals, defending.goalkeeper(), multiplier);
+        double unchanged = steepModel.goalProbability(expectedGoals, defending.goalkeeper(), NEUTRAL);
+        ShotResolver resolver = resolverWithStyleAndVenue(steepKeeper, SEED);
+        MatchState awayAttacks = inTheBoxOfTheOpponent(MatchSide.AWAY);
+
+        List<ActionOutcome> outcomes = IntStream.range(0, MANY_TRIALS)
+                .mapToObj(index -> resolver.resolveShot(awayAttacks, Score.goalless(), attacking, shooter,
+                        ShotKind.FOOT, defending))
+                .toList();
+
+        assertThat(unchanged - strengthened).isGreaterThan(2 * ONE_POINT);
+        assertThat(share(outcomes, EventType.GOAL)).isCloseTo(strengthened, within(ONE_POINT));
+    }
+
+    @Test
+    void withBalancedStylesAndNoHomeAdvantageTheShotIsTheOneOfTheModel() {
+        EngineConfig neutralVenue = TestConfigs.withoutHomeAdvantage(engine);
+        TeamOnPitch attacking = styledTeam(PlayStyle.BALANCED);
+        TeamOnPitch defending = styledTeam(PlayStyle.BALANCED);
+        Player shooter = attacking.playersIn(Role.FORWARD).getFirst();
+        ShotResolver resolver = resolverWithStyleAndVenue(neutralVenue, SEED);
+        double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                NEUTRAL);
+        double goalProbability = model.goalProbability(expectedGoals, defending.goalkeeper(), NEUTRAL);
+
+        List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolveShot(inTheBoxOfTheOpponent(MatchSide.HOME), Score.goalless(),
+                        attacking, shooter, ShotKind.FOOT, defending))
+                .toList();
+
+        assertThat(profileOf(outcomes.getFirst()).expectedGoals()).isCloseTo(expectedGoals, within(1e-9));
+        assertThat(share(outcomes, EventType.GOAL)).isCloseTo(goalProbability, within(ONE_POINT));
+    }
+
+    @Test
+    void aPenaltyIsLeftOutOfStyleAndHomeAdvantage() {
+        TeamOnPitch takers = styledTeam(PlayStyle.ATTACKING);
+        TeamOnPitch keepers = styledTeam(PlayStyle.DEFENSIVE);
+        ShotResolver resolver = resolverWithStyleAndVenue(SEED);
+        Player taker = resolver.penaltyTakerOf(takers);
+        double expectedGoals = model.penaltyExpectedGoals(taker);
+
+        List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolvePenalty(inTheBoxOfTheOpponent(MatchSide.HOME), Score.goalless(),
+                        takers, keepers))
+                .toList();
+
+        assertThat(profileOf(outcomes.getFirst()).expectedGoals()).isCloseTo(expectedGoals, within(1e-9));
+        double expected = model.goalProbability(expectedGoals, keepers.goalkeeper(), NEUTRAL);
+        assertThat(share(outcomes, EventType.GOAL)).isCloseTo(expected, within(ONE_POINT));
+    }
+
+    @Test
+    void aShooterOutOfPositionShootsWithTheOutOfPositionMultiplierEvenWhenTheTeamIsStillAtElevenMen() {
+        TeamOnPitch attacking = styledTeam(PlayStyle.BALANCED);
+        TeamOnPitch defending = styledTeam(PlayStyle.BALANCED);
+        Player shooter = attacking.playersIn(Role.FORWARD).getFirst();
+        TeamOnPitch shooterInMidfield = attacking.withRole(shooter, Role.MIDFIELDER);
+        double outOfPosition = engine.lineup().outOfPositionMultiplier();
+
+        ActionOutcome outcome = resolverWithStyleAndVenue(SEED).resolveShot(inTheBoxOfTheOpponent(MatchSide.AWAY),
+                Score.goalless(), shooterInMidfield, shooter, ShotKind.FOOT, defending);
+
+        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                outOfPosition);
+        assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
+    }
+
+    @Test
+    void aPenaltyTakerOutOfPositionIsNeverWeakenedAndStaysTheBestShooter() {
+        TeamOnPitch takers = teamWithShooters(List.of(60, 50, 90, 50, 70));
+        Player best = takers.players().get(2);
+        TeamOnPitch bestOutOfPosition = takers.withRole(best, Role.DEFENDER);
+        ShotResolver resolver = resolverWithStyleAndVenue(SEED);
+
+        ActionOutcome outcome = resolver.resolvePenalty(state, Score.goalless(), bestOutOfPosition, defenders);
+
+        double expected = model.penaltyExpectedGoals(best);
+        assertThat(resolver.penaltyTakerOf(bestOutOfPosition)).isEqualTo(best);
+        assertThat(outcome.participants().primary()).contains(best);
+        assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
+    }
+
+    private MatchState inTheBoxOfTheOpponent(MatchSide attackingSide) {
+        Zone opponentBox = layout.ownBoxZone(attackingSide.opposite());
+        return MatchState.openPlay(attackingSide, opponentBox);
+    }
+
+    private TeamOnPitch styledTeam(PlayStyle style) {
+        return TeamOnPitch.startingWith(TestTeams.team("Styled-" + style, style, 60));
+    }
+
+    private ShotResolver resolverWithStyleAndVenue(long seed) {
+        return resolverWithStyleAndVenue(engine, seed);
+    }
+
+    private ShotResolver resolverWithStyleAndVenue(EngineConfig engineConfig, long seed) {
+        return resolverWithStyleAndVenue(engineConfig.shot(), engineConfig, seed);
+    }
+
+    private ShotResolver resolverWithStyleAndVenue(ShotConfig shotConfig, long seed) {
+        return resolverWithStyleAndVenue(shotConfig, engine, seed);
+    }
+
+    private ShotResolver resolverWithStyleAndVenue(ShotConfig shotConfig, EngineConfig engineConfig, long seed) {
+        MatchRandom random = new MatchRandom(seed);
+        Matchups matchups = TestResolvers.matchups(engineConfig, layout, random);
+        return TestResolvers.shotResolver(shotConfig, layout, random, matchups);
     }
 
 private MatchState cornerForTheAttackers() {
@@ -435,11 +699,19 @@ private List<ActionOutcome> outcomesOfType(EventType type, int trials) {
                 .toList();
     }
 
+    private List<ActionOutcome> goalsFrom(MatchState fromState, Player shooter, ShotKind kind) {
+        ShotResolver resolver = resolver(config, SEED);
+        return IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolveShot(fromState, Score.goalless(), attackers, shooter, kind, defenders))
+                .filter(outcome -> outcome.type() == EventType.GOAL)
+                .toList();
+    }
+
     private List<ActionOutcome> shots(ShotResolver resolver, TeamOnPitch shootingTeam, TeamOnPitch keepingTeam,
             int count) {
         Player shooter = shootingTeam.playersIn(Role.FORWARD).get(0);
         return IntStream.range(0, count)
-                .mapToObj(index -> resolver.resolveShot(state, Score.goalless(), shooter, ShotKind.FOOT, keepingTeam))
+                .mapToObj(index -> resolver.resolveShot(state, Score.goalless(), shootingTeam, shooter, ShotKind.FOOT, keepingTeam))
                 .toList();
     }
 
@@ -456,8 +728,8 @@ private List<ActionOutcome> outcomesOfType(EventType type, int trials) {
     }
 
     private double goalProbabilityOf(Player shooter, TeamOnPitch keepingTeam) {
-        double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter);
-        return model.goalProbability(expectedGoals, keepingTeam.goalkeeper());
+        double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, NEUTRAL);
+        return model.goalProbability(expectedGoals, keepingTeam.goalkeeper(), NEUTRAL);
     }
 
     private Player bestShooterOf(TeamOnPitch team) {

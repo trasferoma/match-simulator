@@ -28,6 +28,7 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
@@ -120,7 +121,7 @@ class SetPieceResolverTest {
     }
 
 @Test
-void aCornerIsTakenByAMidfielderOfTheAttackingSideFromTheOpponentBox() {
+void aCornerIsTakenByAnOutfieldPlayerOfAnyLineOfTheAttackingSideFromTheOpponentBox() {
     MatchState state = cornerFor(MatchSide.AWAY);
 
     List<ActionOutcome> outcomes = resolveMany(state, 300);
@@ -128,11 +129,13 @@ void aCornerIsTakenByAMidfielderOfTheAttackingSideFromTheOpponentBox() {
     assertThat(outcomes).allSatisfy(outcome -> {
         Player taker = outcome.participants().primary().orElseThrow();
         assertThat(outcome.type()).isEqualTo(EventType.CORNER_KICK);
-        assertThat(taker.role()).isEqualTo(Role.MIDFIELDER);
+        assertThat(taker.role()).isNotEqualTo(Role.GOALKEEPER);
         assertThat(away.players()).contains(taker);
         assertThat(outcome.participants().secondary()).isEmpty();
         assertThat(outcome.detail()).isEqualTo(EventDetail.none());
     });
+    assertThat(outcomes).extracting(outcome -> outcome.participants().primary().orElseThrow().role())
+            .contains(Role.DEFENDER, Role.MIDFIELDER, Role.FORWARD);
 }
 
 @Test
@@ -253,7 +256,7 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
     }
 
     @Test
-    void aFreeKickCrossPutsTheCrossInFlightIntoTheOpponentBoxFromItsTaker() {
+    void aFreeKickCrossPutsTheCrossInFlightIntoTheOpponentBoxFromACrosserOfAnyLine() {
         SetPieceConfig alwaysCross = withDirectShare(0.0);
         MatchState state = freeKickAt(ZoneRole.ATTACKING_THIRD);
         Zone opponentBox = layout.ownBoxZone(MatchSide.HOME);
@@ -263,7 +266,7 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         assertThat(outcomes).allSatisfy(outcome -> {
             Player taker = outcome.participants().primary().orElseThrow();
             assertThat(outcome.type()).isEqualTo(EventType.FREE_KICK_CROSS);
-            assertThat(taker.role()).isEqualTo(Role.MIDFIELDER);
+            assertThat(taker.role()).isNotEqualTo(Role.GOALKEEPER);
             assertThat(outcome.next().possession()).isEqualTo(MatchSide.AWAY);
             assertThat(outcome.next().zone()).isEqualTo(opponentBox);
             assertThat(outcome.next().phase()).isEqualTo(PlayPhase.SET_PIECE);
@@ -398,7 +401,8 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         EngineConfig engineConfig = EngineConfig.defaults();
         ShotResolver shotResolver = TestResolvers.shotResolver(engineConfig, layout, random);
         CrossResolver crossResolver = TestResolvers.crossResolver(engineConfig, layout, random, shotResolver);
-        return new SetPieceResolver(setPieceConfig, layout, random, crossResolver, shotResolver);
+        return new SetPieceResolver(setPieceConfig, layout, random, new PlayerPicker(random), crossResolver,
+                shotResolver);
     }
 
     private SetPieceResolver resolver(long seed) {
@@ -406,6 +410,6 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         EngineConfig engineConfig = EngineConfig.defaults();
         ShotResolver shotResolver = TestResolvers.shotResolver(engineConfig, layout, random);
         CrossResolver crossResolver = TestResolvers.crossResolver(engineConfig, layout, random, shotResolver);
-        return new SetPieceResolver(config, layout, random, crossResolver, shotResolver);
+        return new SetPieceResolver(config, layout, random, new PlayerPicker(random), crossResolver, shotResolver);
     }
 }

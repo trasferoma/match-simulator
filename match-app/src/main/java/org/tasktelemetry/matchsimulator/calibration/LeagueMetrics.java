@@ -100,6 +100,9 @@ public final class LeagueMetrics {
         double fouls = averageContour(matches, ContourCounters::fouls);
         double yellowCards = averageContour(matches, ContourCounters::yellowCards);
         double redCards = averageContour(matches, ContourCounters::redCards);
+        double directRedCards = averageContour(matches, ContourCounters::directRedCards);
+        double secondYellowCards = averageContour(matches, ContourCounters::secondYellowCards);
+        double deflectedCrosses = averageContour(matches, ContourCounters::deflectedCrosses);
         double offsides = averageContour(matches, ContourCounters::offsides);
         double substitutions = averageContour(matches, ContourCounters::substitutions);
         double penalties = averageContour(matches, ContourCounters::penalties);
@@ -109,9 +112,12 @@ public final class LeagueMetrics {
         orientation.put("xG a partita", expectedGoals);
         orientation.put("angoli a partita", corners);
         orientation.put("cross a partita", crosses);
+        orientation.put("cross deviati in angolo a partita", deflectedCrosses);
         orientation.put("falli a partita", fouls);
         orientation.put("gialli a partita", yellowCards);
         orientation.put("rossi a partita", redCards);
+        orientation.put("rossi diretti a partita", directRedCards);
+        orientation.put("secondi gialli a partita", secondYellowCards);
         orientation.put("fuorigioco a partita", offsides);
         orientation.put("infortuni a partita", injuries);
         orientation.put("cambi a partita", substitutions);

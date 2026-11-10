@@ -46,6 +46,8 @@ class PhraseKeysTest {
     @Test
     void aGoalIsKeyedByTheFormOfTheShot() {
         MatchEvent foot = goal(ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.BIG_CHANCE), HOME_FORWARD, null);
+        MatchEvent assistedFoot = goal(ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.BIG_CHANCE), HOME_FORWARD,
+                HOME_MIDFIELDER);
         MatchEvent freeKick = goal(ShotProfile.ofShot(0.1, ShotKind.DIRECT_FREE_KICK, ShotQuality.ATTEMPT),
                 HOME_FORWARD, null);
         MatchEvent header = goal(ShotProfile.ofShot(0.3, ShotKind.HEADER, ShotQuality.HALF_CHANCE), HOME_FORWARD,
@@ -53,6 +55,7 @@ class PhraseKeysTest {
         MatchEvent penalty = goal(ShotProfile.ofPenalty(0.79, ShotQuality.BIG_CHANCE), HOME_FORWARD, null);
 
         assertThat(keys.keyOf(foot)).isEqualTo("GOAL.FOOT");
+        assertThat(keys.keyOf(assistedFoot)).isEqualTo("GOAL.FOOT.WITH_SECONDARY");
         assertThat(keys.keyOf(freeKick)).isEqualTo("GOAL.DIRECT_FREE_KICK");
         assertThat(keys.keyOf(header)).isEqualTo("GOAL.HEADER.WITH_SECONDARY");
         assertThat(keys.keyOf(penalty)).isEqualTo("GOAL.PENALTY");

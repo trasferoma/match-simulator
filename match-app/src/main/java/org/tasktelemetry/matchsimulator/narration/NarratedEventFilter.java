@@ -24,7 +24,7 @@ public final class NarratedEventFilter {
     private static final Set<EventType> FREE_KICK_TYPES = EnumSet.of(EventType.FREE_KICK,
             EventType.FREE_KICK_CROSS);
     private static final Set<EventType> PLAYED_BY_THE_OPPOSING_SIDE_TYPES = EnumSet.of(EventType.INTERCEPTION,
-            EventType.TACKLE, EventType.FOUL, EventType.CLEARANCE);
+            EventType.TACKLE, EventType.FOUL, EventType.CLEARANCE, EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final int MAX_EVENTS_PREPARING_A_SHOT = 2;
 
     public List<MatchEvent> select(List<MatchEvent> events, ChronicleMode mode) {

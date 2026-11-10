@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
@@ -22,17 +23,21 @@ import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class SetPieceResolver {
 
+    private static final ZoneRole TAKER_ZONE_ROLE = ZoneRole.MIDFIELD;
+
     private final SetPieceConfig config;
     private final PitchLayout layout;
     private final MatchRandom random;
+    private final PlayerPicker picker;
     private final CrossResolver crossResolver;
     private final ShotResolver shotResolver;
 
-    public SetPieceResolver(SetPieceConfig config, PitchLayout layout, MatchRandom random,
+    public SetPieceResolver(SetPieceConfig config, PitchLayout layout, MatchRandom random, PlayerPicker picker,
             CrossResolver crossResolver, ShotResolver shotResolver) {
         this.config = config;
         this.layout = layout;
         this.random = random;
+        this.picker = picker;
         this.crossResolver = crossResolver;
         this.shotResolver = shotResolver;
     }
@@ -74,19 +79,22 @@ public final class SetPieceResolver {
 
     private ActionOutcome freeKick(MatchState state, Score score, TeamOnPitch restartingTeam,
             TeamOnPitch opponents) {
-        Player taker = crossResolver.pickCrosser(restartingTeam);
         if (!isFromAttackingThird(state)) {
+            Player taker = pickTaker(restartingTeam);
             return restartFromFreeKick(state, taker);
         }
         if (decidesToShootDirectly()) {
-            ActionOutcome shot = shotResolver.resolveShot(state, score, taker, ShotKind.DIRECT_FREE_KICK, opponents);
+            Player shooter = pickTaker(restartingTeam);
+            ActionOutcome shot = shotResolver.resolveShot(state, score, restartingTeam, shooter,
+                    ShotKind.DIRECT_FREE_KICK, opponents);
             return shot.afterWaiting(drawFreeKickDuration());
         }
-        return crossFromFreeKick(state, taker);
+        Player crosser = crossResolver.pickCrosser(restartingTeam);
+        return crossFromFreeKick(state, crosser);
     }
 
     private ActionOutcome offsideFreeKick(MatchState state, TeamOnPitch restartingTeam) {
-        Player taker = crossResolver.pickCrosser(restartingTeam);
+        Player taker = pickTaker(restartingTeam);
         int duration = drawFreeKickDuration();
         MatchState next = state.inOpenPlay();
         return ActionOutcome.byPlayer(EventType.OFFSIDE_FREE_KICK, taker, next, duration);
@@ -105,6 +113,10 @@ public final class SetPieceResolver {
         MatchState next = inTheBox.withCrossInFlightFrom(taker);
         int duration = drawFreeKickDuration();
         return ActionOutcome.byPlayer(EventType.FREE_KICK_CROSS, taker, next, duration);
+    }
+
+    private Player pickTaker(TeamOnPitch restartingTeam) {
+        return picker.pickFrom(restartingTeam, TAKER_ZONE_ROLE);
     }
 
     private boolean isFromAttackingThird(MatchState state) {

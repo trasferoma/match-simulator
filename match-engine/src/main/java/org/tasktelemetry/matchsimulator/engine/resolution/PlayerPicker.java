@@ -1,7 +1,7 @@
 package org.tasktelemetry.matchsimulator.engine.resolution;
 
 import java.util.List;
-import java.util.Optional;
+import java.util.function.ToDoubleFunction;
 
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
@@ -23,24 +23,32 @@ public final class PlayerPicker {
         return pickWeighted(candidates);
     }
 
-    public Optional<Player> pickOtherThan(TeamOnPitch team, ZoneRole zoneRole, Player excluded) {
+    public Player pickOtherThan(TeamOnPitch team, ZoneRole zoneRole, Player excluded) {
         Role sector = sectorOf(zoneRole);
         List<Player> candidates = team.playersIn(sector).stream()
                 .filter(player -> !player.equals(excluded))
                 .toList();
         if (candidates.isEmpty()) {
-            return Optional.empty();
+            throw new IllegalStateException("no " + sector + " of " + team.team().name() + " other than "
+                    + excluded.name());
         }
-        Player picked = pickWeighted(candidates);
-        return Optional.of(picked);
+        return pickWeighted(candidates);
+    }
+
+    public Player pickByPassing(List<Player> candidates) {
+        return pickWeighted(candidates, this::passingOf);
     }
 
     private Player pickWeighted(List<Player> candidates) {
-        double totalWeight = totalWeightOf(candidates);
+        return pickWeighted(candidates, this::movementAverageOf);
+    }
+
+    private Player pickWeighted(List<Player> candidates, ToDoubleFunction<Player> weightOf) {
+        double totalWeight = totalWeightOf(candidates, weightOf);
         double target = random.nextDouble() * totalWeight;
         double cumulativeWeight = 0.0;
         for (Player candidate : candidates) {
-            cumulativeWeight += weightOf(candidate);
+            cumulativeWeight += weightOf.applyAsDouble(candidate);
             if (target < cumulativeWeight) {
                 return candidate;
             }
@@ -48,14 +56,18 @@ public final class PlayerPicker {
         return candidates.getLast();
     }
 
-    private double totalWeightOf(List<Player> candidates) {
+    private double totalWeightOf(List<Player> candidates, ToDoubleFunction<Player> weightOf) {
         return candidates.stream()
-                .mapToDouble(this::weightOf)
+                .mapToDouble(weightOf)
                 .sum();
     }
 
-    private double weightOf(Player player) {
+    private double movementAverageOf(Player player) {
         return player.attributes().movementAverage();
+    }
+
+    private double passingOf(Player player) {
+        return player.attributes().passing();
     }
 
     public static Role sectorOf(ZoneRole zoneRole) {

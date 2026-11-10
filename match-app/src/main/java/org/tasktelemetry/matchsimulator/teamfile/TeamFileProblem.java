@@ -8,5 +8,6 @@ enum TeamFileProblem {
     WRONG_VALUE_TYPE,
     MISSING,
     BLANK,
-    UNKNOWN_VALUE
+    UNKNOWN_VALUE,
+    UNKNOWN_FIELD
 }

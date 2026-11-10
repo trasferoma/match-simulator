@@ -10,6 +10,7 @@ import java.util.Map;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.engine.config.CrossConfig;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
@@ -27,12 +28,18 @@ class MatchStoppageTest {
 
     private static final int MATCHES = 60;
     private static final int FOUL_MATCHES = 300;
+    private static final int LONG_CROSS_MATCHES = 200;
     private static final int REGULATION_SECONDS = 45 * 60;
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> CONSEQUENCES = EnumSet.of(EventType.YELLOW_CARD, EventType.SECOND_YELLOW_CARD,
             EventType.RED_CARD, EventType.SUBSTITUTION, EventType.STOPPAGE_ANNOUNCED);
     private static final Set<EventType> PERIOD_ENDS = EnumSet.of(EventType.FIRST_HALF_END, EventType.MATCH_END);
+    private static final Set<EventType> CROSS_DELIVERIES = EnumSet.of(EventType.CROSS_COMPLETED,
+            EventType.CORNER_KICK, EventType.FREE_KICK_CROSS);
+    private static final Set<EventType> CROSS_RESULTS = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
+            EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED, EventType.CLEARANCE, EventType.CROSS_FAILED,
+            EventType.CROSS_DEFLECTED_TO_CORNER);
 
     private final Team home = TestTeams.team("Home", PlayStyle.BALANCED, 60);
     private final Team away = TestTeams.team("Away", PlayStyle.BALANCED, 60);
@@ -121,7 +128,8 @@ class MatchStoppageTest {
         for (List<MatchEvent> events : playMany(withFoulsEverywhere(), FOUL_MATCHES)) {
             for (MatchPeriod half : List.of(MatchPeriod.FIRST_HALF, MatchPeriod.SECOND_HALF)) {
                 List<MatchEvent> afterTheExpiry = playedEventsAfterTheExpiryStarted(events, half);
-                if (afterTheExpiry.isEmpty() || isPenaltyFoul(afterTheExpiry.get(0))) {
+                if (afterTheExpiry.isEmpty() || isPenaltyFoul(afterTheExpiry.get(0))
+                        || CROSS_DELIVERIES.contains(afterTheExpiry.get(0).type())) {
                     continue;
                 }
                 assertThat(afterTheExpiry).hasSize(2);
@@ -130,6 +138,44 @@ class MatchStoppageTest {
             }
         }
         assertThat(endedByAnAction).isPositive();
+    }
+
+    @Test
+    void aCrossOrACornerStartedBeforeTheExpiryIsFollowedByItsAerialDuelOrItsFailureAndTheHalfEndsRightAfter() {
+        int crossesAtTheWhistle = 0;
+
+        for (List<MatchEvent> events : playMany(withLongCrosses(), LONG_CROSS_MATCHES)) {
+            for (MatchPeriod half : List.of(MatchPeriod.FIRST_HALF, MatchPeriod.SECOND_HALF)) {
+                List<MatchEvent> afterTheExpiry = playedEventsAfterTheExpiryStarted(events, half);
+                if (afterTheExpiry.isEmpty() || !CROSS_DELIVERIES.contains(afterTheExpiry.get(0).type())) {
+                    continue;
+                }
+                assertThat(afterTheExpiry).hasSize(3);
+                assertThat(CROSS_RESULTS).contains(afterTheExpiry.get(1).type());
+                assertThat(PERIOD_ENDS).contains(afterTheExpiry.get(2).type());
+                crossesAtTheWhistle++;
+            }
+        }
+        assertThat(crossesAtTheWhistle).isPositive();
+    }
+
+    @Test
+    void aCornerWonByACrossDeflectedAtTheWhistleIsNotTaken() {
+        int deflectedAtTheWhistle = 0;
+
+        for (List<MatchEvent> events : playMany(withLongCrosses(), LONG_CROSS_MATCHES)) {
+            for (MatchPeriod half : List.of(MatchPeriod.FIRST_HALF, MatchPeriod.SECOND_HALF)) {
+                List<MatchEvent> afterTheExpiry = playedEventsAfterTheExpiryStarted(events, half);
+                if (afterTheExpiry.isEmpty()
+                        || afterTheExpiry.get(0).type() != EventType.CROSS_DEFLECTED_TO_CORNER) {
+                    continue;
+                }
+                assertThat(afterTheExpiry).hasSize(2);
+                assertThat(PERIOD_ENDS).contains(afterTheExpiry.get(1).type());
+                deflectedAtTheWhistle++;
+            }
+        }
+        assertThat(deflectedAtTheWhistle).isPositive();
     }
 
     @Test
@@ -198,7 +244,15 @@ class MatchStoppageTest {
                 .toList();
     }
 
-    private EngineConfig withFoulsEverywhere() {
+    private EngineConfig withLongCrosses() {
+    CrossConfig defaults = CrossConfig.defaults();
+    DurationRange longCross = new DurationRange(300, 600);
+    CrossConfig crosses = new CrossConfig(0.6, defaults.deflectedToCornerShare(), defaults.clearedToCornerShare(),
+            longCross, defaults.clearanceDuration());
+    return TestConfigs.withCross(EngineConfig.defaults(), crosses);
+}
+
+private EngineConfig withFoulsEverywhere() {
         FoulConfig defaults = FoulConfig.defaults();
         Map<FoulSeverity, Double> noCards = new EnumMap<>(FoulSeverity.class);
         for (FoulSeverity severity : FoulSeverity.values()) {

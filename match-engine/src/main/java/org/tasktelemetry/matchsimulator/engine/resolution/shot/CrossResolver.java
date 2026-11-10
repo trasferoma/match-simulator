@@ -1,5 +1,7 @@
 package org.tasktelemetry.matchsimulator.engine.resolution.shot;
 
+import java.util.List;
+
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.CrossConfig;
@@ -14,17 +16,20 @@ import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.Duel;
+import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
+import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public final class CrossResolver {
 
-    private static final ZoneRole CROSSER_ZONE_ROLE = ZoneRole.MIDFIELD;
+    private static final ZoneRole HEADER_ZONE_ROLE = ZoneRole.OPPONENT_BOX;
 
     private final CrossConfig config;
     private final PlayStyleModifiers playStyles;
@@ -32,15 +37,17 @@ public final class CrossResolver {
     private final MatchRandom random;
     private final PlayerPicker picker;
     private final ShotResolver shotResolver;
+    private final Matchups matchups;
 
     public CrossResolver(CrossConfig config, PlayStyleModifiers playStyles, PitchLayout layout, MatchRandom random,
-            PlayerPicker picker, ShotResolver shotResolver) {
+            PlayerPicker picker, ShotResolver shotResolver, Matchups matchups) {
         this.config = config;
         this.playStyles = playStyles;
         this.layout = layout;
         this.random = random;
         this.picker = picker;
         this.shotResolver = shotResolver;
+        this.matchups = matchups;
     }
 
     public double crossProbability(PlayStyle style) {
@@ -48,8 +55,8 @@ public final class CrossResolver {
         return config.crossProbability() * propensity;
     }
 
-    public Duel crossDuel(Player crosser) {
-        return new Duel(crosser.attributes().passing(), config.crossDifficulty());
+    public Duel crossDuel(Player crosser, Player defender) {
+        return Duel.between(crosser.attributes().passing(), defender.attributes().positioning());
     }
 
     public Duel aerialDuel(Player attacker, Player defender) {
@@ -57,30 +64,47 @@ public final class CrossResolver {
     }
 
     public Player pickCrosser(TeamOnPitch attackers) {
-        return picker.pickFrom(attackers, CROSSER_ZONE_ROLE);
+        List<Player> candidates = listCrosserCandidates(attackers);
+        return picker.pickByPassing(candidates);
     }
 
-    public ActionOutcome resolveCross(MatchState state, TeamOnPitch attackers) {
+    public ActionOutcome resolveCross(MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {
         Player crosser = pickCrosser(attackers);
-        if (crossReachesTheBox(crosser)) {
+        Player defender = pickDefender(state, defenders);
+        if (crossReachesTheBox(state, attackers, crosser, defenders, defender)) {
             return deliverCross(state, crosser);
         }
-        return loseCross(state, crosser);
+        return failCross(state, crosser, defender);
+    }
+
+    public ActionOutcome resolveCrossInFlight(MatchState state, Score score, TeamOnPitch attackers,
+            TeamOnPitch defenders) {
+        if (!isCrossFromSetPiece(state)) {
+            return resolveAerialDuel(state, score, attackers, defenders);
+        }
+        Player crosser = state.crosser();
+        Player defender = pickDefender(state, defenders);
+        if (crossReachesTheBox(state, attackers, crosser, defenders, defender)) {
+            return resolveAerialDuel(state, score, attackers, defenders);
+        }
+        return failCross(state, crosser, defender);
     }
 
     public ActionOutcome resolveAerialDuel(MatchState state, Score score, TeamOnPitch attackers,
             TeamOnPitch defenders) {
-        Player attacker = pickAttackerInTheBox(state, attackers);
-        Player defender = pickDefenderInTheBox(state, defenders);
-        Duel duel = aerialDuel(attacker, defender);
+        Player attacker = pickHeader(state, attackers);
+        Player defender = pickDefender(state, defenders);
+        Duel attributeDuel = aerialDuel(attacker, defender);
+        Duel duel = matchups.openPlayDuel(attributeDuel, state, attackers, attacker, defenders, defender);
         if (attackerWins(duel)) {
-            return shootHeader(state, score, attacker, defenders);
+            return shootHeader(state, score, attackers, attacker, defenders);
         }
         return clearBall(state, defender);
     }
 
-    private ActionOutcome shootHeader(MatchState state, Score score, Player attacker, TeamOnPitch defenders) {
-        return shotResolver.resolveShot(state, score, attacker, ShotKind.HEADER, defenders);
+    private ActionOutcome shootHeader(MatchState state, Score score, TeamOnPitch attackers, Player attacker,
+            TeamOnPitch defenders) {
+        return shotResolver.resolveShot(state, score, attackers, attacker, ShotKind.HEADER, defenders);
     }
 
     private ActionOutcome deliverCross(MatchState state, Player crosser) {
@@ -91,6 +115,22 @@ public final class CrossResolver {
         Participants participants = Participants.of(crosser);
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(EventType.CROSS_COMPLETED, participants, next, duration, detail);
+    }
+
+    private ActionOutcome failCross(MatchState state, Player crosser, Player defender) {
+        if (decidesToDeflectToCorner()) {
+            return deflectToCorner(state, crosser, defender);
+        }
+        return loseCross(state, crosser);
+    }
+
+    private ActionOutcome deflectToCorner(MatchState state, Player crosser, Player defender) {
+        Zone opponentBox = opponentBoxOf(state);
+        MatchState next = MatchState.forSetPiece(state.possession(), opponentBox, SetPieceKind.CORNER);
+        int duration = drawDuration(config.crossDuration());
+        Participants participants = Participants.of(defender, crosser);
+        EventDetail detail = EventDetail.none();
+        return new ActionOutcome(EventType.CROSS_DEFLECTED_TO_CORNER, participants, next, duration, detail);
     }
 
     private ActionOutcome loseCross(MatchState state, Player crosser) {
@@ -127,20 +167,39 @@ public final class CrossResolver {
         return layout.ownBoxZone(defendingSide);
     }
 
-    private Player pickAttackerInTheBox(MatchState state, TeamOnPitch attackers) {
-        ZoneRole zoneRole = layout.roleOf(state.zone(), state.possession());
-        return picker.pickFrom(attackers, zoneRole);
+    private Player pickHeader(MatchState state, TeamOnPitch attackers) {
+        return picker.pickOtherThan(attackers, HEADER_ZONE_ROLE, state.crosser());
     }
 
-    private Player pickDefenderInTheBox(MatchState state, TeamOnPitch defenders) {
+    private Player pickDefender(MatchState state, TeamOnPitch defenders) {
         MatchSide defendingSide = state.possession().opposite();
         ZoneRole zoneRole = layout.roleOf(state.zone(), defendingSide);
         return picker.pickFrom(defenders, zoneRole);
     }
 
-    private boolean crossReachesTheBox(Player crosser) {
-        Duel duel = crossDuel(crosser);
+    private List<Player> listCrosserCandidates(TeamOnPitch attackers) {
+        Role headerSector = PlayerPicker.sectorOf(HEADER_ZONE_ROLE);
+        List<Player> headers = attackers.playersIn(headerSector);
+        List<Player> soleHeader = headers.size() == 1 ? headers : List.of();
+        return attackers.players().stream()
+                .filter(player -> attackers.roleOf(player) != Role.GOALKEEPER)
+                .filter(player -> !soleHeader.contains(player))
+                .toList();
+    }
+
+    private boolean isCrossFromSetPiece(MatchState state) {
+        return state.phase() == PlayPhase.SET_PIECE;
+    }
+
+    private boolean crossReachesTheBox(MatchState state, TeamOnPitch attackers, Player crosser,
+            TeamOnPitch defenders, Player defender) {
+        Duel attributeDuel = crossDuel(crosser, defender);
+        Duel duel = matchups.openPlayDuel(attributeDuel, state, attackers, crosser, defenders, defender);
         return attackerWins(duel);
+    }
+
+    private boolean decidesToDeflectToCorner() {
+        return random.occurs(config.deflectedToCornerShare());
     }
 
     private boolean attackerWins(Duel duel) {
