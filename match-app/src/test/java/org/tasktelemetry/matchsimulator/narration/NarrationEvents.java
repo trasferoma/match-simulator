@@ -30,6 +30,8 @@ final class NarrationEvents {
     static final Player AWAY_DEFENDER = player("Neri", Role.DEFENDER);
     static final Player AWAY_GOALKEEPER = player("Gialli", Role.GOALKEEPER);
 
+    static final TeamNames TEAM_NAMES = new TeamNames("Aquile", "Lupi");
+
     private static final int SECONDS_BETWEEN_EVENTS = 20;
 
     private final List<MatchEvent> events = new ArrayList<>();

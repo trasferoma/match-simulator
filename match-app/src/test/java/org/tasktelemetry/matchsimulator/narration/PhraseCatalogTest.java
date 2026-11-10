@@ -25,7 +25,9 @@ import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
 class PhraseCatalogTest {
 
     private static final Pattern PLACEHOLDER = Pattern.compile("\\{[a-z]+\\}");
-    private static final Set<String> KNOWN_PLACEHOLDERS = Set.of("{player}", "{secondary}", "{minutes}");
+    private static final Set<String> KNOWN_PLACEHOLDERS = Set.of("{player}", "{secondary}", "{minutes}",
+            "{team}");
+    private static final Set<EventType> NAMING_THE_TEAM = EnumSet.of(EventType.GOAL, EventType.MATCH_SUSPENDED);
 
     private static final Map<ShotQuality, List<String>> DANGER_LEXICON = Map.of(
             ShotQuality.ATTEMPT, List.of("tentativ", "azzard", "velleit"),
@@ -115,6 +117,28 @@ class PhraseCatalogTest {
     }
 
     @Test
+    void everyPhraseOfAGoalAndOfTheSuspensionHasThePlaceholderOfTheTeam() {
+        Set<String> keysNamingTheTeam = keysNamingTheTeam();
+
+        assertThat(keysNamingTheTeam).isNotEmpty();
+        for (String key : keysNamingTheTeam) {
+            assertThat(catalog.variantsOf(key)).as(key)
+                    .allSatisfy(phrase -> assertThat(phrase).contains("{team}"));
+        }
+    }
+
+    @Test
+    void theTeamPlaceholderAppearsOnlyInTheGoalAndTheSuspension() {
+        Set<String> keysNamingTheTeam = keysNamingTheTeam();
+
+        for (String key : catalog.keys()) {
+            boolean carriesTeam = catalog.variantsOf(key).stream().anyMatch(phrase -> phrase.contains("{team}"));
+
+            assertThat(carriesTeam).as(key).isEqualTo(keysNamingTheTeam.contains(key));
+        }
+    }
+
+    @Test
     void noPhraseUsesAPlaceholderOtherThanTheKnownOnes() {
         for (String key : catalog.keys()) {
             for (String phrase : catalog.variantsOf(key)) {
@@ -193,6 +217,13 @@ class PhraseCatalogTest {
         assertThatThrownBy(() -> new PhraseCatalog(Map.of("A.KEY", List.of())))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("A.KEY");
+    }
+
+    private Set<String> keysNamingTheTeam() {
+        return ProducibleEvents.all().stream()
+                .filter(event -> NAMING_THE_TEAM.contains(event.type()))
+                .map(keys::keyOf)
+                .collect(Collectors.toSet());
     }
 
     private <E extends Enum<E>> void assertLexicon(Class<E> quality, Map<E, List<String>> lexicon) {

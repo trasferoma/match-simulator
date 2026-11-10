@@ -42,7 +42,7 @@ final class ReferenceChronicle {
 
     static List<String> lines(Path homeFile, Path awayFile, long seed, ChronicleMode mode) {
         List<MatchEvent> events = play(homeFile, awayFile, seed);
-        return Narrator.italian().narrate(events, mode);
+        return Narrator.italian().narrate(events, NarrationEvents.TEAM_NAMES, mode);
     }
 
     private static Path teamsDirectory() {

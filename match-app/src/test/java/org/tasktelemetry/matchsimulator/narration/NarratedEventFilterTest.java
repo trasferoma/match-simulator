@@ -13,6 +13,8 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
@@ -63,6 +65,20 @@ class NarratedEventFilterTest {
                 NO_DETAIL);
 
         assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(halfKickOff);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = EventType.class, names = {"KICK_OFF", "KICK_OFF_AFTER_GOAL"})
+    void aKickOffDoesNotPrepareAShotAndStopsTheSearchBackwards(EventType kickOff) {
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.add(kickOff, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), NO_DETAIL);
+        MatchEvent dribble = fixture.add(EventType.DRIBBLE_COMPLETED, MatchSide.HOME, HOME_FORWARD);
+        MatchEvent shot = shotEvent(EventType.SHOT_OFF_TARGET, MatchSide.HOME, HOME_FORWARD);
+
+        List<MatchEvent> selected = filter.select(fixture.list(), ChronicleMode.DEFAULT);
+
+        assertThat(selected).doesNotContain(pass).contains(dribble, shot);
+        assertThat(selected).extracting(MatchEvent::type).doesNotContain(EventType.KICK_OFF_AFTER_GOAL);
     }
 
     @Test

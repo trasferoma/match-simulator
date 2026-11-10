@@ -43,6 +43,12 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
 - **D25. Ogni attributo dei giocatori è letto da almeno una regola;** nessun attributo decorativo. Perché: un
   attributo che nessuna regola legge confonde chi scrive le squadre e non cambia la partita. Fonte: SPEC, "Ingresso e
   motore".
+- **D56. Un giocatore si identifica sempre insieme alla sua squadra:** ogni confronto fra giocatori che possono
+  appartenere a squadre diverse confronta anche la squadra. Perché: un giocatore è un valore (nome, ruolo,
+  attributi), e con lo stesso file per casa e ospite due giocatori di squadre diverse risultano uguali; è successo due
+  volte, con una doppietta sommata fra le due squadre e un assist cancellato dall'infortunio di un avversario
+  omonimo. Fonte: SPEC, "Evento, tabellino, racconto" (doppietta) e «Assist»; revisione finale del piano
+  (decisione dell'utente del 2026-11-10).
 
 ### Architettura
 

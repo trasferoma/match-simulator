@@ -5,14 +5,17 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_DEFENDER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.TEAM_NAMES;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 class PhraseFillerTest {
@@ -26,7 +29,7 @@ class PhraseFillerTest {
         MatchEvent offside = fixture.add(EventType.OFFSIDE, MatchSide.HOME, ZoneRole.ATTACKING_THIRD, participants,
                 EventDetail.none());
 
-        String text = filler.fill("{player} su passaggio di {secondary}, ancora {player}", offside);
+        String text = filler.fill("{player} su passaggio di {secondary}, ancora {player}", offside, TEAM_NAMES);
 
         assertThat(text).isEqualTo("Neri su passaggio di Rossi, ancora Neri");
     }
@@ -36,7 +39,7 @@ class PhraseFillerTest {
         MatchEvent announcement = fixture.add(EventType.STOPPAGE_ANNOUNCED, MatchSide.HOME, ZoneRole.MIDFIELD,
                 Participants.nobody(), EventDetail.stoppageAnnounced(5));
 
-        assertThat(filler.fill("Recupero: {minutes}", announcement)).isEqualTo("Recupero: 5");
+        assertThat(filler.fill("Recupero: {minutes}", announcement, TEAM_NAMES)).isEqualTo("Recupero: 5");
     }
 
     @Test
@@ -44,28 +47,48 @@ class PhraseFillerTest {
         MatchEvent kickOff = fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
                 Participants.nobody(), EventDetail.none());
 
-        assertThat(filler.fill("Si parte", kickOff)).isEqualTo("Si parte");
+        assertThat(filler.fill("Si parte", kickOff, TEAM_NAMES)).isEqualTo("Si parte");
     }
 
     @Test
     void aPlaceholderTheEventDoesNotCarryIsAnError() {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
 
-        assertThatThrownBy(() -> filler.fill("{player} serve {secondary}", pass))
+        assertThatThrownBy(() -> filler.fill("{player} serve {secondary}", pass, TEAM_NAMES))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("{secondary}");
-        assertThatThrownBy(() -> filler.fill("Recupero {minutes}", pass))
+        assertThatThrownBy(() -> filler.fill("Recupero {minutes}", pass, TEAM_NAMES))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("{minutes}");
+    }
+
+    @Test
+    void theTeamIsReplacedWithTheNameOfTheSideOfTheEvent() {
+        MatchEvent homeGoal = fixture.addGoal(NarrationEvents.firstHalf(60), MatchSide.HOME, HOME_FORWARD,
+                GoalContext.TAKES_THE_LEAD);
+        MatchEvent awayGoal = fixture.addGoal(NarrationEvents.firstHalf(120), MatchSide.AWAY, HOME_FORWARD,
+                GoalContext.EQUALISER);
+
+        assertThat(filler.fill("segna {team}", homeGoal, TEAM_NAMES)).isEqualTo("segna Aquile");
+        assertThat(filler.fill("segna {team}", awayGoal, TEAM_NAMES)).isEqualTo("segna Lupi");
+    }
+
+    @Test
+    void theTeamOfASuspensionIsTheResponsibleOneNotTheSideOfTheEvent() {
+        EventDetail detail = EventDetail.suspension(MatchSide.AWAY, new Score(0, 0), new Score(3, 0));
+        MatchEvent suspension = fixture.add(EventType.MATCH_SUSPENDED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                Participants.nobody(), detail);
+
+        assertThat(filler.fill("responsabile {team}", suspension, TEAM_NAMES)).isEqualTo("responsabile Lupi");
     }
 
     @Test
     void anUnknownPlaceholderIsAnError() {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
 
-        assertThatThrownBy(() -> filler.fill("{player} e {team}", pass))
+        assertThatThrownBy(() -> filler.fill("{player} e {coach}", pass, TEAM_NAMES))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("{team}");
+                .hasMessageContaining("{coach}");
     }
 
     @Test
@@ -73,6 +96,6 @@ class PhraseFillerTest {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME,
                 NarrationEvents.player("D'Angelo $1 \\ Rossi", Role.MIDFIELDER));
 
-        assertThat(filler.fill("Palla a {player}", pass)).isEqualTo("Palla a D'Angelo $1 \\ Rossi");
+        assertThat(filler.fill("Palla a {player}", pass, TEAM_NAMES)).isEqualTo("Palla a D'Angelo $1 \\ Rossi");
     }
 }

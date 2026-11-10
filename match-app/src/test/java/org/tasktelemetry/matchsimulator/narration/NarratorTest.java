@@ -6,6 +6,7 @@ import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_DE
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.TEAM_NAMES;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.firstHalf;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.secondHalf;
 
@@ -29,6 +30,7 @@ import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 class NarratorTest {
 
@@ -42,8 +44,8 @@ class NarratorTest {
     void theSameEventsAlwaysGiveTheSameText() {
         List<MatchEvent> events = ProducibleEvents.all();
 
-        List<String> first = narrator.narrate(events, ChronicleMode.FULL);
-        List<String> second = Narrator.italian().narrate(events, ChronicleMode.FULL);
+        List<String> first = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
+        List<String> second = Narrator.italian().narrate(events, TEAM_NAMES, ChronicleMode.FULL);
 
         assertThat(first).isNotEmpty();
         assertThat(second).containsExactlyElementsOf(first);
@@ -63,7 +65,7 @@ class NarratorTest {
     void theFullChronicleHasOneLineForEveryEventAndNoPlaceholderLeft() {
         List<MatchEvent> events = ProducibleEvents.all();
 
-        List<String> lines = narrator.narrate(events, ChronicleMode.FULL);
+        List<String> lines = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
 
         assertThat(lines).hasSameSizeAs(events);
         assertThat(lines).allSatisfy(line -> assertThat(line).matches(LINE_START).doesNotContain("{", "}"));
@@ -73,7 +75,7 @@ class NarratorTest {
     void everyLineNamesThePrimaryPlayerAndTheSecondaryPlayerOfItsEvent() {
         List<MatchEvent> events = ProducibleEvents.all();
 
-        List<String> lines = narrator.narrate(events, ChronicleMode.FULL);
+        List<String> lines = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
 
         for (int index = 0; index < events.size(); index++) {
             MatchEvent event = events.get(index);
@@ -91,7 +93,7 @@ class NarratorTest {
                 Participants.of(HOME_MIDFIELDER, AWAY_FORWARD),
                 EventDetail.foul(FoulSeverity.HARD, true));
 
-        List<String> lines = narrator.narrate(fixture.list(), ChronicleMode.FULL);
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
 
         assertThat(lines.get(0)).startsWith("47' ").contains("Rossi");
         assertThat(lines.get(1)).startsWith("90+2' ").contains("Bianchi").contains("Verdi");
@@ -116,7 +118,7 @@ class NarratorTest {
         addAnnouncement(firstHalf(2760), 5);
         addAnnouncement(secondHalf(2700), 8);
 
-        List<String> lines = narrator.narrate(fixture.list(), ChronicleMode.DEFAULT);
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
         List<MatchEvent> events = fixture.list();
 
         assertThat(lines).hasSize(3);
@@ -134,8 +136,8 @@ class NarratorTest {
         fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
         fixture.add(EventType.MATCH_END, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
 
-        List<String> defaultChronicle = narrator.narrate(fixture.list(), ChronicleMode.DEFAULT);
-        List<String> fullChronicle = narrator.narrate(fixture.list(), ChronicleMode.FULL);
+        List<String> defaultChronicle = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
+        List<String> fullChronicle = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
 
         assertThat(defaultChronicle).hasSize(2);
         assertThat(fullChronicle).hasSize(3);
@@ -150,7 +152,7 @@ class NarratorTest {
         fixture.addGoal(secondHalf(1500), MatchSide.HOME, HOME_FORWARD, GoalContext.EXTENDS_THE_LEAD);
         fixture.addGoal(secondHalf(2000), MatchSide.AWAY, AWAY_DEFENDER, GoalContext.CONSOLATION);
 
-        List<String> lines = narrator.narrate(fixture.list(), ChronicleMode.DEFAULT);
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
 
         assertThat(lines.get(0)).containsIgnoringCase("vantaggio").contains("Rossi");
         assertThat(lines.get(1)).matches("(?i).*(pareggio|parità).*").contains("Verdi");
@@ -162,13 +164,46 @@ class NarratorTest {
     }
 
     @Test
+    void aGoalNamesTheTeamOfTheEventAndNotTheOther() {
+        fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD, GoalContext.EXTENDS_THE_LEAD);
+        fixture.addGoal(firstHalf(1200), MatchSide.AWAY, AWAY_FORWARD, GoalContext.CONSOLATION);
+
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
+
+        assertThat(lines.get(0)).contains("Aquile").doesNotContain("Lupi");
+        assertThat(lines.get(1)).contains("Lupi").doesNotContain("Aquile");
+    }
+
+    @Test
+    void aSuspensionNamesTheResponsibleTeamAndNotTheOther() {
+        EventDetail suspension = EventDetail.suspension(MatchSide.AWAY, new Score(2, 0), new Score(2, 0));
+        fixture.add(EventType.MATCH_SUSPENDED, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), suspension);
+
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
+
+        assertThat(lines).hasSize(1);
+        assertThat(lines.get(0)).contains("Lupi").doesNotContain("Aquile");
+    }
+
+    @Test
+    void twoPlayersWithTheSameNameInDifferentTeamsAreNotAddedIntoABrace() {
+        fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
+        fixture.addGoal(firstHalf(1200), MatchSide.AWAY, HOME_FORWARD, GoalContext.EQUALISER);
+
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
+
+        assertThat(lines.get(1)).doesNotContainIgnoringCase("doppietta");
+        assertThat(lines.get(1)).matches("(?i).*(pareggio|parità).*");
+    }
+
+    @Test
     void aHeadedGoalNamesTheScorerAndTheCrosser() {
         ShotProfile header = ShotProfile.ofShot(0.3, ShotKind.HEADER, ShotQuality.BIG_CHANCE);
         EventDetail detail = EventDetail.goal(header, GoalContext.EXTENDS_THE_LEAD);
         fixture.add(secondHalf(600), EventType.GOAL, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
                 Participants.of(HOME_FORWARD, HOME_MIDFIELDER), detail);
 
-        List<String> lines = narrator.narrate(fixture.list(), ChronicleMode.DEFAULT);
+        List<String> lines = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
 
         assertThat(lines).hasSize(1);
         assertThat(lines.get(0)).contains("Rossi").contains("Bianchi");
@@ -180,7 +215,7 @@ class NarratorTest {
                 new PhraseVariantPicker(), new NarratedEventFilter(), new PhraseKeys(), new PhraseFiller());
         fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
 
-        assertThatThrownBy(() -> withoutPhrases.narrate(fixture.list(), ChronicleMode.FULL))
+        assertThatThrownBy(() -> withoutPhrases.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("KICK_OFF");
     }
@@ -191,8 +226,8 @@ class NarratorTest {
             List<MatchEvent> events = ReferenceChronicle.play(ReferenceChronicle.homeTeamFile(),
                     ReferenceChronicle.awayTeamFile(), seed);
 
-            List<String> full = narrator.narrate(events, ChronicleMode.FULL);
-            List<String> chronicle = narrator.narrate(events, ChronicleMode.DEFAULT);
+            List<String> full = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
+            List<String> chronicle = narrator.narrate(events, TEAM_NAMES, ChronicleMode.DEFAULT);
 
             assertThat(full).as("seed %d", seed).hasSameSizeAs(events);
             assertThat(chronicle).as("seed %d", seed).isNotEmpty().hasSizeLessThan(full.size());
@@ -208,7 +243,7 @@ class NarratorTest {
             }
         }
         List<MatchEvent> events = fixture.list();
-        List<String> lines = narrator.narrate(events, ChronicleMode.DEFAULT);
+        List<String> lines = narrator.narrate(events, TEAM_NAMES, ChronicleMode.DEFAULT);
         return IntStream.range(0, lines.size())
                 .mapToObj(index -> lines.get(index).substring(events.get(index).time().display().length()))
                 .toList();

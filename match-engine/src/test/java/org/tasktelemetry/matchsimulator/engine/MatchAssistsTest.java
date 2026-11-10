@@ -24,7 +24,9 @@ class MatchAssistsTest {
 
     private static final int MATCHES = 40;
     private static final int INJURY_PRONE_MATCHES = 300;
+    private static final int HOMONYM_MATCHES = 3000;
     private static final double FREQUENT_INJURIES = 0.3;
+    private static final double HOMONYM_INJURIES = 0.15;
     private static final Set<EventType> LEAVING_THE_PASS_ALIVE = EnumSet.of(EventType.DRIBBLE_COMPLETED,
             EventType.BALL_CIRCULATED, EventType.INJURY, EventType.SUBSTITUTION, EventType.STOPPAGE_ANNOUNCED);
 
@@ -80,7 +82,7 @@ class MatchAssistsTest {
     @Test
     void theInjuryOfTheLastPasserCancelsTheAssistWhileTheInjuryOfAnyoneElseDoesNot() {
         List<List<MatchEvent>> injuryProne = IntStream.rangeClosed(1, INJURY_PRONE_MATCHES)
-                .mapToObj(seed -> play(withFrequentInjuries(), seed))
+                .mapToObj(seed -> play(withInjuriesOf(FREQUENT_INJURIES), seed))
                 .toList();
         int cancelled = 0;
         for (List<MatchEvent> events : injuryProne) {
@@ -96,6 +98,41 @@ class MatchAssistsTest {
             }
         }
         assertThat(cancelled).isPositive();
+    }
+
+    @Test
+    void theInjuryOfASamenamedPlayerOfTheOpponentDoesNotCancelTheAssist() {
+        List<List<MatchEvent>> injuryProne = IntStream.rangeClosed(1, HOMONYM_MATCHES)
+                .mapToObj(seed -> play(withInjuriesOf(HOMONYM_INJURIES), home, home, seed))
+                .toList();
+        int cancelled = 0;
+        int kept = 0;
+        int homonym = 0;
+        for (List<MatchEvent> events : injuryProne) {
+            for (int index = 0; index < events.size(); index++) {
+                MatchEvent goal = events.get(index);
+                if (!isFootGoal(goal)) {
+                    continue;
+                }
+                Optional<Player> remembered = passerRememberedBeforeInjuries(events, index);
+                Optional<Player> expected = lastPasserBefore(events, index);
+                assertThat(goal.participants().secondary()).as("goal %s", goal).isEqualTo(expected);
+                cancelled += remembered.isPresent() && expected.isEmpty() ? 1 : 0;
+                kept += expected.isPresent() ? 1 : 0;
+                homonym += opponentHomonymInjured(events, index, remembered) ? 1 : 0;
+            }
+        }
+        assertThat(cancelled).isPositive();
+        assertThat(kept).isPositive();
+        assertThat(homonym).as("homonym").isPositive();
+    }
+
+    private boolean opponentHomonymInjured(List<MatchEvent> events, int goalIndex, Optional<Player> passer) {
+        MatchEvent goal = events.get(goalIndex);
+        int index = indexOfTheEventThatEndsThePass(events, goalIndex);
+        return passer.isPresent() && events.subList(index + 1, goalIndex).stream()
+                .anyMatch(event -> event.type() == EventType.INJURY && event.side() != goal.side()
+                        && event.participants().primary().equals(passer));
     }
 
     private Optional<Player> lastPasserBefore(List<MatchEvent> events, int goalIndex) {
@@ -120,9 +157,10 @@ class MatchAssistsTest {
     }
 
     private Set<Player> injuredSinceThePass(List<MatchEvent> events, int goalIndex) {
+        MatchEvent goal = events.get(goalIndex);
         int index = indexOfTheEventThatEndsThePass(events, goalIndex);
         return events.subList(index + 1, goalIndex).stream()
-                .filter(event -> event.type() == EventType.INJURY)
+                .filter(event -> event.type() == EventType.INJURY && event.side() == goal.side())
                 .flatMap(event -> event.participants().primary().stream())
                 .collect(Collectors.toSet());
     }
@@ -148,9 +186,9 @@ class MatchAssistsTest {
         return event.detail() instanceof EventDetail.Goal goal && goal.profile().penalty();
     }
 
-    private EngineConfig withFrequentInjuries() {
+    private EngineConfig withInjuriesOf(double probability) {
         EngineConfig defaults = EngineConfig.defaults();
-        InjuryConfig injury = new InjuryConfig(FREQUENT_INJURIES, defaults.injury().duration());
+        InjuryConfig injury = new InjuryConfig(probability, defaults.injury().duration());
         return TestConfigs.withInjury(defaults, injury);
     }
 
@@ -159,7 +197,11 @@ class MatchAssistsTest {
     }
 
     private List<MatchEvent> play(EngineConfig config, long seed) {
-        Match match = new MatchEngine(config).start(home, away, seed);
+        return play(config, home, away, seed);
+    }
+
+    private List<MatchEvent> play(EngineConfig config, Team homeTeam, Team awayTeam, long seed) {
+        Match match = new MatchEngine(config).start(homeTeam, awayTeam, seed);
         while (!match.isFinished()) {
             match.step();
         }

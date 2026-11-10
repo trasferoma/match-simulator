@@ -91,6 +91,23 @@ class NarrationContextTest {
     }
 
     private NarrationContext contextOfTheMatch() {
-        return new NarrationContext(fixture.list());
+        return new NarrationContext(fixture.list(), NarrationEvents.TEAM_NAMES);
+    }
+
+    @Test
+    void thePlayersOfTheSameNameInTheTwoTeamsAreCountedSeparately() {
+        MatchEvent homeFirst = fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD,
+                GoalContext.TAKES_THE_LEAD);
+        MatchEvent awayFirst = fixture.addGoal(firstHalf(900), MatchSide.AWAY, HOME_FORWARD, GoalContext.EQUALISER);
+        MatchEvent homeSecond = fixture.addGoal(secondHalf(300), MatchSide.HOME, HOME_FORWARD,
+                GoalContext.EXTENDS_THE_LEAD);
+        MatchEvent awaySecond = fixture.addGoal(secondHalf(900), MatchSide.AWAY, HOME_FORWARD,
+                GoalContext.EQUALISER);
+        NarrationContext context = contextOfTheMatch();
+
+        assertThat(context.highlightOf(homeFirst)).contains(GoalHighlight.TAKES_THE_LEAD);
+        assertThat(context.highlightOf(awayFirst)).contains(GoalHighlight.EQUALISER);
+        assertThat(context.highlightOf(homeSecond)).contains(GoalHighlight.BRACE);
+        assertThat(context.highlightOf(awaySecond)).contains(GoalHighlight.BRACE);
     }
 }

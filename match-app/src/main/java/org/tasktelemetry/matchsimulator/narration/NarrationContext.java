@@ -15,9 +15,15 @@ public final class NarrationContext {
     private static final int HAT_TRICK_GOALS = 3;
 
     private final List<MatchEvent> events;
+    private final TeamNames teamNames;
 
-    public NarrationContext(List<MatchEvent> events) {
+    public NarrationContext(List<MatchEvent> events, TeamNames teamNames) {
         this.events = List.copyOf(events);
+        this.teamNames = teamNames;
+    }
+
+    public TeamNames teamNames() {
+        return teamNames;
     }
 
     public Optional<GoalHighlight> highlightOf(MatchEvent event) {
@@ -39,6 +45,7 @@ public final class NarrationContext {
         return (int) events.stream()
                 .filter(event -> event.type() == EventType.GOAL)
                 .filter(event -> event.order() <= goal.order())
+                .filter(event -> event.side() == goal.side())
                 .filter(event -> event.participants().primary().equals(scorer))
                 .count();
     }

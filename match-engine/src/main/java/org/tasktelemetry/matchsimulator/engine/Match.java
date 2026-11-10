@@ -139,15 +139,20 @@ public final class Match {
 
     private void treatInjury(MatchSide side, Player injured) {
         recordInjury(side, injured);
-        forgetPassOf(injured);
+        forgetPassOf(side, injured);
         LineupOutcome outcome = replaceInjured(side, injured);
         applyLineupOutcome(side, outcome);
     }
 
-    private void forgetPassOf(Player injured) {
-        if (injured.equals(state.lastPasser())) {
+    private void forgetPassOf(MatchSide side, Player injured) {
+        if (isLastPasserOfThePossessingSide(side, injured)) {
             state = state.withoutLastPasser();
         }
+    }
+
+    private boolean isLastPasserOfThePossessingSide(MatchSide side, Player player) {
+        boolean isPossessingSide = side == state.possession();
+        return isPossessingSide && player.equals(state.lastPasser());
     }
 
     private LineupOutcome replaceInjured(MatchSide side, Player injured) {

@@ -34,11 +34,12 @@ public final class Narrator {
         return new Narrator(catalog, picker, filter, keys, filler);
     }
 
-    public List<String> narrate(List<MatchEvent> events, ChronicleMode mode) {
+    public List<String> narrate(List<MatchEvent> events, TeamNames teamNames, ChronicleMode mode) {
         Objects.requireNonNull(events, "events must not be null");
+        Objects.requireNonNull(teamNames, "team names must not be null");
         Objects.requireNonNull(mode, "chronicle mode must not be null");
         List<MatchEvent> narratedEvents = selectNarratedEvents(events, mode);
-        NarrationContext context = readContext(events);
+        NarrationContext context = readContext(events, teamNames);
         return narrateLines(narratedEvents, context);
     }
 
@@ -46,8 +47,8 @@ public final class Narrator {
         return filter.select(events, mode);
     }
 
-    private NarrationContext readContext(List<MatchEvent> events) {
-        return new NarrationContext(events);
+    private NarrationContext readContext(List<MatchEvent> events, TeamNames teamNames) {
+        return new NarrationContext(events, teamNames);
     }
 
     private List<String> narrateLines(List<MatchEvent> narratedEvents, NarrationContext context) {
@@ -63,26 +64,26 @@ public final class Narrator {
     }
 
     private String composeSentence(MatchEvent event, NarrationContext context) {
-        String eventPhrase = describeEvent(event);
+        String eventPhrase = describeEvent(event, context);
         Optional<String> highlightPhrase = describeHighlight(event, context);
         return highlightPhrase
                 .map(phrase -> eventPhrase + WORD_SEPARATOR + phrase)
                 .orElse(eventPhrase);
     }
 
-    private String describeEvent(MatchEvent event) {
+    private String describeEvent(MatchEvent event, NarrationContext context) {
         String key = findPhraseKey(event);
-        return phraseFor(key, event);
+        return phraseFor(key, event, context);
     }
 
     private Optional<String> describeHighlight(MatchEvent event, NarrationContext context) {
         Optional<GoalHighlight> highlight = findHighlight(event, context);
-        return highlight.map(goalHighlight -> describeGoalHighlight(goalHighlight, event));
+        return highlight.map(goalHighlight -> describeGoalHighlight(goalHighlight, event, context));
     }
 
-    private String describeGoalHighlight(GoalHighlight highlight, MatchEvent event) {
+    private String describeGoalHighlight(GoalHighlight highlight, MatchEvent event, NarrationContext context) {
         String key = findPhraseKey(highlight);
-        return phraseFor(key, event);
+        return phraseFor(key, event, context);
     }
 
     private Optional<GoalHighlight> findHighlight(MatchEvent event, NarrationContext context) {
@@ -97,13 +98,14 @@ public final class Narrator {
         return keys.keyOf(highlight);
     }
 
-    private String phraseFor(String key, MatchEvent event) {
+    private String phraseFor(String key, MatchEvent event, NarrationContext context) {
         String variant = chooseVariant(key, event);
-        return fillPlaceholders(variant, event);
+        return fillPlaceholders(variant, event, context);
     }
 
-    private String fillPlaceholders(String variant, MatchEvent event) {
-        return filler.fill(variant, event);
+    private String fillPlaceholders(String variant, MatchEvent event, NarrationContext context) {
+        TeamNames teamNames = context.teamNames();
+        return filler.fill(variant, event, teamNames);
     }
 
     private String chooseVariant(String key, MatchEvent event) {

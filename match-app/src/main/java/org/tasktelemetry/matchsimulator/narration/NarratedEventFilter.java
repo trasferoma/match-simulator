@@ -25,6 +25,8 @@ public final class NarratedEventFilter {
             EventType.FREE_KICK_CROSS);
     private static final Set<EventType> PLAYED_BY_THE_OPPOSING_SIDE_TYPES = EnumSet.of(EventType.INTERCEPTION,
             EventType.TACKLE, EventType.FOUL, EventType.CLEARANCE, EventType.CROSS_DEFLECTED_TO_CORNER);
+    private static final Set<EventType> KICK_OFF_TYPES = EnumSet.of(EventType.KICK_OFF,
+            EventType.KICK_OFF_AFTER_GOAL);
     private static final int MAX_EVENTS_PREPARING_A_SHOT = 2;
 
     public List<MatchEvent> select(List<MatchEvent> events, ChronicleMode mode) {
@@ -54,7 +56,8 @@ public final class NarratedEventFilter {
         MatchSide shootingSide = actingSideAt(events, shotIndex);
         return IntStream.rangeClosed(1, MAX_EVENTS_PREPARING_A_SHOT)
                 .map(distance -> shotIndex - distance)
-                .takeWhile(index -> index >= 0 && actingSideAt(events, index) == shootingSide)
+                .takeWhile(index -> index >= 0 && !isKickOff(events, index)
+                        && actingSideAt(events, index) == shootingSide)
                 .boxed()
                 .toList();
     }
@@ -62,6 +65,11 @@ public final class NarratedEventFilter {
     private boolean isShot(List<MatchEvent> events, int index) {
         MatchEvent event = events.get(index);
         return SHOT_TYPES.contains(event.type());
+    }
+
+    private boolean isKickOff(List<MatchEvent> events, int index) {
+        MatchEvent event = events.get(index);
+        return KICK_OFF_TYPES.contains(event.type());
     }
 
     private MatchSide actingSideAt(List<MatchEvent> events, int index) {

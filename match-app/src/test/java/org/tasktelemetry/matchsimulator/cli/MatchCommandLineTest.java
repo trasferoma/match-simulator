@@ -21,6 +21,9 @@ class MatchCommandLineTest {
     private static final Pattern RESULT_ROW =
             Pattern.compile("(?m)^Risultato: Atletico Mare \\d+ - \\d+ Sporting Collina$");
     private static final Pattern SEED_ROW = Pattern.compile("(?m)^Seme: (-?\\d+)$");
+    private static final Pattern SCORED_GOAL_ROW =
+            Pattern.compile("(?m)^(\\d+(?:\\+\\d+)?' .+) \\((Atletico Mare|Sporting Collina)\\)$");
+    private static final int MATCHES_CHECKED_FOR_GOALS = 8;
     private static final byte UTF8_TWO_BYTE_LEAD = (byte) 0xC3;
 
     @TempDir
@@ -71,6 +74,33 @@ class MatchCommandLineTest {
 
         assertThat(run.out()).containsPattern(EXPECTED_GOALS_ROW);
         assertThat(run.out()).containsPattern(POSSESSION_ROW);
+    }
+
+    @Test
+    void everyGoalOfTheScoreboardIsNarratedWithTheNameOfTheTeamReadFromTheFile() {
+        int checkedGoals = 0;
+        for (int seed = 1; seed <= MATCHES_CHECKED_FOR_GOALS; seed++) {
+            String output = CliRun.of(home, away, "--seed", String.valueOf(seed), "--full").out();
+            String chronicle = output.substring(0, output.indexOf("Tabellino"));
+            Matcher scoredGoal = SCORED_GOAL_ROW.matcher(output);
+            while (scoredGoal.find()) {
+                String minuteAndScorer = scoredGoal.group(1);
+                String team = scoredGoal.group(2);
+                assertThat(chronicle.lines()).as("seed %d, goal %s", seed, minuteAndScorer)
+                        .anyMatch(line -> line.startsWith(minuteOf(minuteAndScorer) + " ")
+                                && line.contains(scorerOf(minuteAndScorer)) && line.contains(team));
+                checkedGoals++;
+            }
+        }
+        assertThat(checkedGoals).isPositive();
+    }
+
+    private String minuteOf(String minuteAndScorer) {
+        return minuteAndScorer.substring(0, minuteAndScorer.indexOf(' '));
+    }
+
+    private String scorerOf(String minuteAndScorer) {
+        return minuteAndScorer.substring(minuteAndScorer.indexOf(' ') + 1);
     }
 
     @Test

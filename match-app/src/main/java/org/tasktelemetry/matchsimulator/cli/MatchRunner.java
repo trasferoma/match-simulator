@@ -9,6 +9,7 @@ import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.narration.ChronicleMode;
 import org.tasktelemetry.matchsimulator.narration.Narrator;
+import org.tasktelemetry.matchsimulator.narration.TeamNames;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 import org.tasktelemetry.matchsimulator.summary.MatchSummaryCalculator;
 
@@ -33,7 +34,8 @@ final class MatchRunner {
 
     MatchReport play(Team home, Team away, long seed, ChronicleMode mode) {
         List<MatchEvent> events = simulateToTheEnd(home, away, seed);
-        List<String> chronicle = narrator.narrate(events, mode);
+        TeamNames teamNames = new TeamNames(home.name(), away.name());
+        List<String> chronicle = narrator.narrate(events, teamNames, mode);
         MatchSummary summary = summaryCalculator.summarize(events);
         return new MatchReport(home.name(), away.name(), chronicle, summary, seed);
     }
