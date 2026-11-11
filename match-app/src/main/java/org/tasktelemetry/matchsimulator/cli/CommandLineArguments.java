@@ -13,6 +13,7 @@ final class CommandLineArguments {
 
     private static final String SEED_OPTION = "--seed";
     private static final String FULL_OPTION = "--full";
+    private static final String STEP_BY_STEP_OPTION = "--stepByStep";
     private static final String OPTION_PREFIX = "--";
     private static final int TEAM_FILE_COUNT = 2;
 
@@ -20,18 +21,22 @@ final class CommandLineArguments {
     private final Path awayFile;
     private final ChronicleMode chronicleMode;
     private final Long seed;
+    private final boolean stepByStep;
 
-    private CommandLineArguments(Path homeFile, Path awayFile, ChronicleMode chronicleMode, Long seed) {
+    private CommandLineArguments(Path homeFile, Path awayFile, ChronicleMode chronicleMode, Long seed,
+            boolean stepByStep) {
         this.homeFile = homeFile;
         this.awayFile = awayFile;
         this.chronicleMode = chronicleMode;
         this.seed = seed;
+        this.stepByStep = stepByStep;
     }
 
     static CommandLineArguments parse(List<String> arguments) {
         List<String> files = new ArrayList<>();
         Long seed = null;
         boolean full = false;
+        boolean stepByStep = false;
         Iterator<String> remaining = arguments.iterator();
         while (remaining.hasNext()) {
             String argument = remaining.next();
@@ -41,6 +46,9 @@ final class CommandLineArguments {
             } else if (argument.equals(FULL_OPTION)) {
                 requireNotRepeated(full, FULL_OPTION);
                 full = true;
+            } else if (argument.equals(STEP_BY_STEP_OPTION)) {
+                requireNotRepeated(stepByStep, STEP_BY_STEP_OPTION);
+                stepByStep = true;
             } else if (argument.startsWith(OPTION_PREFIX)) {
                 throw new InvalidCommandLineException(CommandLineProblem.UNKNOWN_OPTION, argument);
             } else {
@@ -51,7 +59,7 @@ final class CommandLineArguments {
         Path homeFile = readPath(files.get(0));
         Path awayFile = readPath(files.get(1));
         ChronicleMode chronicleMode = chronicleModeOf(full);
-        return new CommandLineArguments(homeFile, awayFile, chronicleMode, seed);
+        return new CommandLineArguments(homeFile, awayFile, chronicleMode, seed, stepByStep);
     }
 
     Path homeFile() {
@@ -68,6 +76,10 @@ final class CommandLineArguments {
 
     Optional<Long> seed() {
         return Optional.ofNullable(seed);
+    }
+
+    boolean stepByStep() {
+        return stepByStep;
     }
 
     private static ChronicleMode chronicleModeOf(boolean full) {

@@ -77,14 +77,14 @@ public final class CounterAttackResolver {
         Zone target = forwardZone(state);
         MatchState next = new MatchState(state.possession(), target, state.phase());
         int duration = drawDuration();
-        return ActionOutcome.byPlayer(EventType.DRIBBLE_COMPLETED, runner, next, duration);
+        return ActionOutcome.byPlayer(EventType.DRIBBLE_COMPLETED, runner, state.possession(), next, duration);
     }
 
     private ActionOutcome loseRun(MatchState state, Player chaser) {
         MatchSide recoveringSide = state.possession().opposite();
         MatchState next = MatchState.openPlay(recoveringSide, state.zone());
         int duration = drawDuration();
-        return ActionOutcome.byPlayer(EventType.TACKLE, chaser, next, duration);
+        return ActionOutcome.byPlayer(EventType.TACKLE, chaser, recoveringSide, next, duration);
     }
 
     private Player pickRunner(MatchState state, TeamOnPitch attackers) {

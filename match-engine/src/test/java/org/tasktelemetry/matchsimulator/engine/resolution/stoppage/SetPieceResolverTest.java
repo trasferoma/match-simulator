@@ -59,7 +59,7 @@ class SetPieceResolverTest {
         ActionOutcome outcome = resolver(SEED).resolve(state, SCORE, away, home);
 
         assertThat(outcome.type()).isEqualTo(EventType.GOAL_KICK);
-        assertThat(outcome.participants()).isEqualTo(Participants.of(away.goalkeeper()));
+        assertThat(outcome.participants()).isEqualTo(Participants.of(away.goalkeeper(), MatchSide.AWAY));
         assertThat(outcome.detail()).isEqualTo(EventDetail.none());
     }
 

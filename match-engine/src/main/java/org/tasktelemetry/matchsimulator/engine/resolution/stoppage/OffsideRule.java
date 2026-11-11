@@ -65,7 +65,8 @@ public final class OffsideRule {
         MatchSide defendingSide = pass.next().possession().opposite();
         Zone defenceZone = layout.defenceZone(defendingSide);
         MatchState next = MatchState.forSetPiece(defendingSide, defenceZone, SetPieceKind.OFFSIDE_FREE_KICK);
-        Participants participants = Participants.of(receiver, passer);
+        MatchSide attackingSide = pass.next().possession();
+        Participants participants = Participants.of(receiver, attackingSide, passer, attackingSide);
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(EventType.OFFSIDE, participants, next, pass.durationSeconds(), detail);
     }

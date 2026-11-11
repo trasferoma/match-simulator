@@ -1,5 +1,6 @@
 package org.tasktelemetry.matchsimulator.cli;
 
+import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
 import java.nio.charset.StandardCharsets;
@@ -36,18 +37,19 @@ public final class MatchCommandLine {
     }
 
     public static void main(String[] arguments) {
-        MatchCommandLine commandLine = standard(System.out, System.err);
+        MatchCommandLine commandLine = standard(System.in, System.out, System.err);
         int exitCode = commandLine.run(arguments);
         System.exit(exitCode);
     }
 
-    static MatchCommandLine standard(OutputStream out, OutputStream err) {
+    static MatchCommandLine standard(InputStream in, OutputStream out, OutputStream err) {
         PrintStream utf8Out = utf8(out);
         PrintStream utf8Err = utf8(err);
         UserMessages messages = UserMessages.italian();
         TeamFileReader reader = TeamFileReader.italian();
         MatchRunner runner = MatchRunner.standard();
-        MatchPrinter printer = new MatchPrinter(messages, utf8Out);
+        EnterKeyReader enterKeyReader = EnterKeyReader.standard(in);
+        MatchPrinter printer = new MatchPrinter(messages, utf8Out, enterKeyReader);
         RandomGenerator random = RandomGenerator.getDefault();
         LongSupplier seedSource = random::nextLong;
         return new MatchCommandLine(utf8Err, messages, reader, runner, printer, seedSource);
@@ -70,8 +72,16 @@ public final class MatchCommandLine {
         Team away = reader.read(arguments.awayFile());
         long seed = arguments.seed().orElseGet(seedSource::getAsLong);
         MatchReport report = runner.play(home, away, seed, arguments.chronicleMode());
-        printer.print(report);
+        printReport(report, arguments);
         return EXIT_SUCCESS;
+    }
+
+    private void printReport(MatchReport report, CommandLineArguments arguments) {
+        if (arguments.stepByStep()) {
+            printer.printStepByStep(report);
+            return;
+        }
+        printer.print(report);
     }
 
     private int reportUsageError(InvalidCommandLineException exception) {

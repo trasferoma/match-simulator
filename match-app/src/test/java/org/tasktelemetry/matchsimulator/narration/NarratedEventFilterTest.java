@@ -83,7 +83,7 @@ class NarratedEventFilterTest {
 
     @Test
     void aFoulFollowedByACardForAnotherPlayerIsNotNarratedWhileTheCardIs() {
-        fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.of(AWAY_DEFENDER, HOME_FORWARD),
+        fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD, NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD),
                 EventDetail.foul(FoulSeverity.LIGHT, false));
         MatchEvent card = fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_FORWARD);
 
@@ -93,7 +93,7 @@ class NarratedEventFilterTest {
     @Test
     void aFoulWithAPenaltyIsNarratedEvenWithoutACard() {
         MatchEvent foul = fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
-                Participants.of(AWAY_DEFENDER, HOME_FORWARD), EventDetail.foul(FoulSeverity.HARD, true));
+                NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD), EventDetail.foul(FoulSeverity.HARD, true));
 
         assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(foul);
     }
@@ -147,19 +147,19 @@ class NarratedEventFilterTest {
         excluded(EventType.INTERCEPTION, MatchSide.HOME, AWAY_DEFENDER);
         excluded(EventType.TACKLE, MatchSide.AWAY, HOME_DEFENDER);
         excluded(EventType.GOAL_KICK, MatchSide.AWAY, AWAY_GOALKEEPER);
-        excluded(EventType.FREE_KICK, MatchSide.HOME, ZoneRole.DEFENCE, Participants.of(HOME_MIDFIELDER), NO_DETAIL);
-        excluded(EventType.OFFSIDE_FREE_KICK, MatchSide.AWAY, ZoneRole.DEFENCE, Participants.of(AWAY_DEFENDER),
+        excluded(EventType.FREE_KICK, MatchSide.HOME, ZoneRole.DEFENCE, NarrationEvents.participantsOf(HOME_MIDFIELDER), NO_DETAIL);
+        excluded(EventType.OFFSIDE_FREE_KICK, MatchSide.AWAY, ZoneRole.DEFENCE, NarrationEvents.participantsOf(AWAY_DEFENDER),
                 NO_DETAIL);
         excluded(EventType.BALL_CIRCULATED, MatchSide.HOME, HOME_MIDFIELDER);
         excluded(EventType.CROSS_FAILED, MatchSide.HOME, HOME_MIDFIELDER);
         excluded(EventType.CROSS_DEFLECTED_TO_CORNER, MatchSide.HOME, ZoneRole.ATTACKING_THIRD,
-                Participants.of(AWAY_DEFENDER, HOME_MIDFIELDER), NO_DETAIL);
+                NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_MIDFIELDER), NO_DETAIL);
         excluded(EventType.CLEARANCE, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
-                Participants.of(AWAY_DEFENDER, HOME_MIDFIELDER), NO_DETAIL);
+                NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_MIDFIELDER), NO_DETAIL);
         excluded(EventType.CROSS_COMPLETED, MatchSide.AWAY, AWAY_FORWARD);
-        excluded(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.of(AWAY_DEFENDER, HOME_FORWARD),
+        excluded(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD, NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD),
                 EventDetail.foul(FoulSeverity.LIGHT, false));
-        excluded(EventType.FREE_KICK_CROSS, MatchSide.HOME, ZoneRole.DEFENCE, Participants.of(HOME_MIDFIELDER),
+        excluded(EventType.FREE_KICK_CROSS, MatchSide.HOME, ZoneRole.DEFENCE, NarrationEvents.participantsOf(HOME_MIDFIELDER),
                 NO_DETAIL);
     }
 
@@ -181,18 +181,18 @@ class NarratedEventFilterTest {
         included(EventType.INTERCEPTION, MatchSide.AWAY, HOME_MIDFIELDER);
         included(EventType.DRIBBLE_COMPLETED, MatchSide.HOME, HOME_FORWARD);
         EventDetail detail = NarrationEvents.goalDetail(GoalContext.TAKES_THE_LEAD);
-        included(EventType.GOAL, MatchSide.HOME, ZoneRole.OPPONENT_BOX, Participants.of(HOME_FORWARD), detail);
+        included(EventType.GOAL, MatchSide.HOME, ZoneRole.OPPONENT_BOX, NarrationEvents.participantsOf(HOME_FORWARD), detail);
         excluded(EventType.KICK_OFF_AFTER_GOAL, MatchSide.AWAY, ZoneRole.MIDFIELD, Participants.nobody(), NO_DETAIL);
     }
 
     private void addPenaltyAndCards() {
-        Participants foulParticipants = Participants.of(HOME_DEFENDER, AWAY_FORWARD);
+        Participants foulParticipants = NarrationEvents.participantsOf(HOME_DEFENDER, AWAY_FORWARD);
         included(EventType.FOUL, MatchSide.AWAY, ZoneRole.OPPONENT_BOX, foulParticipants,
                 EventDetail.foul(FoulSeverity.RECKLESS, true));
         ShotProfile penalty = ShotProfile.ofPenalty(0.79, ShotQuality.BIG_CHANCE);
         EventDetail save = EventDetail.save(penalty, SaveQuality.DIFFICULT);
         included(EventType.SHOT_SAVED, MatchSide.AWAY, ZoneRole.OPPONENT_BOX,
-                Participants.of(AWAY_FORWARD, AWAY_GOALKEEPER), save);
+                NarrationEvents.participantsOf(AWAY_FORWARD, AWAY_GOALKEEPER), save);
         excluded(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
         included(EventType.FOUL, MatchSide.AWAY, ZoneRole.MIDFIELD, foulParticipants,
                 EventDetail.foul(FoulSeverity.HARD, false));
@@ -202,21 +202,21 @@ class NarratedEventFilterTest {
     }
 
     private void addSetPieces() {
-        included(EventType.CORNER_KICK, MatchSide.HOME, ZoneRole.OPPONENT_BOX, Participants.of(HOME_MIDFIELDER),
+        included(EventType.CORNER_KICK, MatchSide.HOME, ZoneRole.OPPONENT_BOX, NarrationEvents.participantsOf(HOME_MIDFIELDER),
                 NO_DETAIL);
         excluded(EventType.PASS_COMPLETED, MatchSide.AWAY, AWAY_DEFENDER);
         included(EventType.FREE_KICK_CROSS, MatchSide.HOME, ZoneRole.ATTACKING_THIRD,
-                Participants.of(HOME_MIDFIELDER), NO_DETAIL);
-        included(EventType.FREE_KICK, MatchSide.HOME, ZoneRole.ATTACKING_THIRD, Participants.of(HOME_MIDFIELDER),
+                NarrationEvents.participantsOf(HOME_MIDFIELDER), NO_DETAIL);
+        included(EventType.FREE_KICK, MatchSide.HOME, ZoneRole.ATTACKING_THIRD, NarrationEvents.participantsOf(HOME_MIDFIELDER),
                 NO_DETAIL);
     }
 
     private void addIncidents() {
         included(EventType.OFFSIDE, MatchSide.HOME, ZoneRole.ATTACKING_THIRD,
-                Participants.of(HOME_FORWARD, HOME_MIDFIELDER), NO_DETAIL);
+                NarrationEvents.participantsOf(HOME_FORWARD, HOME_MIDFIELDER), NO_DETAIL);
         included(EventType.INJURY, MatchSide.AWAY, AWAY_DEFENDER);
         included(EventType.SUBSTITUTION, MatchSide.HOME, ZoneRole.MIDFIELD,
-                Participants.of(HOME_MIDFIELDER, HOME_BENCH), NO_DETAIL);
+                NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH), NO_DETAIL);
     }
 
     private void addEndOfTheHalvesAndSuspension() {
@@ -231,7 +231,7 @@ class NarratedEventFilterTest {
 
     private MatchEvent shotEvent(EventType type, MatchSide side, Player shooter) {
         ShotProfile profile = ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.HALF_CHANCE);
-        return fixture.add(type, side, ZoneRole.OPPONENT_BOX, Participants.of(shooter), EventDetail.shot(profile));
+        return fixture.add(type, side, ZoneRole.OPPONENT_BOX, NarrationEvents.participantsOf(shooter), EventDetail.shot(profile));
     }
 
     private void included(MatchEvent event) {

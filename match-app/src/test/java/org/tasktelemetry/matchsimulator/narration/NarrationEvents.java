@@ -2,8 +2,10 @@ package org.tasktelemetry.matchsimulator.narration;
 
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Set;
 
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
@@ -30,6 +32,8 @@ final class NarrationEvents {
     static final Player AWAY_DEFENDER = player("Neri", Role.DEFENDER);
     static final Player AWAY_GOALKEEPER = player("Gialli", Role.GOALKEEPER);
 
+    private static final Set<Player> AWAY_PLAYERS = Set.of(AWAY_FORWARD, AWAY_DEFENDER, AWAY_GOALKEEPER);
+
     static final TeamNames TEAM_NAMES = new TeamNames("Aquile", "Lupi");
 
     private static final int SECONDS_BETWEEN_EVENTS = 20;
@@ -38,6 +42,18 @@ final class NarrationEvents {
 
     static Player player(String name, Role role) {
         return new Player(name, role, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50));
+    }
+
+    static Participants participantsOf(Player primary) {
+        return Participants.of(primary, sideOf(primary));
+    }
+
+    static Participants participantsOf(Player primary, Player secondary) {
+        return Participants.of(primary, sideOf(primary), secondary, sideOf(secondary));
+    }
+
+    static MatchSide sideOf(Player player) {
+        return AWAY_PLAYERS.contains(player) ? MatchSide.AWAY : MatchSide.HOME;
     }
 
     static MatchTime firstHalf(int seconds) {
@@ -62,7 +78,7 @@ final class NarrationEvents {
     }
 
     MatchEvent add(EventType type, MatchSide side, Player primary) {
-        Participants participants = Participants.of(primary);
+        Participants participants = participantsOf(primary);
         return add(type, side, ZoneRole.MIDFIELD, participants, EventDetail.none());
     }
 
@@ -75,14 +91,15 @@ final class NarrationEvents {
     MatchEvent add(MatchTime time, EventType type, MatchSide side, ZoneRole zoneRole, Participants participants,
             EventDetail detail) {
         int order = events.size() + 1;
-        MatchEvent event = new MatchEvent(order, time, type, side, zoneRole, PlayPhase.BUILD_UP, participants,
-                SECONDS_BETWEEN_EVENTS, detail);
+        BallPosition ball = new BallPosition(side, zoneRole);
+        MatchEvent event = new MatchEvent(order, time, type, side, zoneRole, ball, PlayPhase.BUILD_UP,
+                participants, SECONDS_BETWEEN_EVENTS, detail);
         events.add(event);
         return event;
     }
 
     MatchEvent addGoal(MatchTime time, MatchSide side, Player scorer, GoalContext context) {
-        Participants participants = Participants.of(scorer);
+        Participants participants = participantsOf(scorer);
         EventDetail detail = goalDetail(context);
         return add(time, EventType.GOAL, side, ZoneRole.OPPONENT_BOX, participants, detail);
     }

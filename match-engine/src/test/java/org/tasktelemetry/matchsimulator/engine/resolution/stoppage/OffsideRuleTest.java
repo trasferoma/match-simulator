@@ -252,7 +252,7 @@ class OffsideRuleTest {
         Player player = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Zone arrival = zoneWithRole(MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         MatchState next = MatchState.openPlay(MatchSide.HOME, arrival);
-        ActionOutcome outcome = ActionOutcome.byPlayer(type, player, next, PASS_SECONDS);
+        ActionOutcome outcome = ActionOutcome.byPlayer(type, player, MatchSide.HOME, next, PASS_SECONDS);
 
         ActionOutcome checked = rule.callOffsideIfCaught(outcome, attackers, defenders);
 
@@ -289,7 +289,7 @@ class OffsideRuleTest {
         Player offsidePlayer = outcome.participants().primary().orElseThrow();
         assertThat(attackers.playersIn(Role.FORWARD)).contains(offsidePlayer);
         assertThat(outcome.participants().secondary()).contains(passer);
-        assertThat(outcome.participants()).isEqualTo(Participants.of(offsidePlayer, passer));
+        assertThat(outcome.participants()).isEqualTo(Participants.of(offsidePlayer, MatchSide.HOME, passer, MatchSide.HOME));
     }
 
     @Test
@@ -375,14 +375,14 @@ class OffsideRuleTest {
     private ActionOutcome passFrom(Player passer, MatchSide side, ZoneRole arrivalRole) {
         Zone arrival = zoneWithRole(side, arrivalRole);
         MatchState next = MatchState.openPlay(side, arrival);
-        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, next, PASS_SECONDS);
+        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, side, next, PASS_SECONDS);
     }
 
     private ActionOutcome passArrivingIn(MatchSide side, ZoneRole arrivalRole, TeamOnPitch attackers) {
         Player passer = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Zone arrival = zoneWithRole(side, arrivalRole);
         MatchState next = MatchState.openPlay(side, arrival);
-        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, next, PASS_SECONDS);
+        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, side, next, PASS_SECONDS);
     }
 
     private Zone zoneWithRole(MatchSide side, ZoneRole role) {

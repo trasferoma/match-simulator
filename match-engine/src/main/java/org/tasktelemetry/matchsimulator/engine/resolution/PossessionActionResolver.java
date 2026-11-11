@@ -108,7 +108,7 @@ public final class PossessionActionResolver {
 
     private ActionOutcome circulateBall(MatchState state, Player carrier) {
         int duration = drawDuration(state);
-        return ActionOutcome.byPlayer(EventType.BALL_CIRCULATED, carrier, state, duration);
+        return ActionOutcome.byPlayer(EventType.BALL_CIRCULATED, carrier, state.possession(), state, duration);
     }
 
     private ActionOutcome completeAction(MatchState state, Score score, EventType type, TeamOnPitch attackers,
@@ -122,7 +122,7 @@ public final class PossessionActionResolver {
     private ActionOutcome advancePossession(MatchState state, EventType type, Player attacker) {
         MatchState next = stateAfterAdvance(state, type, attacker);
         int duration = drawDuration(state);
-        return ActionOutcome.byPlayer(type, attacker, next, duration);
+        return ActionOutcome.byPlayer(type, attacker, state.possession(), next, duration);
     }
 
     private MatchState stateAfterAdvance(MatchState state, EventType type, Player attacker) {
@@ -144,7 +144,7 @@ public final class PossessionActionResolver {
         MatchSide recoveringSide = state.possession().opposite();
         MatchState next = new MatchState(recoveringSide, state.zone(), state.phase());
         int duration = drawDuration(state);
-        return ActionOutcome.byPlayer(type, recoverer, next, duration);
+        return ActionOutcome.byPlayer(type, recoverer, recoveringSide, next, duration);
     }
 
     private ActionOutcome attemptCross(MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {

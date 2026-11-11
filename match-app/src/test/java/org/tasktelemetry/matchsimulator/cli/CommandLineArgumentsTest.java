@@ -102,6 +102,37 @@ class CommandLineArgumentsTest {
         assertProblem(List.of("a.json", "b.json", "--full", "--full"), CommandLineProblem.DUPLICATE_OPTION, "--full");
     }
 
+    @Test
+    void aRepeatedStepByStepOptionIsRefused() {
+        assertProblem(List.of("a.json", "--stepByStep", "b.json", "--stepByStep"),
+                CommandLineProblem.DUPLICATE_OPTION, "--stepByStep");
+    }
+
+    @Test
+    void withoutTheStepByStepOptionTheChronicleIsNotShownOneEventAtATime() {
+        CommandLineArguments arguments = CommandLineArguments.parse(List.of("a.json", "b.json", "--full"));
+
+        assertThat(arguments.stepByStep()).isFalse();
+    }
+
+    @Test
+    void theStepByStepOptionWorksInAnyPositionAndTogetherWithTheOtherOptions() {
+        CommandLineArguments before = CommandLineArguments.parse(List.of("--stepByStep", "a.json", "b.json"));
+        CommandLineArguments between = CommandLineArguments.parse(List.of("a.json", "--stepByStep", "b.json"));
+        CommandLineArguments after = CommandLineArguments.parse(List.of("a.json", "b.json", "--stepByStep"));
+        CommandLineArguments combined = CommandLineArguments.parse(
+                List.of("--full", "a.json", "--stepByStep", "--seed", "9", "b.json"));
+
+        assertThat(before.stepByStep()).isTrue();
+        assertThat(between.stepByStep()).isTrue();
+        assertThat(after.stepByStep()).isTrue();
+        assertThat(between.homeFile()).isEqualTo(Path.of("a.json"));
+        assertThat(between.awayFile()).isEqualTo(Path.of("b.json"));
+        assertThat(combined.stepByStep()).isTrue();
+        assertThat(combined.chronicleMode()).isEqualTo(ChronicleMode.FULL);
+        assertThat(combined.seed()).contains(9L);
+    }
+
     private void assertProblem(List<String> arguments, CommandLineProblem problem, Object... problemArguments) {
         assertThatThrownBy(() -> CommandLineArguments.parse(arguments))
                 .isInstanceOfSatisfying(InvalidCommandLineException.class, exception -> {

@@ -12,6 +12,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.StoppageConfig;
+import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -185,7 +186,8 @@ class StoppageTimeTest {
 
     private void add(EventType type, MatchPeriod period, int durationSeconds) {
         MatchTime time = new MatchTime(period, 100);
-        MatchEvent event = new MatchEvent(events.size() + 1, time, type, MatchSide.HOME, ZoneRole.MIDFIELD,
+        BallPosition ball = new BallPosition(MatchSide.HOME, ZoneRole.MIDFIELD);
+        MatchEvent event = new MatchEvent(events.size() + 1, time, type, MatchSide.HOME, ZoneRole.MIDFIELD, ball,
                 PlayPhase.BUILD_UP, Participants.nobody(), durationSeconds, EventDetail.none());
         events.add(event);
     }

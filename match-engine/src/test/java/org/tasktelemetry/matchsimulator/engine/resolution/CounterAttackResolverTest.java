@@ -259,7 +259,7 @@ class CounterAttackResolverTest {
                 .orElseThrow();
         Player recoverer = recoverers.players().get(1);
         MatchState next = MatchState.openPlay(recoveringSide, zone);
-        return ActionOutcome.byPlayer(type, recoverer, next, 10);
+        return ActionOutcome.byPlayer(type, recoverer, recoveringSide, next, 10);
     }
 
     private MatchState counterAttackAt(MatchSide side, ZoneRole zoneRole) {

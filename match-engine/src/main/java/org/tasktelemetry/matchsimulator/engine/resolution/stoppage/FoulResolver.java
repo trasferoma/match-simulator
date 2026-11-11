@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution.stoppage;
 import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
@@ -56,17 +57,18 @@ public final class FoulResolver {
         EventDetail.Foul detail = foulDetailOf(foul);
         Player fouler = foul.participants().primary()
                 .orElseThrow(() -> new IllegalArgumentException("a foul must name the player who committed it"));
+        MatchSide foulingSide = foul.participants().primarySide().orElseThrow();
         FoulSeverity severity = detail.severity();
         double red = config.redProbability().get(severity);
         double yellow = config.yellowProbability().get(severity);
         double draw = random.nextDouble();
         if (draw < red) {
-            ActionOutcome redCard = showCard(EventType.RED_CARD, fouler, foul);
+            ActionOutcome redCard = showCard(EventType.RED_CARD, fouler, foulingSide, foul);
             return Optional.of(redCard);
         }
         if (draw < red + yellow) {
             EventType yellowType = yellowTypeFor(foulingTeam, fouler);
-            ActionOutcome yellowCard = showCard(yellowType, fouler, foul);
+            ActionOutcome yellowCard = showCard(yellowType, fouler, foulingSide, foul);
             return Optional.of(yellowCard);
         }
         return Optional.empty();
@@ -97,13 +99,14 @@ public final class FoulResolver {
         SetPieceKind restart = penalty ? SetPieceKind.PENALTY : SetPieceKind.FREE_KICK;
         MatchState next = MatchState.forSetPiece(state.possession(), state.zone(), restart);
         int duration = drawDuration(config.foulDuration());
-        Participants participants = Participants.of(fouler, fouled);
+        MatchSide foulingSide = state.possession().opposite();
+        Participants participants = Participants.of(fouler, foulingSide, fouled, state.possession());
         EventDetail detail = EventDetail.foul(severity, penalty);
         return new ActionOutcome(EventType.FOUL, participants, next, duration, detail);
     }
 
-    private ActionOutcome showCard(EventType card, Player carded, ActionOutcome foul) {
-        Participants participants = Participants.of(carded);
+    private ActionOutcome showCard(EventType card, Player carded, MatchSide cardedSide, ActionOutcome foul) {
+        Participants participants = Participants.of(carded, cardedSide);
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(card, participants, foul.next(), 0, detail);
     }

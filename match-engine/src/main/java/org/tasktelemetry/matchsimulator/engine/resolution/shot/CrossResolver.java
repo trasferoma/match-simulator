@@ -112,7 +112,7 @@ public final class CrossResolver {
         MatchState inTheBox = MatchState.openPlay(state.possession(), opponentBox);
         MatchState next = inTheBox.withCrossInFlightFrom(crosser);
         int duration = drawDuration(config.crossDuration());
-        Participants participants = Participants.of(crosser);
+        Participants participants = Participants.of(crosser, state.possession());
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(EventType.CROSS_COMPLETED, participants, next, duration, detail);
     }
@@ -125,10 +125,11 @@ public final class CrossResolver {
     }
 
     private ActionOutcome deflectToCorner(MatchState state, Player crosser, Player defender) {
+        MatchSide defendingSide = state.possession().opposite();
         Zone opponentBox = opponentBoxOf(state);
         MatchState next = MatchState.forSetPiece(state.possession(), opponentBox, SetPieceKind.CORNER);
         int duration = drawDuration(config.crossDuration());
-        Participants participants = Participants.of(defender, crosser);
+        Participants participants = Participants.of(defender, defendingSide, crosser, state.possession());
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(EventType.CROSS_DEFLECTED_TO_CORNER, participants, next, duration, detail);
     }
@@ -138,15 +139,16 @@ public final class CrossResolver {
         Zone defendingBox = layout.ownBoxZone(defendingSide);
         MatchState next = MatchState.openPlay(defendingSide, defendingBox);
         int duration = drawDuration(config.crossDuration());
-        Participants participants = Participants.of(crosser);
+        Participants participants = Participants.of(crosser, state.possession());
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(EventType.CROSS_FAILED, participants, next, duration, detail);
     }
 
     private ActionOutcome clearBall(MatchState state, Player defender) {
+        MatchSide defendingSide = state.possession().opposite();
         MatchState next = stateAfterClearance(state);
         int duration = drawDuration(config.clearanceDuration());
-        Participants participants = Participants.of(defender, state.crosser());
+        Participants participants = Participants.of(defender, defendingSide, state.crosser(), state.possession());
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(EventType.CLEARANCE, participants, next, duration, detail);
     }

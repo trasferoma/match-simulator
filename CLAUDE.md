@@ -58,11 +58,11 @@ Negli esempi sotto si omette il prefisso `JAVA_HOME=...`, ma serve in ogni coman
 |---|---|
 | Build e test (esclude il tag `calibration`) | `mvn verify` |
 | Test del banco di taratura (solo il tag `calibration`, lenti) | `mvn verify -Pcalibration` |
-| Riga di comando | `java -jar match-app/target/match-app-1.0-SNAPSHOT.jar <squadra-casa> <squadra-ospite> [--seed 42] [--full]` (esempio: `data/teams/esempio-casa.json data/teams/esempio-ospite.json`) |
+| Riga di comando | `java -jar match-app/target/match-app-1.0-SNAPSHOT.jar <squadra-casa> <squadra-ospite> [--seed 42] [--full] [--stepByStep]` (esempio: `data/teams/esempio-casa.json data/teams/esempio-ospite.json`) |
 | Banco di taratura (dalla Fase 7) | `java -cp match-app/target/match-app-1.0-SNAPSHOT.jar org.tasktelemetry.matchsimulator.calibration.CalibrationBench [cartella-dati]` |
 
 - Il tag `calibration` si esclude tramite la proprietà `test.excludedGroups`, sovrascrivibile da riga di comando (`-Dtest.excludedGroups=...`).
-- Riga di comando: le opzioni valgono in qualunque posizione; senza `--seed` il seme si genera e si stampa in fondo. Codici di uscita: 0 riuscita, 1 file squadra mancante o non valido, 2 argomenti errati.
+- Riga di comando: le opzioni valgono in qualunque posizione; `--stepByStep` mostra un evento della cronaca a ogni Invio; senza `--seed` il seme si genera e si stampa in fondo. Codici di uscita: 0 riuscita, 1 file squadra mancante o non valido, 2 argomenti errati.
 - Il default della cartella dei dati (`data/calibration`) vale solo se si avvia dalla radice del repository; altrimenti si passa il percorso come argomento. I test leggono il percorso dalla proprietà di sistema `calibration.dir`, impostata da Surefire in `match-app`.
 
 ## Tecnologia

@@ -5,6 +5,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 
+import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -163,7 +164,7 @@ public final class Match {
     private void recordInjury(MatchSide side, Player injured) {
         int duration = resolvers.injury().drawInjurySeconds();
         advanceClock(duration);
-        Participants participants = Participants.of(injured);
+        Participants participants = Participants.of(injured, side);
         EventDetail detail = EventDetail.none();
         appendEvent(EventType.INJURY, side, state, participants, duration, detail);
     }
@@ -233,7 +234,8 @@ public final class Match {
     }
 
     private void applyCard(MatchState at, MatchSide cardedSide, ActionOutcome card) {
-        appendEvent(card.type(), cardedSide, at, card.participants(), 0, card.detail());
+        Occurrence occurrence = new Occurrence(card.type(), cardedSide, at, card.next());
+        recordEvent(occurrence, card.participants(), 0, card.detail());
         Player carded = card.participants().primary().orElseThrow();
         if (card.type().isDismissal()) {
             dismiss(cardedSide, carded);
@@ -276,7 +278,7 @@ public final class Match {
     private void recordSubstitution(MatchSide side, Substitution substitution) {
         int duration = resolvers.substitutionTimer().drawSubstitutionSeconds();
         advanceClock(duration);
-        Participants participants = Participants.of(substitution.leaving(), substitution.entering());
+        Participants participants = Participants.of(substitution.leaving(), side, substitution.entering(), side);
         EventDetail detail = EventDetail.none();
         appendEvent(EventType.SUBSTITUTION, side, state, participants, duration, detail);
     }
@@ -321,8 +323,23 @@ public final class Match {
     }
 
     private void recordActionEvent(MatchState before, ActionOutcome outcome) {
-        appendEvent(outcome.type(), before.possession(), before, outcome.participants(), outcome.durationSeconds(),
-                outcome.detail());
+        MatchState ballAt = ballAfter(before, outcome);
+        Occurrence occurrence = new Occurrence(outcome.type(), before.possession(), before, ballAt);
+        recordEvent(occurrence, outcome.participants(), outcome.durationSeconds(), outcome.detail());
+    }
+
+    private MatchState ballAfter(MatchState before, ActionOutcome outcome) {
+        if (outcome.type() == EventType.GOAL) {
+            return ballInTheNet(before);
+        }
+        return outcome.next();
+    }
+
+    private MatchState ballInTheNet(MatchState before) {
+        MatchSide scoringSide = before.possession();
+        MatchSide concedingSide = scoringSide.opposite();
+        Zone concedingBox = layout.ownBoxZone(concedingSide);
+        return MatchState.openPlay(scoringSide, concedingBox);
     }
 
     private void recordPeriodEvent(EventType type, EventDetail detail) {
@@ -332,16 +349,32 @@ public final class Match {
 
     private void appendEvent(EventType type, MatchSide side, MatchState at, Participants participants,
             int durationSeconds, EventDetail detail) {
+        Occurrence occurrence = new Occurrence(type, side, at, at);
+        recordEvent(occurrence, participants, durationSeconds, detail);
+    }
+
+    private void recordEvent(Occurrence occurrence, Participants participants, int durationSeconds,
+            EventDetail detail) {
         int order = events.size() + 1;
         MatchTime time = new MatchTime(clock.period(), clock.seconds());
-        ZoneRole zoneRole = layout.roleOf(at.zone(), side);
-        MatchEvent event = new MatchEvent(order, time, type, side, zoneRole, at.phase(), participants,
-                durationSeconds, detail);
+        MatchState at = occurrence.at();
+        ZoneRole zoneRole = layout.roleOf(at.zone(), occurrence.side());
+        BallPosition ball = ballPositionAt(occurrence.ballAt());
+        MatchEvent event = new MatchEvent(order, time, occurrence.type(), occurrence.side(), zoneRole, ball,
+                at.phase(), participants, durationSeconds, detail);
         events.add(event);
+    }
+
+    private BallPosition ballPositionAt(MatchState ballAt) {
+        ZoneRole zoneRole = layout.roleOf(ballAt.zone(), ballAt.possession());
+        return new BallPosition(ballAt.possession(), zoneRole);
     }
 
     private MatchState restartAtCentre(MatchSide possession) {
         Zone kickOffZone = layout.kickOffZone();
         return MatchState.forSetPiece(possession, kickOffZone, SetPieceKind.KICK_OFF);
+    }
+
+    private record Occurrence(EventType type, MatchSide side, MatchState at, MatchState ballAt) {
     }
 }

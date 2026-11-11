@@ -2,9 +2,12 @@ package org.tasktelemetry.matchsimulator.cli;
 
 import static org.assertj.core.api.Assertions.assertThat;
 
+import java.io.BufferedReader;
 import java.io.ByteArrayOutputStream;
 import java.io.PrintStream;
+import java.io.StringReader;
 import java.nio.charset.StandardCharsets;
+import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
@@ -29,8 +32,9 @@ class MatchPrinterTest {
     private static final Player SCORER = new Player("Nicolò Pàstina", Role.FORWARD, ATTRIBUTES);
 
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();
-    private final MatchPrinter printer =
-            new MatchPrinter(UserMessages.italian(), new PrintStream(bytes, true, StandardCharsets.UTF_8));
+    private final EnterKeyProbe enterKey = new EnterKeyProbe();
+    private final MatchPrinter printer = new MatchPrinter(UserMessages.italian(),
+            new PrintStream(bytes, true, StandardCharsets.UTF_8), new EnterKeyReader(enterKey));
 
     @Test
     void aPlayedMatchShowsTheScoreScorersWithMinuteAndTheStatisticsOfBothTeams() {
@@ -85,13 +89,85 @@ class MatchPrinterTest {
     @Test
     void theChronicleLinesComeFirstAndTheSeedLast() {
         MatchSummary summary = new MatchSummary(List.of(), statistics(), statistics());
-        MatchReport report = new MatchReport("Rossi", "Blu", List.of("0' Inizia la partita."), summary, -7L);
+        MatchReport report = new MatchReport("Rossi", "Blu", List.of(List.of("0' Inizia la partita.")), summary, -7L);
 
         printer.print(report);
 
         String output = output();
         assertThat(output).startsWith("0' Inizia la partita.");
         assertThat(output.stripTrailing()).endsWith("Seme: -7");
+    }
+
+    @Test
+    void aBlankLineSeparatesEachEventFromTheNextAndTheScoreboardButNothingIsWaitedFor() {
+        printer.print(reportWithEvents(3));
+
+        List<String> lines = output().lines().toList();
+        assertThat(lines.subList(0, 9)).containsExactly(
+                "event 1 field", "event 1 sentence", "",
+                "event 2 field", "event 2 sentence", "",
+                "event 3 field", "event 3 sentence", "");
+        assertThat(lines.get(9)).startsWith("Tabellino");
+        assertThat(enterKey.waits()).isZero();
+    }
+
+    @Test
+    void stepByStepWaitsOnceBeforeEveryEventExceptTheFirstAndNeverBeforeTheScoreboard() {
+        enterKey.pressesAvailable(10);
+
+        printer.printStepByStep(reportWithEvents(3));
+
+        assertThat(enterKey.waits()).isEqualTo(2);
+        assertThat(enterKey.outputAtWait(0)).isEqualTo(linesOf("event 1 field", "event 1 sentence"));
+        assertThat(enterKey.outputAtWait(1))
+                .isEqualTo(linesOf("event 1 field", "event 1 sentence", "event 2 field", "event 2 sentence"));
+        assertThat(output()).contains("event 3 sentence", "Tabellino", "Seme: 42");
+    }
+
+    @Test
+    void stepByStepDoesNotPrintTheBlankLineBetweenEventsBecauseTheEnterKeyAlreadyMakesOne() {
+        enterKey.pressesAvailable(10);
+
+        printer.printStepByStep(reportWithEvents(3));
+
+        List<String> lines = output().lines().toList();
+        assertThat(lines.subList(0, 7)).containsExactly(
+                "event 1 field", "event 1 sentence",
+                "event 2 field", "event 2 sentence",
+                "event 3 field", "event 3 sentence", "");
+        assertThat(lines.get(7)).startsWith("Tabellino");
+    }
+
+    @Test
+    void stepByStepKeepsPrintingWhenTheInputEndsInTheMiddleOfTheChronicle() {
+        enterKey.pressesAvailable(1);
+
+        printer.printStepByStep(reportWithEvents(4));
+
+        assertThat(enterKey.waits()).isEqualTo(3);
+        assertThat(output()).contains("event 4 sentence", "Tabellino", "Seme: 42");
+    }
+
+    @Test
+    void stepByStepWithOneEventOrNoneNeverWaits() {
+        printer.printStepByStep(reportWithEvents(1));
+        printer.printStepByStep(reportWithEvents(0));
+
+        assertThat(enterKey.waits()).isZero();
+        assertThat(output()).contains("event 1 sentence");
+    }
+
+    private MatchReport reportWithEvents(int count) {
+        List<List<String>> events = new ArrayList<>();
+        for (int number = 1; number <= count; number++) {
+            events.add(List.of("event " + number + " field", "event " + number + " sentence"));
+        }
+        MatchSummary summary = new MatchSummary(List.of(), statistics(), statistics());
+        return new MatchReport("Rossi", "Blu", events, summary, 42L);
+    }
+
+    private String linesOf(String... lines) {
+        return String.join(System.lineSeparator(), lines) + System.lineSeparator();
     }
 
     private MatchSummary summaryWithOneHomeGoalAt(MatchTime time) {
@@ -117,5 +193,37 @@ class MatchPrinterTest {
 
     private String output() {
         return new String(bytes.toByteArray(), StandardCharsets.UTF_8);
+    }
+
+    private final class EnterKeyProbe extends BufferedReader {
+
+        private final List<String> outputAtEachWait = new ArrayList<>();
+        private int pressesAvailable;
+
+        EnterKeyProbe() {
+            super(new StringReader(""));
+        }
+
+        void pressesAvailable(int count) {
+            pressesAvailable = count;
+        }
+
+        int waits() {
+            return outputAtEachWait.size();
+        }
+
+        String outputAtWait(int index) {
+            return outputAtEachWait.get(index);
+        }
+
+        @Override
+        public String readLine() {
+            outputAtEachWait.add(output());
+            if (pressesAvailable == 0) {
+                return null;
+            }
+            pressesAvailable--;
+            return "";
+        }
     }
 }

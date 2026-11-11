@@ -84,7 +84,7 @@ final class ProducibleEvents {
     }
 
     private Stream<MatchEvent> fouls() {
-        Participants participants = Participants.of(AWAY_DEFENDER, HOME_MIDFIELDER);
+        Participants participants = NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_MIDFIELDER);
         return Stream.of(FoulSeverity.values())
                 .flatMap(severity -> Stream.of(false, true).map(penalty -> {
                     EventDetail detail = EventDetail.foul(severity, penalty);
@@ -93,8 +93,8 @@ final class ProducibleEvents {
     }
 
     private Stream<MatchEvent> goals() {
-        Participants alone = Participants.of(HOME_FORWARD);
-        Participants withCrosser = Participants.of(HOME_FORWARD, HOME_MIDFIELDER);
+        Participants alone = NarrationEvents.participantsOf(HOME_FORWARD);
+        Participants withCrosser = NarrationEvents.participantsOf(HOME_FORWARD, HOME_MIDFIELDER);
         MatchEvent foot = goalOf(ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.BIG_CHANCE), alone);
         MatchEvent assistedFoot = goalOf(ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.BIG_CHANCE),
                 withCrosser);
@@ -111,7 +111,7 @@ final class ProducibleEvents {
     }
 
     private Stream<MatchEvent> saves() {
-        Participants participants = Participants.of(HOME_FORWARD, AWAY_GOALKEEPER);
+        Participants participants = NarrationEvents.participantsOf(HOME_FORWARD, AWAY_GOALKEEPER);
         Stream<MatchEvent> byQuality = Stream.of(SaveQuality.values()).map(quality -> {
             ShotProfile profile = ShotProfile.ofShot(0.2, ShotKind.FOOT, ShotQuality.HALF_CHANCE);
             return eventWithDetail(EventType.SHOT_SAVED, participants, EventDetail.save(profile, quality));
@@ -123,8 +123,8 @@ final class ProducibleEvents {
     }
 
     private Stream<MatchEvent> misses(EventType type) {
-        Participants alone = Participants.of(HOME_FORWARD);
-        Participants withCrosser = Participants.of(HOME_FORWARD, HOME_MIDFIELDER);
+        Participants alone = NarrationEvents.participantsOf(HOME_FORWARD);
+        Participants withCrosser = NarrationEvents.participantsOf(HOME_FORWARD, HOME_MIDFIELDER);
         return Stream.of(ShotQuality.values())
                 .flatMap(quality -> Stream.of(alone, withCrosser).map(participants -> {
                     ShotProfile profile = ShotProfile.ofShot(0.1, ShotKind.FOOT, quality);
@@ -134,7 +134,7 @@ final class ProducibleEvents {
 
     private MatchEvent penaltyMiss() {
         ShotProfile profile = ShotProfile.ofPenalty(0.79, ShotQuality.BIG_CHANCE);
-        return eventWithDetail(EventType.SHOT_OFF_TARGET, Participants.of(AWAY_FORWARD), EventDetail.shot(profile));
+        return eventWithDetail(EventType.SHOT_OFF_TARGET, NarrationEvents.participantsOf(AWAY_FORWARD), EventDetail.shot(profile));
     }
 
     private MatchEvent eventWithoutPlayers(EventType type) {
@@ -142,11 +142,11 @@ final class ProducibleEvents {
     }
 
     private MatchEvent eventWithPrimary(EventType type) {
-        return eventWithDetail(type, Participants.of(HOME_BENCH), EventDetail.none());
+        return eventWithDetail(type, NarrationEvents.participantsOf(HOME_BENCH), EventDetail.none());
     }
 
     private MatchEvent eventWithBothPlayers(EventType type) {
-        return eventWithDetail(type, Participants.of(AWAY_DEFENDER, HOME_FORWARD), EventDetail.none());
+        return eventWithDetail(type, NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD), EventDetail.none());
     }
 
     private MatchEvent eventWithDetail(EventType type, Participants participants, EventDetail detail) {

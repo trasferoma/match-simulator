@@ -3,16 +3,17 @@ package org.tasktelemetry.matchsimulator.engine.event;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class Participants {
 
     private static final Participants NOBODY = new Participants(null, null);
 
-    private final Player primary;
-    private final Player secondary;
+    private final Member primary;
+    private final Member secondary;
 
-    private Participants(Player primary, Player secondary) {
+    private Participants(Member primary, Member secondary) {
         this.primary = primary;
         this.secondary = secondary;
     }
@@ -21,23 +22,32 @@ public final class Participants {
         return NOBODY;
     }
 
-    public static Participants of(Player primary) {
-        Objects.requireNonNull(primary, "primary player must not be null");
-        return new Participants(primary, null);
+    public static Participants of(Player primary, MatchSide primarySide) {
+        Member primaryMember = memberOf(primary, primarySide, "primary");
+        return new Participants(primaryMember, null);
     }
 
-    public static Participants of(Player primary, Player secondary) {
-        Objects.requireNonNull(primary, "primary player must not be null");
-        Objects.requireNonNull(secondary, "secondary player must not be null");
-        return new Participants(primary, secondary);
+    public static Participants of(Player primary, MatchSide primarySide, Player secondary,
+            MatchSide secondarySide) {
+        Member primaryMember = memberOf(primary, primarySide, "primary");
+        Member secondaryMember = memberOf(secondary, secondarySide, "secondary");
+        return new Participants(primaryMember, secondaryMember);
     }
 
     public Optional<Player> primary() {
-        return Optional.ofNullable(primary);
+        return Optional.ofNullable(primary).map(Member::player);
+    }
+
+    public Optional<MatchSide> primarySide() {
+        return Optional.ofNullable(primary).map(Member::side);
     }
 
     public Optional<Player> secondary() {
-        return Optional.ofNullable(secondary);
+        return Optional.ofNullable(secondary).map(Member::player);
+    }
+
+    public Optional<MatchSide> secondarySide() {
+        return Optional.ofNullable(secondary).map(Member::side);
     }
 
     @Override
@@ -57,5 +67,14 @@ public final class Participants {
         String primaryName = primary().map(Player::name).orElse("-");
         String secondaryName = secondary().map(Player::name).orElse("-");
         return "Participants[primary=" + primaryName + ", secondary=" + secondaryName + "]";
+    }
+
+    private static Member memberOf(Player player, MatchSide side, String label) {
+        Objects.requireNonNull(player, label + " player must not be null");
+        Objects.requireNonNull(side, label + " side must not be null");
+        return new Member(player, side);
+    }
+
+    private record Member(Player player, MatchSide side) {
     }
 }

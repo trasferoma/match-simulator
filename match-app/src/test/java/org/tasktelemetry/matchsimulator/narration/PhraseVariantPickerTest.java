@@ -8,6 +8,7 @@ import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.secondH
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
@@ -16,6 +17,7 @@ import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
+import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 class PhraseVariantPickerTest {
@@ -23,6 +25,7 @@ class PhraseVariantPickerTest {
     private static final int FINGERPRINT_OF_12_GOAL_ROSSI = -1260362466;
     private static final int FINGERPRINT_OF_47_SHOT_SAVED_VERDI = 1321059335;
     private static final int FINGERPRINT_OF_0_KICK_OFF_NOBODY = -1420604774;
+    private static final BallPosition MIDFIELD_BALL = new BallPosition(MatchSide.HOME, ZoneRole.MIDFIELD);
 
     private final PhraseVariantPicker picker = new PhraseVariantPicker();
 
@@ -44,8 +47,7 @@ class PhraseVariantPickerTest {
     @Test
     void anEventWithoutPlayersUsesAnEmptyPlayerName() {
         MatchEvent kickOff = new MatchEvent(1, firstHalf(0), EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
-                PlayPhase.SET_PIECE, Participants.nobody(), 0,
-                EventDetail.none());
+                MIDFIELD_BALL, PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none());
 
         assertThat(picker.fingerprintOf(kickOff)).isEqualTo(FINGERPRINT_OF_0_KICK_OFF_NOBODY);
     }
@@ -62,8 +64,7 @@ class PhraseVariantPickerTest {
     @Test
     void aNegativeFingerprintStillGivesAnIndexInsideTheVariants() {
         MatchEvent kickOff = new MatchEvent(1, firstHalf(0), EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
-                PlayPhase.SET_PIECE, Participants.nobody(), 0,
-                EventDetail.none());
+                MIDFIELD_BALL, PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none());
 
         assertThat(FINGERPRINT_OF_0_KICK_OFF_NOBODY % 3).isEqualTo(-2);
         assertThat(picker.variantIndex(kickOff, 3)).isEqualTo(1);
@@ -95,18 +96,18 @@ class PhraseVariantPickerTest {
     }
 
     private MatchEvent goalByRossiAt(MatchTime time) {
-        Participants participants = Participants.of(HOME_FORWARD);
+        Participants participants = NarrationEvents.participantsOf(HOME_FORWARD);
         EventDetail detail = NarrationEvents.goalDetail(GoalContext.TAKES_THE_LEAD);
         return new MatchEvent(7, time, EventType.GOAL, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
-                PlayPhase.BUILD_UP, participants, 20, detail);
+                new BallPosition(MatchSide.HOME, ZoneRole.OPPONENT_BOX), PlayPhase.BUILD_UP, participants, 20, detail);
     }
 
     private MatchEvent eventAt(EventType type, MatchTime time,
             String playerName) {
-        Participants participants = Participants.of(NarrationEvents.player(playerName,
-                Role.FORWARD));
+        Player player = NarrationEvents.player(playerName, Role.FORWARD);
+        Participants participants = Participants.of(player, MatchSide.AWAY);
         return new MatchEvent(1, time, type, MatchSide.AWAY, ZoneRole.MIDFIELD,
-                PlayPhase.BUILD_UP, participants, 5,
+                new BallPosition(MatchSide.AWAY, ZoneRole.MIDFIELD), PlayPhase.BUILD_UP, participants, 5,
                 EventDetail.none());
     }
 

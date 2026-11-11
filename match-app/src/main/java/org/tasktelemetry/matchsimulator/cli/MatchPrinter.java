@@ -22,14 +22,25 @@ final class MatchPrinter {
 
     private final UserMessages messages;
     private final PrintStream out;
+    private final EnterKeyReader enterKeyReader;
 
-    MatchPrinter(UserMessages messages, PrintStream out) {
+    MatchPrinter(UserMessages messages, PrintStream out, EnterKeyReader enterKeyReader) {
         this.messages = messages;
         this.out = out;
+        this.enterKeyReader = enterKeyReader;
     }
 
     void print(MatchReport report) {
         printChronicle(report);
+        printScoreboard(report);
+    }
+
+    void printStepByStep(MatchReport report) {
+        printChronicleOneEventAtATime(report);
+        printScoreboard(report);
+    }
+
+    private void printScoreboard(MatchReport report) {
         printBlankLine();
         printTitle();
         printResult(report);
@@ -40,9 +51,34 @@ final class MatchPrinter {
     }
 
     private void printChronicle(MatchReport report) {
-        for (String line : report.chronicle()) {
+        List<List<String>> events = report.chronicle();
+        for (int index = 0; index < events.size(); index++) {
+            if (index > 0) {
+                printBlankLine();
+            }
+            printEvent(events.get(index));
+        }
+    }
+
+    private void printChronicleOneEventAtATime(MatchReport report) {
+        List<List<String>> events = report.chronicle();
+        for (int index = 0; index < events.size(); index++) {
+            if (index > 0) {
+                waitForEnter();
+            }
+            printEvent(events.get(index));
+        }
+    }
+
+    private void printEvent(List<String> eventLines) {
+        for (String line : eventLines) {
             out.println(line);
         }
+    }
+
+    private void waitForEnter() {
+        out.flush();
+        enterKeyReader.waitForEnter();
     }
 
     private void printBlankLine() {

@@ -425,7 +425,7 @@ class ShotResolverTest {
         List<ActionOutcome> goals = goalsFrom(afterPass, scorer, ShotKind.FOOT);
 
         assertThat(goals).isNotEmpty().allSatisfy(outcome ->
-                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, passer)));
+                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, MatchSide.HOME, passer, MatchSide.HOME)));
     }
 
     @Test
@@ -436,7 +436,7 @@ class ShotResolverTest {
         List<ActionOutcome> goals = goalsFrom(afterOwnPass, scorer, ShotKind.FOOT);
 
         assertThat(goals).isNotEmpty().allSatisfy(outcome ->
-                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer)));
+                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, MatchSide.HOME)));
     }
 
     @Test
@@ -458,7 +458,7 @@ class ShotResolverTest {
         List<ActionOutcome> goals = goalsFrom(crossInFlight, scorer, ShotKind.HEADER);
 
         assertThat(goals).isNotEmpty().allSatisfy(outcome ->
-                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, crosser)));
+                assertThat(outcome.participants()).isEqualTo(Participants.of(scorer, MatchSide.HOME, crosser, MatchSide.HOME)));
     }
 
     @Test

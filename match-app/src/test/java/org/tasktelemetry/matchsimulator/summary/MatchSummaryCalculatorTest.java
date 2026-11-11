@@ -9,6 +9,7 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -157,10 +158,10 @@ class MatchSummaryCalculatorTest {
     @Test
     void theTimeOfAnInjuryOrASubstitutionBelongsToNeitherSideBecauseTheirEventsCarryTheSideOfThePlayer() {
         events.add(plainEvent(EventType.PASS_COMPLETED, MatchSide.HOME, homeMidfielder, 30));
-        events.add(event(EventType.INJURY, MatchSide.AWAY, firstHalf(40), Participants.of(awayDefender), 100,
+        events.add(event(EventType.INJURY, MatchSide.AWAY, firstHalf(40), Participants.of(awayDefender, MatchSide.AWAY), 100,
                 EventDetail.none()));
         events.add(event(EventType.SUBSTITUTION, MatchSide.AWAY, firstHalf(41),
-                Participants.of(awayDefender, awayForward), 35, EventDetail.none()));
+                Participants.of(awayDefender, MatchSide.AWAY, awayForward, MatchSide.AWAY), 35, EventDetail.none()));
 
         MatchSummary summary = calculator.summarize(events);
 
@@ -247,7 +248,7 @@ void aGoalWithoutAScorerIsRejected() {
 
     @Test
     void aShotWithoutAShotProfileIsRejected() {
-        events.add(event(EventType.SHOT_OFF_TARGET, MatchSide.HOME, firstHalf(10), Participants.of(homeForward), 0,
+        events.add(event(EventType.SHOT_OFF_TARGET, MatchSide.HOME, firstHalf(10), Participants.of(homeForward, MatchSide.HOME), 0,
                 EventDetail.none()));
 
         assertThatThrownBy(() -> calculator.summarize(events))
@@ -291,7 +292,7 @@ void aGoalWithoutAScorerIsRejected() {
     @Test
     void substitutionsAreCountedForTheSideThatMadeThem() {
         events.add(event(EventType.SUBSTITUTION, MatchSide.AWAY, firstHalf(10),
-                Participants.of(awayDefender, awayGoalkeeper), 0, EventDetail.none()));
+                Participants.of(awayDefender, MatchSide.AWAY, awayGoalkeeper, MatchSide.AWAY), 0, EventDetail.none()));
 
         MatchSummary summary = calculator.summarize(events);
 
@@ -301,9 +302,9 @@ void aGoalWithoutAScorerIsRejected() {
 
     @Test
     void injuriesAreCountedForTheSideOfTheInjuredPlayer() {
-        events.add(event(EventType.INJURY, MatchSide.HOME, firstHalf(10), Participants.of(homeMidfielder), 100,
+        events.add(event(EventType.INJURY, MatchSide.HOME, firstHalf(10), Participants.of(homeMidfielder, MatchSide.HOME), 100,
                 EventDetail.none()));
-        events.add(event(EventType.INJURY, MatchSide.HOME, firstHalf(20), Participants.of(homeMidfielder), 70,
+        events.add(event(EventType.INJURY, MatchSide.HOME, firstHalf(20), Participants.of(homeMidfielder, MatchSide.HOME), 70,
                 EventDetail.none()));
 
         MatchSummary summary = calculator.summarize(events);
@@ -401,7 +402,7 @@ void aGoalWithoutAScorerIsRejected() {
 
     private MatchEvent foul(MatchSide fouledSide, Player fouler, Player fouled, int seconds, boolean penalty) {
         EventDetail detail = EventDetail.foul(FoulSeverity.HARD, penalty);
-        Participants participants = Participants.of(fouler, fouled);
+        Participants participants = Participants.of(fouler, fouledSide.opposite(), fouled, fouledSide);
         return event(EventType.FOUL, fouledSide, firstHalf(10), participants, seconds, detail);
     }
 
@@ -411,43 +412,45 @@ void aGoalWithoutAScorerIsRejected() {
 
     private MatchEvent goal(MatchSide side, Player scorer, MatchTime time, double expectedGoals, int seconds) {
         EventDetail detail = goalDetail(expectedGoals);
-        return event(EventType.GOAL, side, time, Participants.of(scorer), seconds, detail);
+        return event(EventType.GOAL, side, time, Participants.of(scorer, side), seconds, detail);
     }
 
     private MatchEvent penaltyGoal(MatchSide side, Player scorer, double expectedGoals) {
         ShotProfile profile = ShotProfile.ofPenalty(expectedGoals, ShotQuality.BIG_CHANCE);
         EventDetail detail = EventDetail.goal(profile, GoalContext.TAKES_THE_LEAD);
-        return event(EventType.GOAL, side, firstHalf(10), Participants.of(scorer), 0, detail);
+        return event(EventType.GOAL, side, firstHalf(10), Participants.of(scorer, side), 0, detail);
     }
 
     private MatchEvent save(MatchSide side, Player shooter, Player goalkeeper, double expectedGoals) {
         ShotProfile profile = footShot(expectedGoals);
         EventDetail detail = EventDetail.save(profile, SaveQuality.ROUTINE);
-        Participants participants = Participants.of(shooter, goalkeeper);
+        Participants participants = Participants.of(shooter, side, goalkeeper, side.opposite());
         return event(EventType.SHOT_SAVED, side, firstHalf(10), participants, 0, detail);
     }
 
     private MatchEvent shotEvent(EventType type, MatchSide side, Player shooter, double expectedGoals) {
         ShotProfile profile = footShot(expectedGoals);
         EventDetail detail = EventDetail.shot(profile);
-        return event(type, side, firstHalf(10), Participants.of(shooter), 0, detail);
+        return event(type, side, firstHalf(10), Participants.of(shooter, side), 0, detail);
     }
 
     private MatchEvent plainEvent(EventType type, MatchSide side, Player primary, int seconds) {
-        Participants participants = primary == null ? Participants.nobody() : Participants.of(primary);
+        Participants participants = primary == null ? Participants.nobody() : Participants.of(primary, side);
         return event(type, side, firstHalf(10), participants, seconds, EventDetail.none());
     }
 
     private MatchEvent setPieceEvent(EventType type, MatchSide side, Player primary, int seconds) {
+        BallPosition ball = new BallPosition(side, ZoneRole.OPPONENT_BOX);
         int order = events.size() + 1;
-        return new MatchEvent(order, firstHalf(10), type, side, ZoneRole.OPPONENT_BOX, PlayPhase.SET_PIECE,
-                Participants.of(primary), seconds, EventDetail.none());
+        return new MatchEvent(order, firstHalf(10), type, side, ZoneRole.OPPONENT_BOX, ball, PlayPhase.SET_PIECE,
+                Participants.of(primary, side), seconds, EventDetail.none());
     }
 
     private MatchEvent event(EventType type, MatchSide side, MatchTime time, Participants participants, int seconds,
             EventDetail detail) {
+        BallPosition ball = new BallPosition(side, ZoneRole.OPPONENT_BOX);
         int order = events.size() + 1;
-        return new MatchEvent(order, time, type, side, ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, participants,
+        return new MatchEvent(order, time, type, side, ZoneRole.OPPONENT_BOX, ball, PlayPhase.BUILD_UP, participants,
                 seconds, detail);
     }
 

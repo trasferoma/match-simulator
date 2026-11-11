@@ -12,6 +12,7 @@ public record MatchEvent(
         EventType type,
         MatchSide side,
         ZoneRole zoneRole,
+        BallPosition ball,
         PlayPhase phase,
         Participants participants,
         int durationSeconds,
@@ -22,6 +23,7 @@ public record MatchEvent(
         Objects.requireNonNull(type, "event type must not be null");
         Objects.requireNonNull(side, "event side must not be null");
         Objects.requireNonNull(zoneRole, "event zone role must not be null");
+        Objects.requireNonNull(ball, "event ball position must not be null");
         Objects.requireNonNull(phase, "event phase must not be null");
         Objects.requireNonNull(participants, "event participants must not be null");
         Objects.requireNonNull(detail, "event detail must not be null");

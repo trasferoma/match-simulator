@@ -6,7 +6,7 @@ import java.util.Objects;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 
-record MatchReport(String homeName, String awayName, List<String> chronicle, MatchSummary summary, long seed) {
+record MatchReport(String homeName, String awayName, List<List<String>> chronicle, MatchSummary summary, long seed) {
 
     MatchReport {
         Objects.requireNonNull(homeName, "home name must not be null");

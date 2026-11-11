@@ -154,7 +154,7 @@ class FoulResolverTest {
         List<ActionOutcome> fouls = foulsFrom(state, 100);
 
         assertThat(fouls).isNotEmpty().allSatisfy(foul ->
-                assertThat(foul.participants()).isEqualTo(Participants.of(defender, attacker)));
+                assertThat(foul.participants()).isEqualTo(Participants.of(defender, MatchSide.AWAY, attacker, MatchSide.HOME)));
     }
 
     @Test
@@ -226,7 +226,7 @@ class FoulResolverTest {
                 .toList();
 
         assertThat(cards).isNotEmpty().allSatisfy(card -> {
-            assertThat(card.participants()).isEqualTo(Participants.of(defender));
+            assertThat(card.participants()).isEqualTo(Participants.of(defender, MatchSide.AWAY));
             assertThat(card.durationSeconds()).isZero();
             assertThat(card.next()).isEqualTo(foul.next());
             assertThat(card.detail()).isEqualTo(EventDetail.none());
@@ -236,7 +236,7 @@ class FoulResolverTest {
 
     @Test
     void aSanctionNeedsAFoul() {
-        ActionOutcome notAFoul = ActionOutcome.byPlayer(EventType.TACKLE, defender,
+        ActionOutcome notAFoul = ActionOutcome.byPlayer(EventType.TACKLE, defender, MatchSide.AWAY,
                 MatchState.openPlay(MatchSide.AWAY, layout.kickOffZone()), 5);
 
         assertThatThrownBy(() -> resolver(SEED).sanctionFor(notAFoul, awayTeam))
@@ -257,7 +257,7 @@ class FoulResolverTest {
     private ActionOutcome foulOfSeverity(FoulSeverity severity) {
         MatchState next = MatchState.forSetPiece(MatchSide.HOME, layout.kickOffZone(), SetPieceKind.FREE_KICK);
         EventDetail detail = EventDetail.foul(severity, false);
-        return new ActionOutcome(EventType.FOUL, Participants.of(defender, attacker), next, 5, detail);
+        return new ActionOutcome(EventType.FOUL, Participants.of(defender, MatchSide.AWAY, attacker, MatchSide.HOME), next, 5, detail);
     }
 
     private List<ActionOutcome> foulsFrom(MatchState state, int minimumFouls) {

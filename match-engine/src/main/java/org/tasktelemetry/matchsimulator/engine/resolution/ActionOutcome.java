@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution;
 
 import java.util.Objects;
 
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
@@ -26,8 +27,9 @@ public record ActionOutcome(EventType type, Participants participants, MatchStat
         return new ActionOutcome(type, participants, next, total, detail);
     }
 
-    public static ActionOutcome byPlayer(EventType type, Player player, MatchState next, int durationSeconds) {
-        Participants participants = Participants.of(player);
+    public static ActionOutcome byPlayer(EventType type, Player player, MatchSide side, MatchState next,
+            int durationSeconds) {
+        Participants participants = Participants.of(player, side);
         EventDetail detail = EventDetail.none();
         return new ActionOutcome(type, participants, next, durationSeconds, detail);
     }

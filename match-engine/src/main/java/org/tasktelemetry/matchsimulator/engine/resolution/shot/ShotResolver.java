@@ -129,7 +129,10 @@ public final class ShotResolver {
         EventDetail detail = EventDetail.save(attempt.profile(), saveQuality);
         MatchState next = stateAfterSave(state);
         int duration = drawDuration(attempt.missDuration());
-        Participants participants = Participants.of(attempt.shooter(), attempt.goalkeeper());
+        MatchSide attackingSide = state.possession();
+        MatchSide defendingSide = attackingSide.opposite();
+        Participants participants = Participants.of(attempt.shooter(), attackingSide, attempt.goalkeeper(),
+                defendingSide);
         return new ActionOutcome(EventType.SHOT_SAVED, participants, next, duration, detail);
     }
 
@@ -185,12 +188,12 @@ public final class ShotResolver {
     private Participants scorerWithAssistant(MatchState state, Attempt attempt) {
         Player scorer = attempt.shooter();
         if (state.hasCrossInFlight()) {
-            return Participants.of(scorer, state.crosser());
+            return Participants.of(scorer, state.possession(), state.crosser(), state.possession());
         }
         if (isAssistedByLastPasser(state, scorer)) {
-            return Participants.of(scorer, state.lastPasser());
+            return Participants.of(scorer, state.possession(), state.lastPasser(), state.possession());
         }
-        return Participants.of(scorer);
+        return Participants.of(scorer, state.possession());
     }
 
     private boolean isAssistedByLastPasser(MatchState state, Player scorer) {
@@ -199,9 +202,9 @@ public final class ShotResolver {
 
     private Participants shooterWithCrosser(MatchState state, Attempt attempt) {
         if (state.hasCrossInFlight()) {
-            return Participants.of(attempt.shooter(), state.crosser());
+            return Participants.of(attempt.shooter(), state.possession(), state.crosser(), state.possession());
         }
-        return Participants.of(attempt.shooter());
+        return Participants.of(attempt.shooter(), state.possession());
     }
 
     private int drawDuration(DurationRange range) {

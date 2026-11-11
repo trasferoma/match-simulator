@@ -24,14 +24,25 @@ class PhraseFillerTest {
     private final NarrationEvents fixture = new NarrationEvents();
 
     @Test
-    void thePlayerAndTheSecondaryPlayerAreReplacedWithTheirNames() {
-        Participants participants = Participants.of(AWAY_DEFENDER, HOME_FORWARD);
+    void thePlayerAndTheSecondaryPlayerAreReplacedWithTheirNamesFollowedByTheirOwnTeam() {
+        Participants participants = NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD);
         MatchEvent offside = fixture.add(EventType.OFFSIDE, MatchSide.HOME, ZoneRole.ATTACKING_THIRD, participants,
                 EventDetail.none());
 
         String text = filler.fill("{player} su passaggio di {secondary}, ancora {player}", offside, TEAM_NAMES);
 
-        assertThat(text).isEqualTo("Neri su passaggio di Rossi, ancora Neri");
+        assertThat(text).isEqualTo("Neri (Lupi) su passaggio di Rossi (Aquile), ancora Neri (Lupi)");
+    }
+
+    @Test
+    void theTeamOfAPlayerIsTheOneRecordedForHimAndNotTheSideOfTheEvent() {
+        Participants participants = Participants.of(HOME_FORWARD, MatchSide.HOME, AWAY_DEFENDER, MatchSide.AWAY);
+        MatchEvent homeShot = fixture.add(EventType.SHOT_SAVED, MatchSide.AWAY, ZoneRole.OPPONENT_BOX, participants,
+                EventDetail.none());
+
+        String text = filler.fill("{player} calcia, {secondary} para", homeShot, TEAM_NAMES);
+
+        assertThat(text).isEqualTo("Rossi (Aquile) calcia, Neri (Lupi) para");
     }
 
     @Test
@@ -83,6 +94,39 @@ class PhraseFillerTest {
     }
 
     @Test
+    void thePlayerIsNotFollowedByHisTeamWhenThePhraseNamesThatTeam() {
+        MatchEvent homeGoal = fixture.addGoal(NarrationEvents.firstHalf(60), MatchSide.HOME, HOME_FORWARD,
+                GoalContext.TAKES_THE_LEAD);
+
+        String text = filler.fill("Gol per {team}! {player} batte il portiere", homeGoal, TEAM_NAMES);
+
+        assertThat(text).isEqualTo("Gol per Aquile! Rossi batte il portiere");
+    }
+
+    @Test
+    void thePlayerIsStillFollowedByHisTeamWhenThePhraseNamesTheOtherTeam() {
+        EventDetail detail = EventDetail.suspension(MatchSide.AWAY, new Score(0, 0), new Score(3, 0));
+        Participants participants = NarrationEvents.participantsOf(HOME_FORWARD, AWAY_DEFENDER);
+        MatchEvent suspension = fixture.add(EventType.MATCH_SUSPENDED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                participants, detail);
+
+        String text = filler.fill("{player} e {secondary}, colpa di {team}", suspension, TEAM_NAMES);
+
+        assertThat(text).isEqualTo("Rossi (Aquile) e Neri, colpa di Lupi");
+    }
+
+    @Test
+    void theTeamNamedOnlyInThePartOfThePhraseAfterThePlayerStillRemovesHisTeam() {
+        MatchEvent homeGoal = fixture.addGoal(NarrationEvents.firstHalf(60), MatchSide.HOME, HOME_FORWARD,
+                GoalContext.TAKES_THE_LEAD);
+
+        String text = filler.fill("{player} segna. La squadra di {player} vince, e {team} esulta", homeGoal,
+                TEAM_NAMES);
+
+        assertThat(text).isEqualTo("Rossi segna. La squadra di Rossi vince, e Aquile esulta");
+    }
+
+    @Test
     void anUnknownPlaceholderIsAnError() {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
 
@@ -96,6 +140,6 @@ class PhraseFillerTest {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME,
                 NarrationEvents.player("D'Angelo $1 \\ Rossi", Role.MIDFIELDER));
 
-        assertThat(filler.fill("Palla a {player}", pass, TEAM_NAMES)).isEqualTo("Palla a D'Angelo $1 \\ Rossi");
+        assertThat(filler.fill("Palla a {player}", pass, TEAM_NAMES)).isEqualTo("Palla a D'Angelo $1 \\ Rossi (Aquile)");
     }
 }

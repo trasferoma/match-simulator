@@ -35,7 +35,7 @@ final class MatchRunner {
     MatchReport play(Team home, Team away, long seed, ChronicleMode mode) {
         List<MatchEvent> events = simulateToTheEnd(home, away, seed);
         TeamNames teamNames = new TeamNames(home.name(), away.name());
-        List<String> chronicle = narrator.narrate(events, teamNames, mode);
+        List<List<String>> chronicle = narrator.narrate(events, teamNames, mode);
         MatchSummary summary = summaryCalculator.summarize(events);
         return new MatchReport(home.name(), away.name(), chronicle, summary, seed);
     }

@@ -36,7 +36,7 @@ class PhraseKeysTest {
 
     @Test
     void theSecondaryPlayerAddsASegment() {
-        Participants participants = Participants.of(AWAY_DEFENDER, HOME_FORWARD);
+        Participants participants = NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD);
         MatchEvent offside = fixture.add(EventType.OFFSIDE, MatchSide.HOME, ZoneRole.ATTACKING_THIRD, participants,
                 EventDetail.none());
 
@@ -67,7 +67,7 @@ class PhraseKeysTest {
         EventDetail difficult = EventDetail.save(profile, SaveQuality.DIFFICULT);
         EventDetail penaltySave = EventDetail.save(ShotProfile.ofPenalty(0.79, ShotQuality.BIG_CHANCE),
                 SaveQuality.SPECTACULAR);
-        Participants participants = Participants.of(HOME_FORWARD, AWAY_GOALKEEPER);
+        Participants participants = NarrationEvents.participantsOf(HOME_FORWARD, AWAY_GOALKEEPER);
 
         MatchEvent save = fixture.add(EventType.SHOT_SAVED, MatchSide.HOME, ZoneRole.OPPONENT_BOX, participants,
                 difficult);
@@ -81,7 +81,7 @@ class PhraseKeysTest {
     @Test
     void aMissedShotIsKeyedByItsDanger() {
         EventDetail detail = EventDetail.shot(ShotProfile.ofShot(0.4, ShotKind.FOOT, ShotQuality.BIG_CHANCE));
-        Participants participants = Participants.of(AWAY_FORWARD);
+        Participants participants = NarrationEvents.participantsOf(AWAY_FORWARD);
 
         MatchEvent miss = fixture.add(EventType.SHOT_OFF_TARGET, MatchSide.AWAY, ZoneRole.OPPONENT_BOX, participants,
                 detail);
@@ -91,7 +91,7 @@ class PhraseKeysTest {
 
     @Test
     void aFoulIsKeyedByItsSeverityAndByTheCallOfAPenalty() {
-        Participants participants = Participants.of(AWAY_DEFENDER, HOME_FORWARD);
+        Participants participants = NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD);
 
         MatchEvent hard = fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD, participants,
                 EventDetail.foul(FoulSeverity.HARD, false));
@@ -118,7 +118,7 @@ class PhraseKeysTest {
 
     private MatchEvent goal(ShotProfile profile, Player scorer,
             Player crosser) {
-        Participants participants = crosser == null ? Participants.of(scorer) : Participants.of(scorer, crosser);
+        Participants participants = crosser == null ? NarrationEvents.participantsOf(scorer) : NarrationEvents.participantsOf(scorer, crosser);
         EventDetail detail = EventDetail.goal(profile, GoalContext.TAKES_THE_LEAD);
         return fixture.add(EventType.GOAL, MatchSide.HOME, ZoneRole.OPPONENT_BOX, participants, detail);
     }

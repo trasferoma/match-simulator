@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 class MatchEventTest {
 
     private final MatchTime time = new MatchTime(MatchPeriod.FIRST_HALF, 90);
+    private final BallPosition midfieldBall = new BallPosition(MatchSide.HOME, ZoneRole.MIDFIELD);
 
     @Test
     void stoppageAnnouncementCarriesItsMinutes() {
@@ -45,15 +46,18 @@ class MatchEventTest {
     @Test
     void rejectsMissingValues() {
         assertThatThrownBy(() -> new MatchEvent(1, null, EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
-                PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none()))
+                midfieldBall, PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none()))
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new MatchEvent(1, time, EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
-                PlayPhase.SET_PIECE, null, 0, EventDetail.none()))
+                midfieldBall, PlayPhase.SET_PIECE, null, 0, EventDetail.none()))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new MatchEvent(1, time, EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
+                null, PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none()))
                 .isInstanceOf(NullPointerException.class);
     }
 
     private MatchEvent eventWith(int order, int durationSeconds) {
         return new MatchEvent(order, time, EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
-                PlayPhase.SET_PIECE, Participants.nobody(), durationSeconds, EventDetail.none());
+                midfieldBall, PlayPhase.SET_PIECE, Participants.nobody(), durationSeconds, EventDetail.none());
     }
 }

@@ -6,6 +6,7 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
 
@@ -14,7 +15,7 @@ import org.junit.jupiter.api.io.TempDir;
 
 class MatchCommandLineTest {
 
-    private static final String USAGE = "Uso: match-simulator casa.json ospite.json [--seed 42] [--full]";
+    private static final String USAGE = "Uso: match-simulator casa.json ospite.json [--seed 42] [--full] [--stepByStep]";
     private static final Pattern ACCENTED_LETTER = Pattern.compile("[àèéìòù]");
     private static final Pattern EXPECTED_GOALS_ROW = Pattern.compile("(?m)^xG: \\d+,\\d{2} - \\d+,\\d{2}$");
     private static final Pattern POSSESSION_ROW = Pattern.compile("(?m)^Possesso: \\d{1,3}% - \\d{1,3}%$");
@@ -23,6 +24,8 @@ class MatchCommandLineTest {
     private static final Pattern SEED_ROW = Pattern.compile("(?m)^Seme: (-?\\d+)$");
     private static final Pattern SCORED_GOAL_ROW =
             Pattern.compile("(?m)^(\\d+(?:\\+\\d+)?' .+) \\((Atletico Mare|Sporting Collina)\\)$");
+    private static final String SCOREBOARD_TITLE = "Tabellino";
+    private static final String ENTER_KEYS = "\n".repeat(5000);
     private static final int MATCHES_CHECKED_FOR_GOALS = 8;
     private static final byte UTF8_TWO_BYTE_LEAD = (byte) 0xC3;
 
@@ -87,7 +90,7 @@ class MatchCommandLineTest {
                 String minuteAndScorer = scoredGoal.group(1);
                 String team = scoredGoal.group(2);
                 assertThat(chronicle.lines()).as("seed %d, goal %s", seed, minuteAndScorer)
-                        .anyMatch(line -> line.startsWith(minuteOf(minuteAndScorer) + " ")
+                        .anyMatch(line -> line.startsWith("* " + minuteOf(minuteAndScorer) + " ")
                                 && line.contains(scorerOf(minuteAndScorer)) && line.contains(team));
                 checkedGoals++;
             }
@@ -149,6 +152,60 @@ class MatchCommandLineTest {
         assertThat(full.exitCode()).isZero();
         assertThat(full.out().lines().count()).isGreaterThan(brief.out().lines().count());
         assertThat(full.out()).contains("Tabellino").contains("Seme: 42");
+    }
+
+    @Test
+    void theStepByStepOptionPrintsTheSameMatchWithoutTheBlankLinesBetweenEvents() {
+        CliRun normal = CliRun.of(home, away, "--seed", "42");
+        CliRun stepByStep = CliRun.withInput(ENTER_KEYS, home, away, "--seed", "42", "--stepByStep");
+
+        assertThat(stepByStep.exitCode()).isZero();
+        assertThat(stepByStep.err()).isEmpty();
+        assertThat(chronicleLinesOf(stepByStep)).containsExactlyElementsOf(chronicleLinesOf(normal));
+        assertThat(scoreboardOf(stepByStep)).isEqualTo(scoreboardOf(normal));
+        assertThat(blankLinesBeforeTheScoreboard(stepByStep)).isEqualTo(1);
+        assertThat(blankLinesBeforeTheScoreboard(normal)).isGreaterThan(1);
+    }
+
+    @Test
+    void whenTheInputEndsBeforeTheChronicleTheStepByStepOptionPrintsTheRestAndEndsWithExitCodeZero() {
+        CliRun complete = CliRun.withInput(ENTER_KEYS, home, away, "--seed", "42", "--stepByStep");
+        CliRun noInput = CliRun.withInput("", home, away, "--seed", "42", "--stepByStep");
+        CliRun oneEnterKey = CliRun.withInput("\n", home, away, "--seed", "42", "--stepByStep");
+
+        assertThat(noInput.exitCode()).isZero();
+        assertThat(oneEnterKey.exitCode()).isZero();
+        assertThat(noInput.err()).isEmpty();
+        assertThat(noInput.outBytes()).isEqualTo(complete.outBytes());
+        assertThat(oneEnterKey.outBytes()).isEqualTo(complete.outBytes());
+        assertThat(noInput.out().stripTrailing()).endsWith("Seme: 42");
+    }
+
+    @Test
+    void theStepByStepOptionWorksInAnyPositionAndTogetherWithFullAndSeed() {
+        CliRun atTheEnd = CliRun.withInput(ENTER_KEYS, home, away, "--seed", "42", "--full", "--stepByStep");
+        CliRun atTheStart = CliRun.withInput(ENTER_KEYS, "--stepByStep", "--seed", "42", "--full", home, away);
+        CliRun inTheMiddle = CliRun.withInput(ENTER_KEYS, home, "--stepByStep", "--full", away, "--seed", "42");
+        CliRun fullWithoutStepByStep = CliRun.of(home, away, "--seed", "42", "--full");
+
+        assertThat(atTheStart.outBytes()).isEqualTo(atTheEnd.outBytes());
+        assertThat(inTheMiddle.outBytes()).isEqualTo(atTheEnd.outBytes());
+        assertThat(chronicleLinesOf(atTheEnd)).containsExactlyElementsOf(chronicleLinesOf(fullWithoutStepByStep));
+    }
+
+    @Test
+    void withoutTheStepByStepOptionTheInputIsIgnoredAndTheOutputDoesNotChange() {
+        CliRun withoutInput = CliRun.of(home, away, "--seed", "42");
+        CliRun withInput = CliRun.withInput(ENTER_KEYS, home, away, "--seed", "42");
+
+        assertThat(withInput.outBytes()).isEqualTo(withoutInput.outBytes());
+        assertThat(blankLinesBeforeTheScoreboard(withoutInput)).isGreaterThan(1);
+    }
+
+    @Test
+    void aRepeatedStepByStepOptionPrintsTheUsageOnStderrAndSimulatesNothing() {
+        assertUsageError(CliRun.of(home, away, "--stepByStep", "--stepByStep"),
+                "l'opzione --stepByStep è indicata più di una volta");
     }
 
     @Test
@@ -265,6 +322,29 @@ class MatchCommandLineTest {
 
         assertThat(run.outBytes()).isEmpty();
         assertThat(run.errBytes()).isNotEmpty();
+    }
+
+    private List<String> chronicleLinesOf(CliRun run) {
+        return linesBeforeTheScoreboard(run).stream()
+                .filter(line -> !line.isBlank())
+                .toList();
+    }
+
+    private long blankLinesBeforeTheScoreboard(CliRun run) {
+        return linesBeforeTheScoreboard(run).stream()
+                .filter(String::isBlank)
+                .count();
+    }
+
+    private List<String> linesBeforeTheScoreboard(CliRun run) {
+        String output = run.out();
+        String chronicle = output.substring(0, output.indexOf(SCOREBOARD_TITLE));
+        return chronicle.lines().toList();
+    }
+
+    private String scoreboardOf(CliRun run) {
+        String output = run.out();
+        return output.substring(output.indexOf(SCOREBOARD_TITLE));
     }
 
     private void assertUsageError(CliRun run, String... expectedFragments) {
