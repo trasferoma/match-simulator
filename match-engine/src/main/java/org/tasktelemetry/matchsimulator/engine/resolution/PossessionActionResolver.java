@@ -1,6 +1,5 @@
 package org.tasktelemetry.matchsimulator.engine.resolution;
 
-import java.util.List;
 import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
@@ -20,7 +19,6 @@ import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
-import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public final class PossessionActionResolver {
 
@@ -31,10 +29,13 @@ public final class PossessionActionResolver {
     private final ShotResolver shotResolver;
     private final CrossResolver crossResolver;
     private final FoulResolver foulResolver;
+    private final ZonePresence zonePresence;
 
     public PossessionActionResolver(EngineConfig config, PitchLayout layout, MatchRandom random,
-            Matchups matchups, ShotResolver shotResolver, CrossResolver crossResolver, FoulResolver foulResolver) {
+            Matchups matchups, ShotResolver shotResolver, CrossResolver crossResolver, FoulResolver foulResolver,
+            ZonePresence zonePresence) {
         this.config = config;
+        this.zonePresence = zonePresence;
         this.layout = layout;
         this.random = random;
         this.matchups = matchups;
@@ -58,18 +59,19 @@ public final class PossessionActionResolver {
         return resolvePass(state, score, carrier, opponent, attackers, defenders);
     }
 
-    public Duel passingDuel(Player passer, Player interceptor) {
-        return Duel.between(passer.attributes().passing(), interceptor.attributes().positioning());
+    public Duel passingDuel(MatchState state, TeamOnPitch attackers, Player passer, TeamOnPitch defenders,
+            Player interceptor) {
+        return matchups.openPlayDuel(DuelAttributes.PASSING, state, attackers, passer, defenders, interceptor);
     }
 
-    public Duel dribblingDuel(Player dribbler, Player tackler) {
-        return Duel.between(dribbler.attributes().dribbling(), tackler.attributes().tackling());
+    public Duel dribblingDuel(MatchState state, TeamOnPitch attackers, Player dribbler, TeamOnPitch defenders,
+            Player tackler) {
+        return matchups.openPlayDuel(DuelAttributes.DRIBBLING, state, attackers, dribbler, defenders, tackler);
     }
 
     private ActionOutcome resolvePass(MatchState state, Score score, Player passer, Player interceptor,
             TeamOnPitch attackers, TeamOnPitch defenders) {
-        Duel attributeDuel = passingDuel(passer, interceptor);
-        Duel duel = applyStyleAndVenue(attributeDuel, state, attackers, passer, defenders, interceptor);
+        Duel duel = passingDuel(state, attackers, passer, defenders, interceptor);
         if (attackerWins(duel)) {
             return completeAction(state, score, EventType.PASS_COMPLETED, attackers, passer, defenders);
         }
@@ -78,7 +80,7 @@ public final class PossessionActionResolver {
 
     private ActionOutcome resolveDribble(MatchState state, Score score, Player dribbler, Player tackler,
             TeamOnPitch attackers, TeamOnPitch defenders) {
-        Duel duel = openPlayDribbleDuel(state, dribbler, tackler, attackers, defenders);
+        Duel duel = dribblingDuel(state, attackers, dribbler, defenders, tackler);
         if (attackerWins(duel)) {
             return completeDribble(state, score, attackers, dribbler, defenders);
         }
@@ -87,7 +89,7 @@ public final class PossessionActionResolver {
 
     private ActionOutcome resolveInsteadOfPassing(MatchState state, Score score, Player carrier, Player opponent,
             TeamOnPitch attackers, TeamOnPitch defenders) {
-        Duel duel = openPlayDribbleDuel(state, carrier, opponent, attackers, defenders);
+        Duel duel = dribblingDuel(state, attackers, carrier, defenders, opponent);
         if (!isWorthDribblingInsteadOfPassing(duel)) {
             return circulateBall(state, carrier);
         }
@@ -187,26 +189,14 @@ public final class PossessionActionResolver {
         return matchups.pickDefender(state, defenders);
     }
 
-    private Duel openPlayDribbleDuel(MatchState state, Player dribbler, Player tackler, TeamOnPitch attackers,
-            TeamOnPitch defenders) {
-        Duel attributeDuel = dribblingDuel(dribbler, tackler);
-        return applyStyleAndVenue(attributeDuel, state, attackers, dribbler, defenders, tackler);
-    }
-
-    private Duel applyStyleAndVenue(Duel attributeDuel, MatchState state, TeamOnPitch attackers, Player attacker,
-            TeamOnPitch defenders, Player defender) {
-        return matchups.openPlayDuel(attributeDuel, state, attackers, attacker, defenders, defender);
-    }
-
     private boolean hasNoTeammateToPassTo(MatchState state, TeamOnPitch attackers, Player carrier) {
         if (isInOpponentBox(state)) {
             return false;
         }
         Zone zoneAhead = forwardZone(state);
         ZoneRole arrivalRole = layout.roleOf(zoneAhead, state.possession());
-        Role arrivalSector = PlayerPicker.sectorOf(arrivalRole);
-        List<Player> sectorPlayers = attackers.playersIn(arrivalSector);
-        return sectorPlayers.stream().allMatch(player -> player.equals(carrier));
+        double teammatesInArrivalZone = zonePresence.menInZoneWithout(attackers, arrivalRole, carrier);
+        return teammatesInArrivalZone < config.zonePresence().passMinimumPlayers();
     }
 
     private boolean isWorthDribblingInsteadOfPassing(Duel duel) {

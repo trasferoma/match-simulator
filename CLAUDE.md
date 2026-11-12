@@ -75,6 +75,7 @@ Negli esempi sotto si omette il prefisso `JAVA_HOME=...`, ma serve in ogni coman
 - Catena di stati sul possesso ("livello 2"), non simulazione spaziale ad agenti.
 - Stato = squadra in possesso + zona (5 zone in fila lungo il campo) + fase di gioco.
 - Duelli con il rapporto `attacco / (attacco + difesa)` (Bradley-Terry); modificatori moltiplicativi.
+- Ogni zona coinvolge tutti i reparti con una presenza di configurazione: il giocatore si estrae pesato sulla presenza del suo reparto, la forza del duello combina la media della zona e il giocatore, e chi ha più uomini del 4-4-2 di riferimento ha un fattore di superiorità numerica.
 - Ogni tiro ha un xG (probabilità di gol); è gol se l'estrazione cade sotto l'xG.
 - Il tempo avanza della durata di ogni azione, in secondi.
 

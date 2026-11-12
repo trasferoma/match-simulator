@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.ZonePresence;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjurySubstitution;
@@ -48,17 +49,18 @@ public final class MatchEngine {
     }
 
     private ActionResolvers newActionResolvers(PitchLayout layout, MatchRandom random) {
-        PlayerPicker picker = new PlayerPicker(random);
+        ZonePresence zonePresence = new ZonePresence(config.zonePresence());
+        PlayerPicker picker = new PlayerPicker(random, zonePresence);
         OutOfPositionPenalty outOfPosition = new OutOfPositionPenalty(config.lineup().outOfPositionMultiplier());
-        Matchups matchups = new Matchups(layout, picker, config.playStyles(), config.homeAdvantage(),
-                config.lineup().inferiorityMultiplier(), outOfPosition);
+        Matchups matchups = new Matchups(layout, picker, zonePresence, config.playStyles(), config.homeAdvantage(),
+                outOfPosition);
         ShotResolver shotResolver = newShotResolver(layout, random, matchups);
         CrossResolver crossResolver = new CrossResolver(config.cross(), config.playStyles(), layout, random, picker,
-                shotResolver, matchups);
+                shotResolver, matchups, zonePresence);
         FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random, outOfPosition);
         OffsideRule offsideRule = new OffsideRule(config.offside(), layout, random, picker, outOfPosition);
         PossessionActionResolver possessionResolver = new PossessionActionResolver(config, layout, random, matchups,
-                shotResolver, crossResolver, foulResolver);
+                shotResolver, crossResolver, foulResolver, zonePresence);
         CounterAttackResolver counterAttackResolver = new CounterAttackResolver(config.counterAttack(),
                 config.playStyles(), layout, random, matchups, shotResolver);
         SetPieceResolver setPieceResolver = new SetPieceResolver(config.setPiece(), layout, random, picker,

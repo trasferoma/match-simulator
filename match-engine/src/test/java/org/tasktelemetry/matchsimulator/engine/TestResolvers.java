@@ -9,6 +9,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.ZonePresence;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsModel;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotQualityScale;
@@ -40,17 +41,27 @@ public final class TestResolvers {
 
     public static CrossResolver crossResolver(EngineConfig config, PitchLayout layout, MatchRandom random,
             ShotResolver shotResolver) {
-        PlayerPicker picker = new PlayerPicker(random);
+        ZonePresence zonePresence = zonePresence(config);
+        PlayerPicker picker = new PlayerPicker(random, zonePresence);
         Matchups matchups = matchups(config, layout, random);
         return new CrossResolver(config.cross(), config.playStyles(), layout, random, picker, shotResolver,
-                matchups);
+                matchups, zonePresence);
+    }
+
+    public static ZonePresence zonePresence(EngineConfig config) {
+        return new ZonePresence(config.zonePresence());
+    }
+
+    public static PlayerPicker playerPicker(EngineConfig config, MatchRandom random) {
+        return new PlayerPicker(random, zonePresence(config));
     }
 
     public static Matchups matchups(EngineConfig config, PitchLayout layout, MatchRandom random) {
-        PlayerPicker picker = new PlayerPicker(random);
+        ZonePresence zonePresence = zonePresence(config);
+        PlayerPicker picker = new PlayerPicker(random, zonePresence);
         OutOfPositionPenalty outOfPosition = outOfPositionPenalty(config);
-        return new Matchups(layout, picker, config.playStyles(), config.homeAdvantage(),
-                config.lineup().inferiorityMultiplier(), outOfPosition);
+        return new Matchups(layout, picker, zonePresence, config.playStyles(), config.homeAdvantage(),
+                outOfPosition);
     }
 
     public static OutOfPositionPenalty outOfPositionPenalty(EngineConfig config) {
@@ -75,7 +86,8 @@ public final class TestResolvers {
         ShotResolver shotResolver = shotResolver(config, layout, random);
         CrossResolver crossResolver = crossResolver(config, layout, random, shotResolver);
         FoulResolver foulResolver = foulResolver(config.foul(), layout, random);
+        ZonePresence zonePresence = zonePresence(config);
         return new PossessionActionResolver(config, layout, random, matchups, shotResolver, crossResolver,
-                foulResolver);
+                foulResolver, zonePresence);
     }
 }

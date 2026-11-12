@@ -44,8 +44,9 @@ public final class CounterAttackResolver {
         return config.startProbability() * styleMultiplier;
     }
 
-    public Duel paceDuel(Player runner, Player chaser) {
-        return Duel.between(runner.attributes().pace(), chaser.attributes().pace());
+    public Duel paceDuel(MatchState state, TeamOnPitch attackers, Player runner, TeamOnPitch defenders,
+            Player chaser) {
+        return matchups.counterAttackDuel(state, attackers, runner, defenders, chaser);
     }
 
     public ActionOutcome openCounterAttackIfBallRecovered(ActionOutcome outcome, TeamOnPitch recoverers) {
@@ -61,8 +62,7 @@ public final class CounterAttackResolver {
     public ActionOutcome resolve(MatchState state, Score score, TeamOnPitch attackers, TeamOnPitch defenders) {
         Player runner = pickRunner(state, attackers);
         Player chaser = pickChaser(state, defenders);
-        Duel attributeDuel = paceDuel(runner, chaser);
-        Duel duel = applyStyleAndVenue(attributeDuel, state, attackers, runner, defenders, chaser);
+        Duel duel = paceDuel(state, attackers, runner, defenders, chaser);
         if (attackerWins(duel)) {
             return completeRun(state, score, attackers, runner, defenders);
         }
@@ -93,11 +93,6 @@ public final class CounterAttackResolver {
 
     private Player pickChaser(MatchState state, TeamOnPitch defenders) {
         return matchups.pickDefender(state, defenders);
-    }
-
-    private Duel applyStyleAndVenue(Duel attributeDuel, MatchState state, TeamOnPitch attackers, Player attacker,
-            TeamOnPitch defenders, Player defender) {
-        return matchups.counterAttackDuel(attributeDuel, state, attackers, attacker, defenders, defender);
     }
 
     private boolean isBallRecovered(ActionOutcome outcome) {

@@ -7,11 +7,12 @@ import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 public final class Narrator {
 
     private static final String WORD_SEPARATOR = " ";
-    private static final String GOAL_MARKER = "* ";
+    private static final String GOAL_MARKER = "*** ";
 
     private final PhraseCatalog catalog;
     private final PhraseVariantPicker picker;
@@ -74,7 +75,8 @@ public final class Narrator {
 
     private String drawPitch(MatchEvent event, NarrationContext context) {
         TeamNames teamNames = context.teamNames();
-        return pitchDrawing.draw(event, teamNames);
+        Score score = context.scoreAfter(event);
+        return pitchDrawing.draw(event, teamNames, score);
     }
 
     private String narrateLine(MatchEvent event, NarrationContext context) {

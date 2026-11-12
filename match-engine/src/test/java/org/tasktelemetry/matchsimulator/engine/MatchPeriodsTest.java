@@ -193,7 +193,7 @@ class MatchPeriodsTest {
                 defaults.stoppage().maximumFirstHalfMinutes(), defaults.stoppage().maximumSecondHalfMinutes());
         return new EngineConfig(buildUp, attacking, defaults.dribbleProbability(), defaults.noTeammateDribbleThreshold(), stoppage, defaults.shot(),
                 defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(),
-                defaults.offside(), defaults.injury(), defaults.lineup(), defaults.homeAdvantage());
+                defaults.offside(), defaults.injury(), defaults.lineup(), defaults.zonePresence(), defaults.homeAdvantage());
     }
 
     private int longestOpenPlayActionSeconds(EngineConfig config) {

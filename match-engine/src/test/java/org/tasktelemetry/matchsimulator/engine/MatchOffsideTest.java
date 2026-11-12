@@ -61,13 +61,16 @@ class MatchOffsideTest {
     }
 
     @Test
-    void anOffsideBeforeAnyForcedLineupChangeNamesAForwardAsTheOffsidePlayer() {
+    void anOffsideBeforeAnyForcedLineupChangeNamesAFieldPlayerOfTheAttackersAsTheOffsidePlayer() {
         List<MatchEvent> offsides = offsidesBeforeAnyForcedLineupChange();
 
         assertThat(offsides).isNotEmpty().allSatisfy(offside -> {
             Player offsidePlayer = offside.participants().primary().orElseThrow();
-            assertThat(offsidePlayer.role()).isEqualTo(Role.FORWARD);
+            assertThat(offsidePlayer.role()).isNotEqualTo(Role.GOALKEEPER);
+            assertThat(offsidePlayer.name()).startsWith(offside.side() == MatchSide.HOME ? "Home" : "Away");
         });
+        assertThat(offsides).extracting(offside -> offside.participants().primary().orElseThrow().role())
+                .contains(Role.FORWARD);
     }
 
     @Test

@@ -192,10 +192,12 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
             Player taker = outcome.participants().primary().orElseThrow();
             assertThat(outcome.type()).isEqualTo(EventType.FREE_KICK);
             assertThat(away.players()).contains(taker);
-            assertThat(taker.role()).isEqualTo(Role.MIDFIELDER);
+            assertThat(taker.role()).isNotEqualTo(Role.GOALKEEPER);
             assertThat(outcome.next()).isEqualTo(MatchState.openPlay(MatchSide.AWAY, state.zone()));
             assertThat(outcome.detail()).isEqualTo(EventDetail.none());
         });
+        assertThat(outcomes).extracting(outcome -> outcome.participants().primary().orElseThrow().role())
+                .contains(Role.MIDFIELDER);
     }
 
     @Test
@@ -346,7 +348,7 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
 
     @ParameterizedTest
     @EnumSource(MatchSide.class)
-    void anOffsideFreeKickIsTakenByAMidfielderOfTheDefendingSideInTheSetPiecePhase(MatchSide defendingSide) {
+    void anOffsideFreeKickIsTakenByAnOutfieldPlayerOfTheDefendingSideInTheSetPiecePhase(MatchSide defendingSide) {
         Zone defence = layout.defenceZone(defendingSide);
         MatchState state = MatchState.forSetPiece(defendingSide, defence, SetPieceKind.OFFSIDE_FREE_KICK);
         TeamOnPitch restarting = teamOf(defendingSide);
@@ -355,7 +357,7 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
 
         assertThat(outcome.type()).isEqualTo(EventType.OFFSIDE_FREE_KICK);
         Player taker = outcome.participants().primary().orElseThrow();
-        assertThat(taker.role()).isEqualTo(Role.MIDFIELDER);
+        assertThat(taker.role()).isNotEqualTo(Role.GOALKEEPER);
         assertThat(restarting.players()).contains(taker);
         assertThat(outcome.detail()).isEqualTo(EventDetail.none());
     }
@@ -401,8 +403,8 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         EngineConfig engineConfig = EngineConfig.defaults();
         ShotResolver shotResolver = TestResolvers.shotResolver(engineConfig, layout, random);
         CrossResolver crossResolver = TestResolvers.crossResolver(engineConfig, layout, random, shotResolver);
-        return new SetPieceResolver(setPieceConfig, layout, random, new PlayerPicker(random), crossResolver,
-                shotResolver);
+        PlayerPicker picker = TestResolvers.playerPicker(engineConfig, random);
+        return new SetPieceResolver(setPieceConfig, layout, random, picker, crossResolver, shotResolver);
     }
 
     private SetPieceResolver resolver(long seed) {
@@ -410,6 +412,7 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         EngineConfig engineConfig = EngineConfig.defaults();
         ShotResolver shotResolver = TestResolvers.shotResolver(engineConfig, layout, random);
         CrossResolver crossResolver = TestResolvers.crossResolver(engineConfig, layout, random, shotResolver);
-        return new SetPieceResolver(config, layout, random, new PlayerPicker(random), crossResolver, shotResolver);
+        PlayerPicker picker = TestResolvers.playerPicker(engineConfig, random);
+        return new SetPieceResolver(config, layout, random, picker, crossResolver, shotResolver);
     }
 }

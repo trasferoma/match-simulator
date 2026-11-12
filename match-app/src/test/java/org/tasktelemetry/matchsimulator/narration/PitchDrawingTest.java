@@ -16,8 +16,11 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 class PitchDrawingTest {
+
+    private static final Score GOALLESS = Score.goalless();
 
     private final PitchDrawing drawing = new PitchDrawing();
 
@@ -32,9 +35,9 @@ class PitchDrawingTest {
             ZoneRole zoneRole, String field) {
         MatchEvent pass = eventWithBall(EventType.PASS_COMPLETED, MatchSide.HOME, MatchSide.HOME, zoneRole);
 
-        String line = drawing.draw(pass, TEAM_NAMES);
+        String line = drawing.draw(pass, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile " + field + " Lupi");
+        assertThat(line).isEqualTo("    Aquile " + field + " Lupi (0 - 0)");
     }
 
     @ParameterizedTest
@@ -48,9 +51,9 @@ class PitchDrawingTest {
             ZoneRole zoneRole, String field) {
         MatchEvent pass = eventWithBall(EventType.PASS_COMPLETED, MatchSide.AWAY, MatchSide.AWAY, zoneRole);
 
-        String line = drawing.draw(pass, TEAM_NAMES);
+        String line = drawing.draw(pass, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile " + field + " Lupi");
+        assertThat(line).isEqualTo("    Aquile " + field + " Lupi (0 - 0)");
     }
 
     @Test
@@ -58,9 +61,9 @@ class PitchDrawingTest {
         MatchEvent interception = eventWithBall(EventType.INTERCEPTION, MatchSide.HOME, MatchSide.AWAY,
                 ZoneRole.DEFENCE);
 
-        String line = drawing.draw(interception, TEAM_NAMES);
+        String line = drawing.draw(interception, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile |___<_| Lupi");
+        assertThat(line).isEqualTo("    Aquile |___<_| Lupi (0 - 0)");
     }
 
     @ParameterizedTest
@@ -71,9 +74,9 @@ class PitchDrawingTest {
             ZoneRole zoneRole, String field) {
         MatchEvent stopped = eventWithBall(type, possession, possession, zoneRole);
 
-        String line = drawing.draw(stopped, TEAM_NAMES);
+        String line = drawing.draw(stopped, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile " + field + " Lupi");
+        assertThat(line).isEqualTo("    Aquile " + field + " Lupi (0 - 0)");
     }
 
     @ParameterizedTest
@@ -87,9 +90,9 @@ class PitchDrawingTest {
         MatchSide foulingSide = fouledSide.opposite();
         MatchEvent foul = eventWithBall(type, foulingSide, fouledSide, zoneRole);
 
-        String line = drawing.draw(foul, TEAM_NAMES);
+        String line = drawing.draw(foul, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile " + field + " Lupi");
+        assertThat(line).isEqualTo("    Aquile " + field + " Lupi (0 - 0)");
     }
 
     @ParameterizedTest
@@ -100,9 +103,9 @@ class PitchDrawingTest {
         MatchSide defendingSide = offsideSide.opposite();
         MatchEvent offside = eventWithBall(EventType.OFFSIDE, offsideSide, defendingSide, ZoneRole.DEFENCE);
 
-        String line = drawing.draw(offside, TEAM_NAMES);
+        String line = drawing.draw(offside, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile " + field + " Lupi");
+        assertThat(line).isEqualTo("    Aquile " + field + " Lupi (0 - 0)");
     }
 
     @ParameterizedTest
@@ -116,9 +119,9 @@ class PitchDrawingTest {
             String field) {
         MatchEvent event = eventWithBall(type, possession, possession, ZoneRole.OPPONENT_BOX);
 
-        String line = drawing.draw(event, TEAM_NAMES);
+        String line = drawing.draw(event, TEAM_NAMES, GOALLESS);
 
-        assertThat(line).isEqualTo("    Aquile " + field + " Lupi");
+        assertThat(line).isEqualTo("    Aquile " + field + " Lupi (0 - 0)");
     }
 
     @Test
@@ -127,8 +130,8 @@ class PitchDrawingTest {
         MatchEvent awayKickOff = eventWithBall(EventType.SECOND_HALF_START, MatchSide.AWAY, MatchSide.AWAY,
                 ZoneRole.MIDFIELD);
 
-        assertThat(drawing.draw(homeKickOff, TEAM_NAMES)).isEqualTo("    Aquile |__>__| Lupi");
-        assertThat(drawing.draw(awayKickOff, TEAM_NAMES)).isEqualTo("    Aquile |__<__| Lupi");
+        assertThat(drawing.draw(homeKickOff, TEAM_NAMES, GOALLESS)).isEqualTo("    Aquile |__>__| Lupi (0 - 0)");
+        assertThat(drawing.draw(awayKickOff, TEAM_NAMES, GOALLESS)).isEqualTo("    Aquile |__<__| Lupi (0 - 0)");
     }
 
     @Test
@@ -136,8 +139,8 @@ class PitchDrawingTest {
         MatchEvent homeGoal = eventWithBall(EventType.GOAL, MatchSide.HOME, MatchSide.HOME, ZoneRole.OPPONENT_BOX);
         MatchEvent awayGoal = eventWithBall(EventType.GOAL, MatchSide.AWAY, MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
 
-        assertThat(drawing.draw(homeGoal, TEAM_NAMES)).isEqualTo("    Aquile |____>| Lupi");
-        assertThat(drawing.draw(awayGoal, TEAM_NAMES)).isEqualTo("    Aquile |<____| Lupi");
+        assertThat(drawing.draw(homeGoal, TEAM_NAMES, GOALLESS)).isEqualTo("    Aquile |____>| Lupi (0 - 0)");
+        assertThat(drawing.draw(awayGoal, TEAM_NAMES, GOALLESS)).isEqualTo("    Aquile |<____| Lupi (0 - 0)");
     }
 
     @Test
@@ -146,7 +149,16 @@ class PitchDrawingTest {
         MatchEvent pass = eventWithBall(EventType.PASS_COMPLETED, MatchSide.HOME, MatchSide.HOME,
                 ZoneRole.ATTACKING_THIRD);
 
-        assertThat(drawing.draw(pass, names)).isEqualTo("    Sporting Collina |___>_| Real Rivoli");
+        assertThat(drawing.draw(pass, names, GOALLESS)).isEqualTo("    Sporting Collina |___>_| Real Rivoli (0 - 0)");
+    }
+
+    @Test
+    void theScoreIsDrawnAfterTheAwayTeamNameWithTheHomeGoalsFirst() {
+        MatchEvent pass = eventWithBall(EventType.PASS_COMPLETED, MatchSide.HOME, MatchSide.HOME, ZoneRole.MIDFIELD);
+
+        String line = drawing.draw(pass, TEAM_NAMES, new Score(3, 1));
+
+        assertThat(line).isEqualTo("    Aquile |__>__| Lupi (3 - 1)");
     }
 
     private MatchEvent eventWithBall(EventType type, MatchSide side, MatchSide possession, ZoneRole zoneRole) {

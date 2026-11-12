@@ -175,7 +175,7 @@ class CounterAttackResolverTest {
     }
 
     @Test
-    void inTheOpponentBoxARunEndsInAShotByAForwardOrIsLost() {
+    void inTheOpponentBoxARunEndsInAShotByAFieldPlayerOrIsLost() {
         CounterAttackResolver resolver = resolverWith(neutralVenue);
         MatchState state = counterAttackAt(MatchSide.HOME, ZoneRole.OPPONENT_BOX);
 
@@ -184,9 +184,11 @@ class CounterAttackResolverTest {
         List<ActionOutcome> shots = outcomes.stream().filter(outcome -> SHOT_TYPES.contains(outcome.type())).toList();
         assertThat(outcomes).extracting(ActionOutcome::type).doesNotContain(EventType.DRIBBLE_COMPLETED);
         assertThat(shots).isNotEmpty().allSatisfy(outcome -> {
-            assertThat(outcome.participants().primary().orElseThrow().role()).isEqualTo(Role.FORWARD);
             assertThat(home.players()).contains(outcome.participants().primary().orElseThrow());
+            assertThat(outcome.participants().primary().orElseThrow().role()).isNotEqualTo(Role.GOALKEEPER);
         });
+        assertThat(shots).extracting(outcome -> outcome.participants().primary().orElseThrow().role())
+                .contains(Role.FORWARD);
         assertThat(outcomes).extracting(ActionOutcome::type)
                 .allMatch(type -> SHOT_TYPES.contains(type) || type == EventType.TACKLE);
     }
@@ -212,6 +214,24 @@ class CounterAttackResolverTest {
         MatchState state = counterAttackAt(MatchSide.HOME, ZoneRole.MIDFIELD);
         TeamOnPitch runners = teamWith("Runners", new PlayerAttributes(20, 20, 20, 20, 20, 80, 20, 20));
         TeamOnPitch chasers = teamWith("Chasers", new PlayerAttributes(90, 90, 90, 90, 90, 40, 90, 90));
+
+        List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolve(state, Score.goalless(), runners, chasers))
+                .toList();
+
+        assertThat(share(outcomes, EventType.DRIBBLE_COMPLETED)).isCloseTo(80.0 / 120.0, within(ONE_POINT));
+    }
+
+    @Test
+    void theSuccessOfARunIgnoresTheMenOfTheTeamsInTheZone() {
+        CounterAttackResolver resolver = resolverWith(neutralVenue);
+        MatchState state = counterAttackAt(MatchSide.HOME, ZoneRole.MIDFIELD);
+        PlayerAttributes fast = new PlayerAttributes(50, 50, 50, 50, 50, 80, 50, 50);
+        PlayerAttributes slow = new PlayerAttributes(50, 50, 50, 50, 50, 40, 50, 50);
+        TeamOnPitch runners = TeamOnPitch.startingWith(TestTeams.teamOf("Runners",
+                TestTeams.squad("Runners", "S", fast, 1, 4, 2, 4)));
+        TeamOnPitch chasers = TeamOnPitch.startingWith(TestTeams.teamOf("Chasers",
+                TestTeams.squad("Chasers", "S", slow, 1, 1, 5, 4)));
 
         List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
                 .mapToObj(index -> resolver.resolve(state, Score.goalless(), runners, chasers))

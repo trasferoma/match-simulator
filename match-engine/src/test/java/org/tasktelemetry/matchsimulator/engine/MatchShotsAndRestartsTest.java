@@ -56,7 +56,7 @@ class MatchShotsAndRestartsTest {
     }
 
     @Test
-    void withoutDismissalsEveryShotOfTheOpenPlayAndOfTheCornersIsTakenByAForward() {
+    void withoutDismissalsEveryShotOfTheOpenPlayAndOfTheCornersIsTakenByAFieldPlayer() {
         List<MatchEvent> shots = matches.stream()
                 .filter(events -> events.stream().noneMatch(event -> event.type().isDismissal()))
                 .flatMap(List::stream)
@@ -65,7 +65,8 @@ class MatchShotsAndRestartsTest {
                 .toList();
 
         assertThat(shots).isNotEmpty().allSatisfy(shot ->
-                assertThat(shooterOf(shot).role()).isEqualTo(Role.FORWARD));
+                assertThat(shooterOf(shot).role()).isNotEqualTo(Role.GOALKEEPER));
+        assertThat(shots).extracting(shot -> shooterOf(shot).role()).contains(Role.FORWARD);
     }
 
     @Test

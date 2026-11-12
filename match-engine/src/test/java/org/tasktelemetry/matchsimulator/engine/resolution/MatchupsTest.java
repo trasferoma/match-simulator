@@ -3,10 +3,18 @@ package org.tasktelemetry.matchsimulator.engine.resolution;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.ArrayList;
+import java.util.List;
+import java.util.Map;
+import java.util.function.Predicate;
+import java.util.stream.Stream;
+
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.CsvSource;
 import org.junit.jupiter.params.provider.EnumSource;
+import org.junit.jupiter.params.provider.MethodSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestConfigs;
@@ -22,17 +30,40 @@ import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
+import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 class MatchupsTest {
 
     private static final double EXACT = 1e-9;
     private static final double ATTACK = 60.0;
     private static final double DEFENCE = 40.0;
+    private static final double PACE = 50.0;
+    private static final PlayerAttributes DUEL_ATTRIBUTES = TestTeams.withDuelAttributes(60, 55, 45, 40);
+    private static final double ATTACKERS_ZONE_AVERAGE = (1.2 * 40 + 4.0 * 60 + 0.8 * 80) / 6.0;
+    private static final double ATTACKERS_REPRESENTATIVE = 80.0;
+    private static final double DEFENDERS_ZONE_AVERAGE = (1.2 * 30 + 4.0 * 50 + 0.8 * 70) / 6.0;
+    private static final double DEFENDERS_REPRESENTATIVE = 30.0;
 
     private final PitchLayout layout = PitchLayout.standard();
     private final EngineConfig config = EngineConfig.defaults();
-    private final Duel base = new Duel(ATTACK, DEFENCE);
+
+    static Stream<Arguments> sectorsWithPresenceInTheZone() {
+        return sectorsAndZonesWhere(presence -> presence > 0.0);
+    }
+
+    static Stream<Arguments> sectorsWithoutPresenceInTheZone() {
+        return sectorsAndZonesWhere(presence -> presence == 0.0);
+    }
+
+    private static Stream<Arguments> sectorsAndZonesWhere(Predicate<Double> presenceFilter) {
+        Map<ZoneRole, Map<Role, Double>> table = EngineConfig.defaults().zonePresence().presenceByZoneRole();
+        return table.entrySet().stream()
+                .flatMap(zone -> zone.getValue().entrySet().stream()
+                        .filter(sector -> presenceFilter.test(sector.getValue()))
+                        .map(sector -> Arguments.of(sector.getKey(), zone.getKey())));
+    }
 
     @ParameterizedTest
     @EnumSource(MatchSide.class)
@@ -43,10 +74,9 @@ class MatchupsTest {
         double expectedAttack = possession == MatchSide.HOME ? ATTACK * config.homeAdvantage() : ATTACK;
         double expectedDefence = possession == MatchSide.AWAY ? DEFENCE * config.homeAdvantage() : DEFENCE;
 
-        Duel duel = matchups.openPlayDuel(base, state, balanced, firstOf(balanced), balanced, firstOf(balanced));
+        Duel duel = passingDuel(matchups, state, balanced, balanced);
 
-        assertThat(duel.attack()).isCloseTo(expectedAttack, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(expectedDefence, within(EXACT));
+        assertDuel(duel, expectedAttack, expectedDefence);
     }
 
     @ParameterizedTest
@@ -55,13 +85,12 @@ class MatchupsTest {
         Matchups matchups = matchupsFor(config);
         MatchState state = openPlayAt(possession, ZoneRole.MIDFIELD);
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
-        double expectedAttack = possession == MatchSide.HOME ? ATTACK * config.homeAdvantage() : ATTACK;
-        double expectedDefence = possession == MatchSide.AWAY ? DEFENCE * config.homeAdvantage() : DEFENCE;
+        double expectedAttack = possession == MatchSide.HOME ? PACE * config.homeAdvantage() : PACE;
+        double expectedDefence = possession == MatchSide.AWAY ? PACE * config.homeAdvantage() : PACE;
 
-        Duel duel = matchups.counterAttackDuel(base, state, balanced, firstOf(balanced), balanced, firstOf(balanced));
+        Duel duel = counterAttackDuel(matchups, state, balanced, balanced);
 
-        assertThat(duel.attack()).isCloseTo(expectedAttack, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(expectedDefence, within(EXACT));
+        assertDuel(duel, expectedAttack, expectedDefence);
     }
 
     @Test
@@ -71,13 +100,13 @@ class MatchupsTest {
         MatchState state = openPlayAt(MatchSide.HOME, ZoneRole.MIDFIELD);
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
 
-        Duel duel = matchups.openPlayDuel(base, state, balanced, firstOf(balanced), balanced, firstOf(balanced));
+        Duel duel = passingDuel(matchups, state, balanced, balanced);
 
         assertThat(duel.attack()).isCloseTo(ATTACK * 1.25, within(EXACT));
     }
 
     @Test
-    void theBalancedStyleWithoutHomeAdvantageLeavesEveryDuelUntouched() {
+    void theBalancedStyleWithoutHomeAdvantageLeavesEveryDuelUntouchedInEveryZone() {
         Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
 
@@ -85,8 +114,8 @@ class MatchupsTest {
             for (ZoneRole zoneRole : ZoneRole.values()) {
                 MatchState state = openPlayAt(possession, zoneRole);
 
-                assertThat(matchups.openPlayDuel(base, state, balanced, firstOf(balanced), balanced, firstOf(balanced))).isEqualTo(base);
-                assertThat(matchups.counterAttackDuel(base, state, balanced, firstOf(balanced), balanced, firstOf(balanced))).isEqualTo(base);
+                assertDuel(passingDuel(matchups, state, balanced, balanced), ATTACK, DEFENCE);
+                assertDuel(counterAttackDuel(matchups, state, balanced, balanced), PACE, PACE);
             }
         }
     }
@@ -111,10 +140,9 @@ class MatchupsTest {
         TeamOnPitch attackers = teamWithStyle(style);
         TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
 
-        Duel duel = matchups.openPlayDuel(base, state, attackers, firstOf(attackers), defenders, firstOf(defenders));
+        Duel duel = passingDuel(matchups, state, attackers, defenders);
 
-        assertThat(duel.attack()).isCloseTo(ATTACK * multiplier, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE, within(EXACT));
+        assertDuel(duel, ATTACK * multiplier, DEFENCE);
     }
 
     @ParameterizedTest
@@ -136,10 +164,9 @@ class MatchupsTest {
         TeamOnPitch attackers = teamWithStyle(PlayStyle.BALANCED);
         TeamOnPitch defenders = teamWithStyle(style);
 
-        Duel duel = matchups.openPlayDuel(base, state, attackers, firstOf(attackers), defenders, firstOf(defenders));
+        Duel duel = passingDuel(matchups, state, attackers, defenders);
 
-        assertThat(duel.attack()).isCloseTo(ATTACK, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE * multiplier, within(EXACT));
+        assertDuel(duel, ATTACK, DEFENCE * multiplier);
     }
 
     @ParameterizedTest
@@ -148,19 +175,16 @@ class MatchupsTest {
         Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
         double multiplier = style == PlayStyle.COUNTER_ATTACK ? 1.10 : 1.00;
-
         TeamOnPitch styledAttackers = teamWithStyle(style);
         TeamOnPitch balancedDefenders = teamWithStyle(PlayStyle.BALANCED);
 
-        Duel asAttackers = matchups.counterAttackDuel(base, state, styledAttackers, firstOf(styledAttackers),
-                balancedDefenders, firstOf(balancedDefenders));
+        Duel asAttackers = counterAttackDuel(matchups, state, styledAttackers, balancedDefenders);
 
-        assertThat(asAttackers.attack()).isCloseTo(ATTACK * multiplier, within(EXACT));
-        assertThat(asAttackers.defence()).isCloseTo(DEFENCE, within(EXACT));
+        assertDuel(asAttackers, PACE * multiplier, PACE);
     }
 
     @Test
-    void theAttackersAreChosenInTheLineOfTheirZoneAndTheDefendersInTheLineOfTheZoneSeenFromTheirSide() {
+    void theAttackerAndTheDefenderAreFieldPlayersOfTheirOwnTeams() {
         Matchups matchups = matchupsFor(config);
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.ATTACKING_THIRD);
         TeamOnPitch attackers = teamWithStyle(PlayStyle.BALANCED);
@@ -169,10 +193,10 @@ class MatchupsTest {
         Player attacker = matchups.pickAttacker(state, attackers);
         Player defender = matchups.pickDefender(state, defenders);
 
-        assertThat(attacker.role()).isEqualTo(Role.FORWARD);
         assertThat(attackers.players()).contains(attacker);
-        assertThat(defender.role()).isEqualTo(Role.DEFENDER);
+        assertThat(attackers.roleOf(attacker)).isNotEqualTo(Role.GOALKEEPER);
         assertThat(defenders.players()).contains(defender);
+        assertThat(defenders.roleOf(defender)).isNotEqualTo(Role.GOALKEEPER);
     }
 
     @Test
@@ -182,107 +206,142 @@ class MatchupsTest {
         TeamOnPitch possession = teamWithStyle(PlayStyle.POSSESSION);
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
 
-        Duel duel = matchups.openPlayDuel(base, counterAttack, possession, firstOf(possession), balanced, firstOf(balanced));
+        Duel duel = passingDuel(matchups, counterAttack, possession, balanced);
 
         assertThat(counterAttack.phase()).isEqualTo(PlayPhase.COUNTER_ATTACK);
         assertThat(duel.attack()).isCloseTo(ATTACK * 1.10, within(EXACT));
     }
 
     @ParameterizedTest
-    @CsvSource({"0, 1.0", "1, 0.9", "2, 0.81"})
-    void everyMissingManInTheSectorOfTheDuelWeakensTheTeamByTheInferiorityMultiplier(int menDown,
-            double expectedFactor) {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
-        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
-        TeamOnPitch attackers = withoutMidfielders(teamWithStyle(PlayStyle.BALANCED), menDown);
-        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+    @EnumSource(value = DuelAttributes.class, names = {"PASSING", "DRIBBLING", "CROSS", "AERIAL"})
+    void withARepresentativeWeightOfZeroTheStrengthOfEachSideIsTheAverageOfItsZone(DuelAttributes attributes) {
+        Matchups matchups = matchupsFor(withRepresentativeWeight(0.0));
 
-        Duel duel = matchups.openPlayDuel(base, state, attackers, firstOf(attackers), defenders, firstOf(defenders));
+        Duel duel = zoneDuelBetweenTeamsOfDifferentLines(matchups, attributes);
 
-        assertThat(duel.attack()).isCloseTo(ATTACK * expectedFactor, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE, within(EXACT));
+        assertDuel(duel, ATTACKERS_ZONE_AVERAGE, DEFENDERS_ZONE_AVERAGE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DuelAttributes.class, names = {"PASSING", "DRIBBLING", "CROSS", "AERIAL"})
+    void withARepresentativeWeightOfOneTheStrengthOfEachSideIsTheValueOfItsRepresentative(
+            DuelAttributes attributes) {
+        Matchups matchups = matchupsFor(withRepresentativeWeight(1.0));
+
+        Duel duel = zoneDuelBetweenTeamsOfDifferentLines(matchups, attributes);
+
+        assertDuel(duel, ATTACKERS_REPRESENTATIVE, DEFENDERS_REPRESENTATIVE);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = DuelAttributes.class, names = {"PASSING", "DRIBBLING", "CROSS", "AERIAL"})
+    void withTheDefaultWeightTheStrengthOfEachSideIsTheGeometricMeanOfAverageAndRepresentative(
+            DuelAttributes attributes) {
+        Matchups matchups = matchupsFor(withRepresentativeWeight(config.zonePresence().representativeWeight()));
+        double weight = config.zonePresence().representativeWeight();
+        double expectedAttack = StrictMath.pow(ATTACKERS_ZONE_AVERAGE, 1.0 - weight)
+                * StrictMath.pow(ATTACKERS_REPRESENTATIVE, weight);
+        double expectedDefence = StrictMath.pow(DEFENDERS_ZONE_AVERAGE, 1.0 - weight)
+                * StrictMath.pow(DEFENDERS_REPRESENTATIVE, weight);
+
+        Duel duel = zoneDuelBetweenTeamsOfDifferentLines(matchups, attributes);
+
+        assertDuel(duel, expectedAttack, expectedDefence);
     }
 
     @Test
-    void theDefendersAreWeakenedWhenTheyMissAManInTheSectorThatDefendsTheZone() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
-        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OWN_BOX);
+    void theAttackerReadsTheAttackAttributeOfTheDuelAndTheDefenderTheDefenceOne() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
         TeamOnPitch attackers = teamWithStyle(PlayStyle.BALANCED);
-        TeamOnPitch defendersWithoutAForward = withoutPlayersOf(teamWithStyle(PlayStyle.BALANCED), Role.FORWARD, 1);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+        Player attacker = fieldPlayerOf(attackers);
+        Player defender = fieldPlayerOf(defenders);
 
-        Duel duel = matchups.openPlayDuel(base, state, attackers, firstOf(attackers), defendersWithoutAForward, firstOf(defendersWithoutAForward));
+        Duel passing = matchups.openPlayDuel(DuelAttributes.PASSING, state, attackers, attacker, defenders, defender);
+        Duel dribbling = matchups.openPlayDuel(DuelAttributes.DRIBBLING, state, attackers, attacker, defenders,
+                defender);
 
-        assertThat(duel.attack()).isCloseTo(ATTACK, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE * 0.9, within(EXACT));
+        assertDuel(passing, 60.0, 40.0);
+        assertDuel(dribbling, 55.0, 45.0);
     }
 
     @Test
-    void aMissingManInAnotherSectorDoesNotWeakenTheDuel() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
+    void aMidfielderLessInMidfieldDividesTheAttackOfTheTeamByTheFactorOfOneMan() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
-        TeamOnPitch attackers = withoutPlayersOf(teamWithStyle(PlayStyle.BALANCED), Role.DEFENDER, 2);
-        TeamOnPitch defenders = withoutPlayersOf(teamWithStyle(PlayStyle.BALANCED), Role.FORWARD, 1);
+        TeamOnPitch complete = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch oneMidfielderLess = withoutPlayersOf(complete, Role.MIDFIELDER, 1);
 
-        Duel duel = matchups.openPlayDuel(base, state, attackers, firstOf(attackers), defenders, firstOf(defenders));
+        Duel duel = passingDuel(matchups, state, oneMidfielderLess, complete);
 
-        assertThat(duel).isEqualTo(base);
+        assertDuel(duel, ATTACK / config.zonePresence().advantageFactorPerMan(), DEFENCE);
     }
 
     @Test
-    void theInferiorityAlsoWeakensTheAttackersOfACounterAttack() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
-        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD).inCounterAttack();
-        TeamOnPitch attackers = withoutMidfielders(teamWithStyle(PlayStyle.BALANCED), 1);
-        TeamOnPitch defenders = withoutMidfielders(teamWithStyle(PlayStyle.BALANCED), 2);
-
-        Duel duel = matchups.counterAttackDuel(base, state, attackers, firstOf(attackers), defenders, firstOf(defenders));
-
-        assertThat(duel.attack()).isCloseTo(ATTACK * 0.9, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE * 0.81, within(EXACT));
-    }
-
-    @Test
-    void aMultiplierOfOneIsNeutralEvenWithMenMissing() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(1.0));
+    void aMidfielderLessInTheMidfieldOfTheDefendersMakesTheAttackersStrongerByTheSameFactor() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
-        TeamOnPitch weakened = withoutMidfielders(teamWithStyle(PlayStyle.BALANCED), 2);
+        TeamOnPitch complete = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch oneMidfielderLess = withoutPlayersOf(complete, Role.MIDFIELDER, 1);
 
-        Duel duel = matchups.openPlayDuel(base, state, weakened, firstOf(weakened), weakened, firstOf(weakened));
+        Duel duel = passingDuel(matchups, state, complete, oneMidfielderLess);
 
-        assertThat(duel).isEqualTo(base);
+        assertDuel(duel, ATTACK * config.zonePresence().advantageFactorPerMan(), DEFENCE);
+    }
+
+    @ParameterizedTest
+    @MethodSource("sectorsWithPresenceInTheZone")
+    void aTeamWithAManLessHasALowerProbabilityInEveryZoneWhereTheSectorOfTheMissingManHasPresence(Role sector,
+            ZoneRole zoneRole) {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        TeamOnPitch complete = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch oneManLess = withoutPlayersOf(complete, sector, 1);
+        MatchState whereTheTeamAttacks = openPlayAt(MatchSide.AWAY, zoneRole);
+        MatchState whereTheTeamDefends = openPlayWhereTheDefendersAreAt(zoneRole);
+
+        double evenAttack = passingDuel(matchups, whereTheTeamAttacks, complete, complete).attackerWinProbability();
+        double attackingWithOneLess = passingDuel(matchups, whereTheTeamAttacks, oneManLess, complete)
+                .attackerWinProbability();
+        double defendingWithOneLess = passingDuel(matchups, whereTheTeamDefends, complete, oneManLess)
+                .attackerWinProbability();
+
+        assertThat(attackingWithOneLess).isLessThan(evenAttack);
+        assertThat(defendingWithOneLess).isGreaterThan(evenAttack);
+    }
+
+    @ParameterizedTest
+    @MethodSource("sectorsWithoutPresenceInTheZone")
+    void aManMissingInASectorWithoutPresenceInTheZoneDoesNotChangeTheDuel(Role sector, ZoneRole zoneRole) {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        TeamOnPitch complete = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch oneManLess = withoutPlayersOf(complete, sector, 1);
+        MatchState whereTheTeamAttacks = openPlayAt(MatchSide.AWAY, zoneRole);
+        MatchState whereTheTeamDefends = openPlayWhereTheDefendersAreAt(zoneRole);
+
+        Duel attackingWithOneLess = passingDuel(matchups, whereTheTeamAttacks, oneManLess, complete);
+        Duel defendingWithOneLess = passingDuel(matchups, whereTheTeamDefends, complete, oneManLess);
+
+        assertDuel(attackingWithOneLess, ATTACK, DEFENCE);
+        assertDuel(defendingWithOneLess, ATTACK, DEFENCE);
     }
 
     @Test
-    void aTeamStillAtElevenMenWithItsLinesReshuffledSuffersNoInferiority() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
+    void aTeamStillAtElevenMenWithItsLinesReshuffledMovesMenBetweenTheZones() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
         Player carrier = balanced.playersIn(Role.FORWARD).getFirst();
         Player movedToDefence = balanced.playersIn(Role.MIDFIELDER).getFirst();
         TeamOnPitch reshuffled = balanced.withRole(movedToDefence, Role.DEFENDER);
-        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+        double menInMidfield = 5 * 0.3 + 3 * 1.0 + 2 * 0.4;
+        double advantage = menInMidfield - 6.0;
+        double superiority = StrictMath.pow(config.zonePresence().advantageFactorPerMan(), advantage);
 
-        Duel duel = matchups.openPlayDuel(base, state, reshuffled, carrier, defenders, firstOf(defenders));
+        Duel duel = matchups.openPlayDuel(DuelAttributes.PASSING, state, reshuffled, carrier, balanced,
+                fieldPlayerOf(balanced));
 
-        assertThat(reshuffled.missingIn(Role.MIDFIELDER)).isZero();
-        assertThat(duel).isEqualTo(base);
-    }
-
-    @Test
-    void theMenMissingInASectorCountAtMostAsManyAsTheTeamIsShortOfEleven() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
-        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
-        TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
-        Player carrier = balanced.playersIn(Role.FORWARD).getFirst();
-        Player removed = balanced.playersIn(Role.MIDFIELDER).get(0);
-        Player movedToDefence = balanced.playersIn(Role.MIDFIELDER).get(1);
-        TeamOnPitch shortAndReshuffled = balanced.withoutPlayer(removed).withRole(movedToDefence, Role.DEFENDER);
-        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
-
-        Duel duel = matchups.openPlayDuel(base, state, shortAndReshuffled, carrier, defenders, firstOf(defenders));
-
-        assertThat(shortAndReshuffled.missingIn(Role.MIDFIELDER)).isEqualTo(1);
-        assertThat(duel.attack()).isCloseTo(ATTACK * 0.9, within(EXACT));
+        assertDuel(duel, ATTACK * superiority, DEFENCE);
     }
 
     @Test
@@ -293,14 +352,16 @@ class MatchupsTest {
         TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
         Player attacker = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Player defender = defenders.playersIn(Role.MIDFIELDER).getFirst();
-        TeamOnPitch attackersMisplaced = attackers.withRole(attacker, Role.DEFENDER);
-        TeamOnPitch defendersMisplaced = defenders.withRole(defender, Role.FORWARD);
+        Player exchangedDefender = attackers.playersIn(Role.DEFENDER).getFirst();
+        Player exchangedForward = defenders.playersIn(Role.FORWARD).getFirst();
+        TeamOnPitch attackersMisplaced = exchangeRoles(attackers, attacker, exchangedDefender);
+        TeamOnPitch defendersMisplaced = exchangeRoles(defenders, defender, exchangedForward);
         double multiplier = config.lineup().outOfPositionMultiplier();
 
-        Duel duel = matchups.openPlayDuel(base, state, attackersMisplaced, attacker, defendersMisplaced, defender);
+        Duel duel = matchups.openPlayDuel(DuelAttributes.PASSING, state, attackersMisplaced, attacker,
+                defendersMisplaced, defender);
 
-        assertThat(duel.attack()).isCloseTo(ATTACK * multiplier, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE * multiplier, within(EXACT));
+        assertDuel(duel, ATTACK * multiplier, DEFENCE * multiplier);
     }
 
     @Test
@@ -315,10 +376,9 @@ class MatchupsTest {
         TeamOnPitch defendersMisplaced = defenders.withRole(chaser, Role.FORWARD);
         double multiplier = config.lineup().outOfPositionMultiplier();
 
-        Duel duel = matchups.counterAttackDuel(base, state, attackersMisplaced, runner, defendersMisplaced, chaser);
+        Duel duel = matchups.counterAttackDuel(state, attackersMisplaced, runner, defendersMisplaced, chaser);
 
-        assertThat(duel.attack()).isCloseTo(ATTACK * multiplier, within(EXACT));
-        assertThat(duel.defence()).isCloseTo(DEFENCE * multiplier, within(EXACT));
+        assertDuel(duel, PACE * multiplier, PACE * multiplier);
     }
 
     @Test
@@ -328,27 +388,57 @@ class MatchupsTest {
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
         Player misplaced = balanced.playersIn(Role.MIDFIELDER).getFirst();
         Player carrier = balanced.playersIn(Role.MIDFIELDER).getLast();
-        TeamOnPitch withOneMisplaced = balanced.withRole(misplaced, Role.DEFENDER);
+        Player exchanged = balanced.playersIn(Role.DEFENDER).getFirst();
+        TeamOnPitch withOneMisplaced = exchangeRoles(balanced, misplaced, exchanged);
 
-        Duel duel = matchups.openPlayDuel(base, state, withOneMisplaced, carrier, balanced, firstOf(balanced));
+        Duel duel = matchups.openPlayDuel(DuelAttributes.PASSING, state, withOneMisplaced, carrier, balanced,
+                fieldPlayerOf(balanced));
 
-        assertThat(duel).isEqualTo(base);
+        assertDuel(duel, ATTACK, DEFENCE);
     }
 
     @Test
     void anOutOfPositionMultiplierOfOneIsNeutral() {
         EngineConfig neutral = TestConfigs.withLineup(TestConfigs.withoutHomeAdvantage(config),
-                new LineupConfig(config.lineup().maximumSubstitutions(), 1.0, 1.0,
+                new LineupConfig(config.lineup().maximumSubstitutions(), 1.0,
                         config.lineup().substitutionDuration()));
         Matchups matchups = matchupsFor(neutral);
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);
         Player misplaced = balanced.playersIn(Role.MIDFIELDER).getFirst();
-        TeamOnPitch withOneMisplaced = balanced.withRole(misplaced, Role.DEFENDER);
+        Player exchanged = balanced.playersIn(Role.DEFENDER).getFirst();
+        TeamOnPitch withOneMisplaced = exchangeRoles(balanced, misplaced, exchanged);
 
-        Duel duel = matchups.openPlayDuel(base, state, withOneMisplaced, misplaced, withOneMisplaced, misplaced);
+        Duel duel = matchups.openPlayDuel(DuelAttributes.PASSING, state, withOneMisplaced, misplaced,
+                withOneMisplaced, misplaced);
 
-        assertThat(duel).isEqualTo(base);
+        assertDuel(duel, ATTACK, DEFENCE);
+    }
+
+    @Test
+    void theCounterAttackRunIsOneAgainstOneOnPaceWithoutAverageNorSuperiority() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
+        TeamOnPitch fastAndWide = teamOf("Fast", PlayStyle.BALANCED, paceAttributes(80), 4, 2, 4);
+        TeamOnPitch slowAndDeep = teamOf("Slow", PlayStyle.BALANCED, paceAttributes(30), 1, 5, 4);
+
+        Duel duel = counterAttackDuel(matchups, state, fastAndWide, slowAndDeep);
+
+        assertDuel(duel, 80.0, 30.0);
+    }
+
+    @Test
+    void fourAgainstOneInTheBoxGivesTheAttackersTheCappedSuperiority() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
+        PlayerAttributes sameEverywhere = TestTeams.uniform(60);
+        TeamOnPitch wide = teamOf("Wide", PlayStyle.BALANCED, sameEverywhere, 4, 2, 4);
+        TeamOnPitch deep = teamOf("Deep", PlayStyle.BALANCED, sameEverywhere, 1, 5, 4);
+
+        Duel duel = passingDuel(matchups, state, wide, deep);
+
+        assertThat(layout.roleOf(state.zone(), MatchSide.HOME)).isEqualTo(ZoneRole.OWN_BOX);
+        assertThat(duel.attackerWinProbability()).isCloseTo(2.44140625 / 3.44140625, within(EXACT));
     }
 
     @Test
@@ -360,7 +450,7 @@ class MatchupsTest {
             for (ZoneRole zoneRole : ZoneRole.values()) {
                 MatchState state = openPlayAt(possession, zoneRole);
 
-                assertThat(matchups.shootingMultiplier(state, balanced, firstOf(balanced))).isEqualTo(1.0);
+                assertThat(matchups.shootingMultiplier(state, balanced, fieldPlayerOf(balanced))).isEqualTo(1.0);
                 assertThat(matchups.goalkeepingMultiplier(state, balanced)).isEqualTo(1.0);
             }
         }
@@ -414,7 +504,7 @@ class MatchupsTest {
         double homeAttacks = possession == MatchSide.HOME ? config.homeAdvantage() : 1.0;
         double homeDefends = possession == MatchSide.AWAY ? config.homeAdvantage() : 1.0;
 
-        double shooting = matchups.shootingMultiplier(state, balanced, firstOf(balanced));
+        double shooting = matchups.shootingMultiplier(state, balanced, fieldPlayerOf(balanced));
         double goalkeeping = matchups.goalkeepingMultiplier(state, balanced);
 
         assertThat(shooting).isCloseTo(homeAttacks, within(EXACT));
@@ -422,8 +512,8 @@ class MatchupsTest {
     }
 
     @Test
-    void theShootingMultiplierCombinesStyleVenueInferiorityAndPositionOfTheShooter() {
-        Matchups matchups = matchupsFor(withInferiorityMultiplierAndTheDefaultVenue(0.9));
+    void theShootingMultiplierCombinesStyleVenueAndPositionOfTheShooterWithoutTheMenOfTheTeam() {
+        Matchups matchups = matchupsFor(config);
         MatchState state = openPlayAt(MatchSide.HOME, ZoneRole.OPPONENT_BOX);
         TeamOnPitch attacking = teamWithStyle(PlayStyle.ATTACKING);
         Player lastForward = attacking.playersIn(Role.FORWARD).getLast();
@@ -431,45 +521,83 @@ class MatchupsTest {
         TeamOnPitch oneForwardLessAndOneMisplaced = attacking.withoutPlayer(lastForward)
                 .withRole(misplaced, Role.MIDFIELDER);
         double style = config.playStyles().effectOf(PlayStyle.ATTACKING).attack();
-        double inferiority = 0.9;
         double position = config.lineup().outOfPositionMultiplier();
 
         double shooting = matchups.shootingMultiplier(state, oneForwardLessAndOneMisplaced, misplaced);
 
-        assertThat(oneForwardLessAndOneMisplaced.missingIn(Role.FORWARD)).isEqualTo(1);
-        assertThat(shooting).isCloseTo(style * config.homeAdvantage() * inferiority * position, within(EXACT));
+        assertThat(shooting).isCloseTo(style * config.homeAdvantage() * position, within(EXACT));
     }
 
     @Test
-    void theGoalkeepingMultiplierWeakensWithTheMenMissingInTheLineThatDefendsTheBox() {
-        Matchups matchups = matchupsFor(noVenueEffectWithMultiplier(0.9));
+    void theShootingAndGoalkeepingMultipliersIgnoreTheNumericalSuperiorityOfTheTeams() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
+        PlayerAttributes sameEverywhere = TestTeams.uniform(60);
+        TeamOnPitch wide = teamOf("Wide", PlayStyle.BALANCED, sameEverywhere, 4, 2, 4);
+        TeamOnPitch deep = teamOf("Deep", PlayStyle.BALANCED, sameEverywhere, 1, 5, 4);
+
+        double shooting = matchups.shootingMultiplier(state, wide, wide.playersIn(Role.FORWARD).getFirst());
+        double goalkeeping = matchups.goalkeepingMultiplier(state, deep);
+
+        assertThat(shooting).isEqualTo(1.0);
+        assertThat(goalkeeping).isEqualTo(1.0);
+    }
+
+    @Test
+    void theGoalkeepingMultiplierDoesNotWeakenWithTheMenMissingInTheLineThatDefendsTheBox() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
         TeamOnPitch defenders = withoutPlayersOf(teamWithStyle(PlayStyle.DEFENSIVE), Role.DEFENDER, 2);
         double style = config.playStyles().effectOf(PlayStyle.DEFENSIVE).defence();
 
         double goalkeeping = matchups.goalkeepingMultiplier(state, defenders);
 
-        assertThat(goalkeeping).isCloseTo(style * 0.81, within(EXACT));
+        assertThat(goalkeeping).isCloseTo(style, within(EXACT));
     }
 
-    private EngineConfig withInferiorityMultiplierAndTheDefaultVenue(double multiplier) {
-        EngineConfig withVenue = config;
-        return TestConfigs.withLineup(withVenue, new LineupConfig(config.lineup().maximumSubstitutions(), multiplier,
-                config.lineup().outOfPositionMultiplier(), config.lineup().substitutionDuration()));
+    private Duel zoneDuelBetweenTeamsOfDifferentLines(Matchups matchups, DuelAttributes attributes) {
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
+        TeamOnPitch attackers = teamByLine("Attackers", 40, 60, 80);
+        TeamOnPitch defenders = teamByLine("Defenders", 30, 50, 70);
+        Player attacker = attackers.playersIn(Role.FORWARD).getFirst();
+        Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
+        return matchups.openPlayDuel(attributes, state, attackers, attacker, defenders, defender);
     }
 
-    private Player firstOf(TeamOnPitch team) {
-        return team.players().getFirst();
-    }
-
-    private EngineConfig noVenueEffectWithMultiplier(double multiplier) {
+    private EngineConfig withRepresentativeWeight(double weight) {
         EngineConfig noVenue = TestConfigs.withoutHomeAdvantage(config);
-        return TestConfigs.withLineup(noVenue, new LineupConfig(config.lineup().maximumSubstitutions(), multiplier, config.lineup().outOfPositionMultiplier(),
-                config.lineup().substitutionDuration()));
+        return TestConfigs.withRepresentativeWeight(noVenue, weight);
     }
 
-    private TeamOnPitch withoutMidfielders(TeamOnPitch team, int count) {
-        return withoutPlayersOf(team, Role.MIDFIELDER, count);
+    private Duel passingDuel(Matchups matchups, MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {
+        Player attacker = fieldPlayerOf(attackers);
+        Player defender = fieldPlayerOf(defenders);
+        return matchups.openPlayDuel(DuelAttributes.PASSING, state, attackers, attacker, defenders, defender);
+    }
+
+    private Duel counterAttackDuel(Matchups matchups, MatchState state, TeamOnPitch attackers,
+            TeamOnPitch defenders) {
+        Player attacker = fieldPlayerOf(attackers);
+        Player defender = fieldPlayerOf(defenders);
+        return matchups.counterAttackDuel(state, attackers, attacker, defenders, defender);
+    }
+
+    private void assertDuel(Duel duel, double attack, double defence) {
+        assertThat(duel.attack()).isCloseTo(attack, within(EXACT));
+        assertThat(duel.defence()).isCloseTo(defence, within(EXACT));
+    }
+
+    private Player fieldPlayerOf(TeamOnPitch team) {
+        return team.players().stream()
+                .filter(player -> team.roleOf(player) != Role.GOALKEEPER)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private TeamOnPitch exchangeRoles(TeamOnPitch team, Player first, Player second) {
+        Role firstRole = team.roleOf(first);
+        Role secondRole = team.roleOf(second);
+        return team.withRole(first, secondRole).withRole(second, firstRole);
     }
 
     private TeamOnPitch withoutPlayersOf(TeamOnPitch team, Role role, int count) {
@@ -485,7 +613,26 @@ class MatchupsTest {
     }
 
     private TeamOnPitch teamWithStyle(PlayStyle style) {
-        return TeamOnPitch.startingWith(TestTeams.team("T-" + style, style, 50));
+        return teamOf("T-" + style, style, DUEL_ATTRIBUTES, 4, 4, 2);
+    }
+
+    private TeamOnPitch teamOf(String name, PlayStyle style, PlayerAttributes attributes, int defenders,
+            int midfielders, int forwards) {
+        List<Player> starters = TestTeams.squad(name, "S", attributes, 1, defenders, midfielders, forwards);
+        return TeamOnPitch.startingWith(new Team(name, style, starters, List.of()));
+    }
+
+    private TeamOnPitch teamByLine(String name, int defendersRating, int midfieldersRating, int forwardsRating) {
+        List<Player> starters = new ArrayList<>();
+        starters.addAll(TestTeams.squad(name, "S", TestTeams.uniform(50), 1, 0, 0, 0));
+        starters.addAll(TestTeams.squad(name, "S", TestTeams.uniform(defendersRating), 0, 4, 0, 0));
+        starters.addAll(TestTeams.squad(name, "S", TestTeams.uniform(midfieldersRating), 0, 0, 4, 0));
+        starters.addAll(TestTeams.squad(name, "S", TestTeams.uniform(forwardsRating), 0, 0, 0, 2));
+        return TeamOnPitch.startingWith(new Team(name, PlayStyle.BALANCED, starters, List.of()));
+    }
+
+    private PlayerAttributes paceAttributes(int pace) {
+        return new PlayerAttributes(50, 50, 50, 50, 50, pace, 50, 50);
     }
 
     private MatchState openPlayAt(MatchSide possession, ZoneRole zoneRole) {
@@ -494,5 +641,13 @@ class MatchupsTest {
                 .findFirst()
                 .orElseThrow();
         return MatchState.openPlay(possession, zone);
+    }
+
+    private MatchState openPlayWhereTheDefendersAreAt(ZoneRole zoneRole) {
+        Zone zone = layout.zones().stream()
+                .filter(candidate -> layout.roleOf(candidate, MatchSide.HOME) == zoneRole)
+                .findFirst()
+                .orElseThrow();
+        return MatchState.openPlay(MatchSide.AWAY, zone);
     }
 }

@@ -62,20 +62,6 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         return roleOf(player) != player.role();
     }
 
-    public int missingIn(Role sector) {
-        long startersInSector = team.starters().stream()
-                .filter(player -> player.role() == sector)
-                .count();
-        int onPitchInSector = playersIn(sector).size();
-        int missingInSector = Math.max(0, (int) startersInSector - onPitchInSector);
-        int missingToReachEleven = missingOnThePitch();
-        return Math.min(missingInSector, missingToReachEleven);
-    }
-
-    private int missingOnThePitch() {
-        return Math.max(0, Team.STARTERS_COUNT - players.size());
-    }
-
     public boolean isCautioned(Player player) {
         return cautioned.contains(player);
     }

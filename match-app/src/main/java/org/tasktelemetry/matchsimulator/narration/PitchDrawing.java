@@ -4,11 +4,13 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 public final class PitchDrawing {
 
     private static final String INDENT = "    ";
     private static final String WORD_SEPARATOR = " ";
+    private static final String SCORE_FORMAT = " (%d - %d)";
     private static final char FIELD_END = '|';
     private static final char ZONE = '_';
     private static final char BALL_MOVING_RIGHT = '>';
@@ -17,9 +19,10 @@ public final class PitchDrawing {
     private static final int ZONE_COUNT = ZoneRole.values().length;
     private static final int LAST_COLUMN = ZONE_COUNT - 1;
 
-    public String draw(MatchEvent event, TeamNames teamNames) {
+    public String draw(MatchEvent event, TeamNames teamNames, Score score) {
         String field = drawField(event);
-        return INDENT + teamNames.home() + WORD_SEPARATOR + field + WORD_SEPARATOR + teamNames.away();
+        String scoreText = SCORE_FORMAT.formatted(score.home(), score.away());
+        return INDENT + teamNames.home() + WORD_SEPARATOR + field + WORD_SEPARATOR + teamNames.away() + scoreText;
     }
 
     private String drawField(MatchEvent event) {

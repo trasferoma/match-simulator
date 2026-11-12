@@ -2,23 +2,20 @@ package org.tasktelemetry.matchsimulator.engine.config;
 
 import java.util.Objects;
 
-public record LineupConfig(int maximumSubstitutions, double inferiorityMultiplier, double outOfPositionMultiplier,
+public record LineupConfig(int maximumSubstitutions, double outOfPositionMultiplier,
         DurationRange substitutionDuration) {
 
     public LineupConfig {
         Objects.requireNonNull(substitutionDuration, "substitution duration must not be null");
         requireAtLeastOneSubstitution(maximumSubstitutions);
-        requireWeakeningMultiplier("inferiority multiplier", inferiorityMultiplier);
         requireWeakeningMultiplier("out-of-position multiplier", outOfPositionMultiplier);
     }
 
     public static LineupConfig defaults() {
         int maximumSubstitutions = 5;
-        double inferiorityMultiplier = 0.90;
         double outOfPositionMultiplier = 0.90;
         DurationRange substitutionDuration = new DurationRange(30, 45);
-        return new LineupConfig(maximumSubstitutions, inferiorityMultiplier, outOfPositionMultiplier,
-                substitutionDuration);
+        return new LineupConfig(maximumSubstitutions, outOfPositionMultiplier, substitutionDuration);
     }
 
     private static void requireAtLeastOneSubstitution(int maximumSubstitutions) {

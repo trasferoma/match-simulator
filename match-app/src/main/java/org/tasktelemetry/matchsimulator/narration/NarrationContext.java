@@ -1,12 +1,16 @@
 package org.tasktelemetry.matchsimulator.narration;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class NarrationContext {
@@ -16,14 +20,21 @@ public final class NarrationContext {
 
     private final List<MatchEvent> events;
     private final TeamNames teamNames;
+    private final Map<Integer, Score> scoreAfterEvent;
 
     public NarrationContext(List<MatchEvent> events, TeamNames teamNames) {
         this.events = List.copyOf(events);
         this.teamNames = teamNames;
+        this.scoreAfterEvent = accumulateScoreAfterEachEvent(this.events);
     }
 
     public TeamNames teamNames() {
         return teamNames;
+    }
+
+    public Score scoreAfter(MatchEvent event) {
+        Score score = scoreAfterEvent.get(event.order());
+        return Objects.requireNonNull(score, "the event must belong to the match: " + event);
     }
 
     public Optional<GoalHighlight> highlightOf(MatchEvent event) {
@@ -64,5 +75,15 @@ public final class NarrationContext {
             return detail.context();
         }
         throw new IllegalStateException("a goal event must carry the goal detail: " + goal);
+    }
+
+    private static Map<Integer, Score> accumulateScoreAfterEachEvent(List<MatchEvent> events) {
+        Map<Integer, Score> scores = new HashMap<>();
+        Score score = Score.goalless();
+        for (MatchEvent event : events) {
+            score = event.type() == EventType.GOAL ? score.withGoalBy(event.side()) : score;
+            scores.put(event.order(), score);
+        }
+        return Map.copyOf(scores);
     }
 }

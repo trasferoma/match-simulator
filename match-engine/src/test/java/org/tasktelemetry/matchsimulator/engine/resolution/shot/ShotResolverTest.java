@@ -653,6 +653,23 @@ class ShotResolverTest {
         assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
     }
 
+    @Test
+    void theShotAndTheSaveIgnoreTheNumericalSuperiorityOfTheTeamsInTheBox() {
+        TeamOnPitch wide = teamOnPitchWithLines("Wide", 4, 2, 4);
+        TeamOnPitch deep = teamOnPitchWithLines("Deep", 1, 5, 4);
+        Player shooter = wide.playersIn(Role.FORWARD).get(0);
+        double expectedGoals = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter,
+                NEUTRAL);
+        double expectedGoalProbability = model.goalProbability(expectedGoals, deep.goalkeeper(), NEUTRAL);
+        ShotResolver resolver = resolverWithStyleAndVenue(TestConfigs.withoutHomeAdvantage(engine), SEED);
+
+        List<ActionOutcome> outcomes = shots(resolver, wide, deep, TRIALS);
+
+        assertThat(outcomes).allSatisfy(outcome ->
+                assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expectedGoals, within(1e-9)));
+        assertThat(share(outcomes, EventType.GOAL)).isCloseTo(expectedGoalProbability, within(ONE_POINT));
+    }
+
     private MatchState inTheBoxOfTheOpponent(MatchSide attackingSide) {
         Zone opponentBox = layout.ownBoxZone(attackingSide.opposite());
         return MatchState.openPlay(attackingSide, opponentBox);
@@ -754,6 +771,12 @@ private List<ActionOutcome> outcomesOfType(EventType type, int trials) {
         PlayerAttributes keeper = TestTeams.withShootingAndGoalkeeping(NEUTRAL_SHOOTING, goalkeeperGoalkeeping);
         PlayerAttributes forwards = TestTeams.withShootingAndGoalkeeping(forwardShooting, NEUTRAL_GOALKEEPING);
         return TeamOnPitch.startingWith(TestTeams.teamWithKeeperAndForwards(name, keeper, forwards));
+    }
+
+    private TeamOnPitch teamOnPitchWithLines(String name, int defenders, int midfielders, int forwards) {
+        PlayerAttributes everyone = TestTeams.withShootingAndGoalkeeping(NEUTRAL_SHOOTING, NEUTRAL_GOALKEEPING);
+        List<Player> starters = TestTeams.squad(name, "S", everyone, 1, defenders, midfielders, forwards);
+        return TeamOnPitch.startingWith(TestTeams.teamOf(name, starters));
     }
 
     private TeamOnPitch teamWithShooters(List<Integer> shootings) {

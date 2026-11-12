@@ -38,7 +38,7 @@ import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 class NarratorTest {
 
-    private static final Pattern LINE_START = Pattern.compile("^(\\* )?\\d+(\\+\\d+)?' \\S.*");
+    private static final Pattern LINE_START = Pattern.compile("^(\\*\\*\\* )?\\d+(\\+\\d+)?' \\S.*");
     private static final int MAX_ANNOUNCED_MINUTES = 8;
     private static final int LINES_PER_EVENT = 2;
     private static final int PITCH_LINE = 0;
@@ -87,7 +87,7 @@ class NarratorTest {
         assertThat(blocks).hasSameSizeAs(events);
         assertThat(blocks).allSatisfy(block -> {
             assertThat(block).hasSize(LINES_PER_EVENT);
-            assertThat(block.get(PITCH_LINE)).matches("    Aquile \\|[_<>O]{5}\\| Lupi");
+            assertThat(block.get(PITCH_LINE)).matches("    Aquile \\|[_<>O]{5}\\| Lupi \\(\\d+ - \\d+\\)");
             assertThat(block.get(SENTENCE_LINE)).matches(LINE_START);
         });
     }
@@ -124,7 +124,7 @@ class NarratorTest {
 
         List<String> lines = narrator.narrate(List.of(interception), TEAM_NAMES, ChronicleMode.FULL).get(0);
 
-        assertThat(lines.get(0)).isEqualTo("    Aquile |___<_| Lupi");
+        assertThat(lines.get(0)).isEqualTo("    Aquile |___<_| Lupi (0 - 0)");
     }
 
     @Test
@@ -143,8 +143,34 @@ class NarratorTest {
 
         List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
 
-        assertThat(lines.get(0)).startsWith("* 10' Gol");
+        assertThat(lines.get(0)).startsWith("*** 10' Gol");
         assertThat(lines.get(1)).doesNotStartWith("*");
+    }
+
+    @Test
+    void theFieldLineShowsTheScoreAfterTheEventSoTheGoalLineAlreadyCountsItsGoal() {
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
+        fixture.addGoal(firstHalf(900), MatchSide.AWAY, AWAY_FORWARD, GoalContext.EQUALISER);
+        fixture.addGoal(firstHalf(1200), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
+
+        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        List<String> scores = blocks.stream().map(block -> block.get(PITCH_LINE).replaceAll(".*\\|", "")).toList();
+        assertThat(scores).containsExactly(" Lupi (0 - 0)", " Lupi (1 - 0)", " Lupi (1 - 1)", " Lupi (2 - 1)");
+    }
+
+    @Test
+    void theScoreOfTheFieldLineCountsEveryGoalOfTheMatchEvenIfTheChronicleDoesNotNarrateAllTheEvents() {
+        fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.addGoal(firstHalf(1200), MatchSide.AWAY, AWAY_FORWARD, GoalContext.EQUALISER);
+
+        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
+
+        List<String> narratedFields = blocks.stream().map(block -> block.get(PITCH_LINE)).toList();
+        assertThat(narratedFields).hasSizeLessThan(fixture.list().size());
+        assertThat(narratedFields.get(narratedFields.size() - 1)).endsWith("Lupi (1 - 1)");
     }
 
     @Test
@@ -156,7 +182,7 @@ class NarratorTest {
 
         List<String> lines = narrator.narrate(List.of(foul), TEAM_NAMES, ChronicleMode.FULL).get(0);
 
-        assertThat(lines.get(0)).isEqualTo("    Aquile |_<___| Lupi");
+        assertThat(lines.get(0)).isEqualTo("    Aquile |_<___| Lupi (0 - 0)");
         assertThat(lines.get(1)).contains("Bianchi (Aquile)").contains("Neri (Lupi)");
     }
 

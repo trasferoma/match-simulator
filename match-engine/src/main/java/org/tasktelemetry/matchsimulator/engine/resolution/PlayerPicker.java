@@ -1,46 +1,49 @@
 package org.tasktelemetry.matchsimulator.engine.resolution;
 
 import java.util.List;
+import java.util.Objects;
 import java.util.function.ToDoubleFunction;
 
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
-import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public final class PlayerPicker {
 
     private final MatchRandom random;
+    private final ZonePresence zonePresence;
 
-    public PlayerPicker(MatchRandom random) {
+    public PlayerPicker(MatchRandom random, ZonePresence zonePresence) {
         this.random = random;
+        this.zonePresence = Objects.requireNonNull(zonePresence, "zone presence must not be null");
     }
 
     public Player pickFrom(TeamOnPitch team, ZoneRole zoneRole) {
-        Role sector = sectorOf(zoneRole);
-        List<Player> candidates = team.playersIn(sector);
-        return pickWeighted(candidates);
+        List<Player> candidates = zonePresence.playersPresentIn(team, zoneRole);
+        if (candidates.isEmpty()) {
+            throw new IllegalStateException("no player of " + team.team().name() + " has presence in " + zoneRole);
+        }
+        return pickByPresence(team, zoneRole, candidates);
     }
 
     public Player pickOtherThan(TeamOnPitch team, ZoneRole zoneRole, Player excluded) {
-        Role sector = sectorOf(zoneRole);
-        List<Player> candidates = team.playersIn(sector).stream()
+        List<Player> candidates = zonePresence.playersPresentIn(team, zoneRole).stream()
                 .filter(player -> !player.equals(excluded))
                 .toList();
         if (candidates.isEmpty()) {
-            throw new IllegalStateException("no " + sector + " of " + team.team().name() + " other than "
-                    + excluded.name());
+            throw new IllegalStateException("no player of " + team.team().name() + " has presence in " + zoneRole
+                    + " other than " + excluded.name());
         }
-        return pickWeighted(candidates);
+        return pickByPresence(team, zoneRole, candidates);
     }
 
     public Player pickByPassing(List<Player> candidates) {
         return pickWeighted(candidates, this::passingOf);
     }
 
-    private Player pickWeighted(List<Player> candidates) {
-        return pickWeighted(candidates, this::movementAverageOf);
+    private Player pickByPresence(TeamOnPitch team, ZoneRole zoneRole, List<Player> candidates) {
+        return pickWeighted(candidates, player -> zonePresence.presenceOf(team, player, zoneRole));
     }
 
     private Player pickWeighted(List<Player> candidates, ToDoubleFunction<Player> weightOf) {
@@ -62,19 +65,7 @@ public final class PlayerPicker {
                 .sum();
     }
 
-    private double movementAverageOf(Player player) {
-        return player.attributes().movementAverage();
-    }
-
     private double passingOf(Player player) {
         return player.attributes().passing();
-    }
-
-    public static Role sectorOf(ZoneRole zoneRole) {
-        return switch (zoneRole) {
-            case OWN_BOX, DEFENCE -> Role.DEFENDER;
-            case MIDFIELD -> Role.MIDFIELDER;
-            case ATTACKING_THIRD, OPPONENT_BOX -> Role.FORWARD;
-        };
     }
 }

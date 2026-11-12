@@ -90,7 +90,7 @@ class MatchCommandLineTest {
                 String minuteAndScorer = scoredGoal.group(1);
                 String team = scoredGoal.group(2);
                 assertThat(chronicle.lines()).as("seed %d, goal %s", seed, minuteAndScorer)
-                        .anyMatch(line -> line.startsWith("* " + minuteOf(minuteAndScorer) + " ")
+                        .anyMatch(line -> line.startsWith("*** " + minuteOf(minuteAndScorer) + " ")
                                 && line.contains(scorerOf(minuteAndScorer)) && line.contains(team));
                 checkedGoals++;
             }

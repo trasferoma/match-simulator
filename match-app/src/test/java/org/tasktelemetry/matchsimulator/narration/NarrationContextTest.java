@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
+import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 class NarrationContextTest {
 
@@ -88,6 +89,21 @@ class NarrationContextTest {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_FORWARD);
 
         assertThat(contextOfTheMatch().highlightOf(pass)).isEmpty();
+    }
+
+    @Test
+    void theScoreAfterAnEventCountsTheGoalsOfBothSidesUpToThatEventIncluded() {
+        MatchEvent kickOff = fixture.add(EventType.KICK_OFF, MatchSide.HOME, HOME_FORWARD);
+        MatchEvent homeGoal = fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD,
+                GoalContext.TAKES_THE_LEAD);
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        MatchEvent awayGoal = fixture.addGoal(firstHalf(900), MatchSide.AWAY, AWAY_FORWARD, GoalContext.EQUALISER);
+        NarrationContext context = contextOfTheMatch();
+
+        assertThat(context.scoreAfter(kickOff)).isEqualTo(new Score(0, 0));
+        assertThat(context.scoreAfter(homeGoal)).isEqualTo(new Score(1, 0));
+        assertThat(context.scoreAfter(pass)).isEqualTo(new Score(1, 0));
+        assertThat(context.scoreAfter(awayGoal)).isEqualTo(new Score(1, 1));
     }
 
     private NarrationContext contextOfTheMatch() {

@@ -103,7 +103,7 @@ class EngineConfigTest {
 
         assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, threshold, StoppageConfig.defaults(), shot,
                 setPiece, cross, counterAttack, playStyles, FoulConfig.defaults(), OffsideConfig.defaults(),
-                InjuryConfig.defaults(), LineupConfig.defaults(), HOME_ADVANTAGE))
+                InjuryConfig.defaults(), LineupConfig.defaults(), ZonePresenceConfig.defaults(), HOME_ADVANTAGE))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("no-teammate dribble threshold must be between 0.0 and 1.0");
     }
@@ -123,7 +123,7 @@ class EngineConfigTest {
         DurationRange range = new DurationRange(1, 2);
 
         assertThatThrownBy(() -> new EngineConfig(range, range, 0.5, 0.5, StoppageConfig.defaults(), shot, setPiece, cross, counterAttack,
-                playStyles, FoulConfig.defaults(), OffsideConfig.defaults(), InjuryConfig.defaults(), LineupConfig.defaults(),
+                playStyles, FoulConfig.defaults(), OffsideConfig.defaults(), InjuryConfig.defaults(), LineupConfig.defaults(), ZonePresenceConfig.defaults(),
                 homeAdvantage))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("home advantage must be positive and finite");
@@ -174,7 +174,7 @@ class EngineConfigTest {
         return new EngineConfig(buildUp, attacking, dribbleProbability, 0.5, stoppage, shotConfig,
                 setPieceConfig, crossConfig, counterAttackConfig, styles, FoulConfig.defaults(), OffsideConfig.defaults(),
                 InjuryConfig.defaults(),
-                LineupConfig.defaults(), HOME_ADVANTAGE);
+                LineupConfig.defaults(), ZonePresenceConfig.defaults(), HOME_ADVANTAGE);
     }
 
     private StoppageConfig stoppageWithMinimum(int minimumMinutes) {

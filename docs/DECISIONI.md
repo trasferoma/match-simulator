@@ -49,6 +49,11 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
   volte, con una doppietta sommata fra le due squadre e un assist cancellato dall'infortunio di un avversario
   omonimo. Fonte: SPEC, "Evento, tabellino, racconto" (doppietta) e «Assist»; revisione finale del piano
   (decisione dell'utente del 2026-11-10).
+- **D57. In ogni zona partecipano tutti i reparti, ciascuno con una presenza di configurazione: quanti uomini una
+  squadra ha in una zona cambia la forza nei duelli, e chi gioca il pallone si sceglie per presenza, non per
+  qualità.** Perché: il modulo deve avere un effetto tattico, e un reparto corto fatto di soli giocatori forti non
+  deve convenire. Fonte: `spec-reparti-per-zona.md`, Obiettivo e «Decisioni prese» (decisione dell'utente del
+  2026-11-12).
 
 ### Architettura
 

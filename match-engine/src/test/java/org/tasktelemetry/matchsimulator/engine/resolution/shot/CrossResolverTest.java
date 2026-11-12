@@ -4,8 +4,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.EnumSet;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 import java.util.Set;
 import java.util.stream.IntStream;
@@ -21,6 +23,7 @@ import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.CrossConfig;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.config.ZonePresenceConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
@@ -29,7 +32,6 @@ import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.Duel;
-import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
@@ -46,6 +48,7 @@ class CrossResolverTest {
     private static final int MANY_TRIALS = 100_000;
     private static final double ONE_POINT = 0.01;
     private static final double EXACT = 1e-9;
+    private static final double EVEN_DUEL = 0.5;
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
 
@@ -68,10 +71,14 @@ class CrossResolverTest {
     @Test
     void theCrossIsTheDuelOfThePassingOfTheCrosserAgainstThePositioningOfTheDefender() {
         CrossResolver resolver = resolverWith(config);
-        Player crosser = playerWith(80, 50);
-        Player defender = defenderWith(40, 90);
+        TeamOnPitch attackers = teamWith("Attackers", playerAttributes(80, 50));
+        TeamOnPitch defenders = teamWith("Defenders", defenderAttributes(40, 90));
+        MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
+        Player crosser = attackers.playersIn(Role.MIDFIELDER).getFirst();
+        Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
 
-        double probability = resolver.crossDuel(crosser, defender).attackerWinProbability();
+        double probability = resolver.crossDuel(state, attackers, crosser, defenders, defender)
+                .attackerWinProbability();
 
         assertThat(probability).isCloseTo(80.0 / (80.0 + 40.0), within(EXACT));
     }
@@ -79,15 +86,20 @@ class CrossResolverTest {
     @Test
     void thePositioningOfTheDefenderLowersTheCrossWhileTheTacklingOfTheDefenderDoesNotChangeIt() {
         CrossResolver resolver = resolverWith(config);
-        Player crosser = playerWith(80, 50);
+        TeamOnPitch attackers = teamWith("Attackers", playerAttributes(80, 50));
+        TeamOnPitch defenders = teamWith("Defenders", defenderAttributes(40, 90));
+        TeamOnPitch weakTackling = teamWith("WeakTackling", defenderAttributes(40, 10));
+        TeamOnPitch betterPositioned = teamWith("BetterPositioned", defenderAttributes(60, 90));
+        MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
+        Player crosser = attackers.playersIn(Role.MIDFIELDER).getFirst();
 
-        double base = resolver.crossDuel(crosser, defenderWith(40, 90)).attackerWinProbability();
-        double sameButWeakTackling = resolver.crossDuel(crosser, defenderWith(40, 10)).attackerWinProbability();
-        double betterPositioned = resolver.crossDuel(crosser, defenderWith(60, 90)).attackerWinProbability();
+        double base = crossProbability(resolver, state, attackers, crosser, defenders);
+        double sameButWeakTackling = crossProbability(resolver, state, attackers, crosser, weakTackling);
+        double betterPositionedProbability = crossProbability(resolver, state, attackers, crosser, betterPositioned);
 
         assertThat(sameButWeakTackling).isCloseTo(base, within(EXACT));
-        assertThat(betterPositioned).isLessThan(base);
-        assertThat(betterPositioned).isCloseTo(80.0 / (80.0 + 60.0), within(EXACT));
+        assertThat(betterPositionedProbability).isLessThan(base);
+        assertThat(betterPositionedProbability).isCloseTo(80.0 / (80.0 + 60.0), within(EXACT));
     }
 
     @ParameterizedTest
@@ -161,7 +173,7 @@ class CrossResolverTest {
         assertThat(deflected).isNotEmpty().allSatisfy(outcome -> {
             Player defender = outcome.participants().primary().orElseThrow();
             Player crosser = outcome.participants().secondary().orElseThrow();
-            assertThat(defender.role()).isEqualTo(Role.DEFENDER);
+            assertThat(defender.role()).isNotEqualTo(Role.GOALKEEPER);
             assertThat(defenders.players()).contains(defender);
             assertThat(attackers.players()).contains(crosser);
             assertThat(outcome.next()).isEqualTo(MatchState.forSetPiece(side, defendersBox, SetPieceKind.CORNER));
@@ -219,7 +231,22 @@ class CrossResolverTest {
     }
 
     @Test
-    void theOnlyForwardOfTheTeamNeverCrosses() {
+    void theOnlyPlayerWithPresenceInTheOpponentBoxNeverCrosses() {
+        List<Player> starters = TestTeams.squad("Solo", "S", playerAttributes(50, 50), 1, 4, 5, 1);
+        TeamOnPitch soloForward = TeamOnPitch.startingWith(TestTeams.teamOf("Solo", starters));
+        Player forward = soloForward.playersIn(Role.FORWARD).get(0);
+        EngineConfig onlyForwardsInTheBox = TestConfigs.withZonePresence(engineConfig, onlyForwardsInTheOpponentBox());
+        CrossResolver resolver = resolverFor(onlyForwardsInTheBox, SEED);
+
+        List<Player> crossers = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.pickCrosser(soloForward))
+                .toList();
+
+        assertThat(crossers).isNotEmpty().doesNotContain(forward);
+    }
+
+    @Test
+    void aLoneForwardCanCrossWhenOtherPlayersHavePresenceInTheOpponentBox() {
         List<Player> starters = TestTeams.squad("Solo", "S", playerAttributes(50, 50), 1, 4, 5, 1);
         TeamOnPitch soloForward = TeamOnPitch.startingWith(TestTeams.teamOf("Solo", starters));
         Player forward = soloForward.playersIn(Role.FORWARD).get(0);
@@ -229,7 +256,7 @@ class CrossResolverTest {
                 .mapToObj(index -> resolver.pickCrosser(soloForward))
                 .toList();
 
-        assertThat(crossers).doesNotContain(forward);
+        assertThat(crossers).contains(forward);
     }
 
     @Test
@@ -306,7 +333,7 @@ class CrossResolverTest {
     }
 
     @Test
-    void aWonAerialDuelIsAHeaderByAForwardOfTheAttackersWithTheCrosserNamedUnlessItIsASave() {
+    void aWonAerialDuelIsAHeaderByAnOutfieldPlayerOfTheAttackersWithTheCrosserNamedUnlessItIsASave() {
         MatchState inFlight = crossInFlight(MatchSide.HOME, home);
         Player crosser = inFlight.crosser();
         CrossResolver resolver = resolverWith(config);
@@ -318,10 +345,13 @@ class CrossResolverTest {
 
         assertThat(outcomes).isNotEmpty().allSatisfy(outcome -> {
             Player header = outcome.participants().primary().orElseThrow();
-            assertThat(header.role()).isEqualTo(Role.FORWARD);
+            assertThat(header.role()).isNotEqualTo(Role.GOALKEEPER);
+            assertThat(home.players()).contains(header);
             assertThat(header).isNotEqualTo(crosser);
             assertThat(shotKindOf(outcome.detail())).isEqualTo(ShotKind.HEADER);
         });
+        assertThat(outcomes).extracting(outcome -> outcome.participants().primary().orElseThrow().role())
+                .contains(Role.FORWARD);
         assertThat(outcomes).filteredOn(outcome -> outcome.type() != EventType.SHOT_SAVED)
                 .allSatisfy(outcome -> assertThat(outcome.participants().secondary()).contains(crosser));
     }
@@ -337,7 +367,7 @@ class CrossResolverTest {
 
         assertThat(clearances).isNotEmpty().allSatisfy(outcome -> {
             Player defender = outcome.participants().primary().orElseThrow();
-            assertThat(defender.role()).isEqualTo(Role.DEFENDER);
+            assertThat(defender.role()).isIn(Role.DEFENDER, Role.MIDFIELDER);
             assertThat(away.players()).contains(defender);
             assertThat(outcome.participants().secondary()).contains(crosser);
             assertThat(outcome.next()).isIn(corner, defendersBall);
@@ -401,16 +431,14 @@ class CrossResolverTest {
         CrossResolver resolver = resolverFor(withVenueAndStyles, SEED);
         Player crosser = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
-        Duel attributeDuel = resolver.crossDuel(crosser, defender);
-        double expected = matchupsFor(withVenueAndStyles)
-                .openPlayDuel(attributeDuel, state, attackers, crosser, defenders, defender)
+        double expected = resolver.crossDuel(state, attackers, crosser, defenders, defender)
                 .attackerWinProbability();
 
         List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
                 .mapToObj(index -> resolver.resolveCross(state, attackers, defenders))
                 .toList();
 
-        assertThat(Math.signum(expected - attributeDuel.attackerWinProbability())).isEqualTo((double) direction);
+        assertThat(Math.signum(expected - EVEN_DUEL)).isEqualTo((double) direction);
         assertThat(share(outcomes, EventType.CROSS_COMPLETED)).isCloseTo(expected, within(ONE_POINT));
     }
 
@@ -431,16 +459,14 @@ class CrossResolverTest {
         CrossResolver resolver = resolverFor(withVenueAndStyles, SEED);
         Player header = attackers.playersIn(Role.FORWARD).getFirst();
         Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
-        Duel attributeDuel = resolver.aerialDuel(header, defender);
-        double expected = matchupsFor(withVenueAndStyles)
-                .openPlayDuel(attributeDuel, inFlight, attackers, header, defenders, defender)
+        double expected = resolver.aerialDuel(inFlight, attackers, header, defenders, defender)
                 .attackerWinProbability();
 
         List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
                 .mapToObj(index -> resolver.resolveAerialDuel(inFlight, Score.goalless(), attackers, defenders))
                 .toList();
 
-        assertThat(Math.signum(expected - attributeDuel.attackerWinProbability())).isEqualTo((double) direction);
+        assertThat(Math.signum(expected - EVEN_DUEL)).isEqualTo((double) direction);
         assertThat(1.0 - share(outcomes, EventType.CLEARANCE)).isCloseTo(expected, within(ONE_POINT));
     }
 
@@ -472,20 +498,36 @@ class CrossResolverTest {
         Player crosser = attackers.playersIn(Role.MIDFIELDER).getFirst();
         TeamOnPitch crosserMisplaced = attackers.withRole(crosser, Role.DEFENDER);
         MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
+        ZoneRole defendingRole = layout.roleOf(state.zone(), MatchSide.AWAY);
+        double superiority = TestResolvers.zonePresence(engineConfig)
+                .superiorityFactor(crosserMisplaced, ZoneRole.ATTACKING_THIRD, defenders, defendingRole);
         double multiplier = engineConfig.lineup().outOfPositionMultiplier();
-        double expected = 80.0 * multiplier / (80.0 * multiplier + 50.0);
+        double attack = 80.0 * superiority * multiplier;
+        double expected = attack / (attack + 50.0);
         CrossResolver resolver = resolverWith(config);
-        Matchups matchups = matchupsFor(engineConfig);
         Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
 
-        Duel duel = matchups.openPlayDuel(resolver.crossDuel(crosser, defender), state, crosserMisplaced, crosser,
-                defenders, defender);
+        Duel duel = resolver.crossDuel(state, crosserMisplaced, crosser, defenders, defender);
 
         assertThat(duel.attackerWinProbability()).isCloseTo(expected, within(EXACT));
     }
 
-    private Matchups matchupsFor(EngineConfig engine) {
-        return TestResolvers.matchups(engine, layout, new MatchRandom(SEED));
+    private double crossProbability(CrossResolver resolver, MatchState state, TeamOnPitch attackers, Player crosser,
+            TeamOnPitch defenders) {
+        Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
+        return resolver.crossDuel(state, attackers, crosser, defenders, defender).attackerWinProbability();
+    }
+
+    private ZonePresenceConfig onlyForwardsInTheOpponentBox() {
+        ZonePresenceConfig defaults = engineConfig.zonePresence();
+        Map<ZoneRole, Map<Role, Double>> table = new EnumMap<>(defaults.presenceByZoneRole());
+        Map<Role, Double> row = new EnumMap<>(Role.class);
+        row.put(Role.DEFENDER, 0.0);
+        row.put(Role.MIDFIELDER, 0.0);
+        row.put(Role.FORWARD, 1.0);
+        table.put(ZoneRole.OPPONENT_BOX, row);
+        return new ZonePresenceConfig(table, defaults.referenceFormation(), defaults.advantageFactorPerMan(),
+                defaults.advantageCap(), defaults.representativeWeight(), defaults.passMinimumPlayers());
     }
 
     private CrossResolver resolverFor(EngineConfig engine, long seed) {
@@ -558,13 +600,8 @@ class CrossResolverTest {
         return new PlayerAttributes(passing, 50, 50, 50, 50, 50, aerial, 50);
     }
 
-    private Player defenderWith(int positioning, int tackling) {
-        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, tackling, positioning, 50, 50, 50);
-        return TestTeams.player("D", Role.DEFENDER, attributes);
-    }
-
-    private Player playerWith(int passing, int aerial) {
-        return TestTeams.player("P", Role.MIDFIELDER, playerAttributes(passing, aerial));
+    private PlayerAttributes defenderAttributes(int positioning, int tackling) {
+        return new PlayerAttributes(50, 50, 50, tackling, positioning, 50, 50, 50);
     }
 
     private CrossResolver resolverWith(CrossConfig crossConfig) {
@@ -577,7 +614,7 @@ class CrossResolverTest {
                 engineConfig.noTeammateDribbleThreshold(),
                 engineConfig.stoppage(), engineConfig.shot(), engineConfig.setPiece(), crossConfig,
                 engineConfig.counterAttack(), engineConfig.playStyles(), engineConfig.foul(), engineConfig.offside(), engineConfig.injury(),
-                engineConfig.lineup(),
+                engineConfig.lineup(), engineConfig.zonePresence(),
                 engineConfig.homeAdvantage());
         MatchRandom random = new MatchRandom(seed);
         ShotResolver shotResolver = TestResolvers.shotResolver(custom, layout, random);

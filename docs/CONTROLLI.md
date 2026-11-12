@@ -44,6 +44,7 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D33 Jackson solo in `match-app` | struttura Maven e `EngineIsolationTest` sul pom del motore | 1 e 2 | fatto |
 | D35 librerie di test solo nello scope test | `EngineIsolationTest` sul pom del motore | 2 | fatto |
 | D49 il motore vede solo le proprie costanti | modulo `match-engine` che non vede `match-app`; `TeamFileTermsTest` per la traduzione | 1 e 3 | fatto |
+| D57 tutti i reparti in ogni zona, forza per uomini, scelta per presenza | `ZonePresenceTest` (un 4-4-2 contro un 4-4-2 è neutro, un uomo in meno pesa), `PlayerPickerTest` (scelta per presenza, uniforme nel reparto), `FormationEffectTest` (i moduli estremi non battono il 4-4-2) | 3 | fatto |
 | D56 giocatore identificato con la sua squadra | `NarrationContextTest` e `NarratorTest` (doppietta con lo stesso giocatore in casa e in ospite), `MatchAssistsTest` (stesso `Team` per casa e ospite); un gradino più alto richiederebbe un tipo che porti insieme giocatore e squadra | 3 | fatto |
 
 `Stato`: `previsto` se il controllo è pianificato ma non esiste, `fatto` se la classe o la struttura esiste.

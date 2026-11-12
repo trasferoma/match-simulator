@@ -16,8 +16,10 @@ import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.Duel;
+import org.tasktelemetry.matchsimulator.engine.resolution.DuelAttributes;
 import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
+import org.tasktelemetry.matchsimulator.engine.resolution.ZonePresence;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
@@ -38,10 +40,12 @@ public final class CrossResolver {
     private final PlayerPicker picker;
     private final ShotResolver shotResolver;
     private final Matchups matchups;
+    private final ZonePresence zonePresence;
 
     public CrossResolver(CrossConfig config, PlayStyleModifiers playStyles, PitchLayout layout, MatchRandom random,
-            PlayerPicker picker, ShotResolver shotResolver, Matchups matchups) {
+            PlayerPicker picker, ShotResolver shotResolver, Matchups matchups, ZonePresence zonePresence) {
         this.config = config;
+        this.zonePresence = zonePresence;
         this.playStyles = playStyles;
         this.layout = layout;
         this.random = random;
@@ -55,12 +59,14 @@ public final class CrossResolver {
         return config.crossProbability() * propensity;
     }
 
-    public Duel crossDuel(Player crosser, Player defender) {
-        return Duel.between(crosser.attributes().passing(), defender.attributes().positioning());
+    public Duel crossDuel(MatchState state, TeamOnPitch attackers, Player crosser, TeamOnPitch defenders,
+            Player defender) {
+        return matchups.openPlayDuel(DuelAttributes.CROSS, state, attackers, crosser, defenders, defender);
     }
 
-    public Duel aerialDuel(Player attacker, Player defender) {
-        return Duel.between(attacker.attributes().aerial(), defender.attributes().aerial());
+    public Duel aerialDuel(MatchState state, TeamOnPitch attackers, Player attacker, TeamOnPitch defenders,
+            Player defender) {
+        return matchups.openPlayDuel(DuelAttributes.AERIAL, state, attackers, attacker, defenders, defender);
     }
 
     public Player pickCrosser(TeamOnPitch attackers) {
@@ -94,8 +100,7 @@ public final class CrossResolver {
             TeamOnPitch defenders) {
         Player attacker = pickHeader(state, attackers);
         Player defender = pickDefender(state, defenders);
-        Duel attributeDuel = aerialDuel(attacker, defender);
-        Duel duel = matchups.openPlayDuel(attributeDuel, state, attackers, attacker, defenders, defender);
+        Duel duel = aerialDuel(state, attackers, attacker, defenders, defender);
         if (attackerWins(duel)) {
             return shootHeader(state, score, attackers, attacker, defenders);
         }
@@ -180,8 +185,7 @@ public final class CrossResolver {
     }
 
     private List<Player> listCrosserCandidates(TeamOnPitch attackers) {
-        Role headerSector = PlayerPicker.sectorOf(HEADER_ZONE_ROLE);
-        List<Player> headers = attackers.playersIn(headerSector);
+        List<Player> headers = zonePresence.playersPresentIn(attackers, HEADER_ZONE_ROLE);
         List<Player> soleHeader = headers.size() == 1 ? headers : List.of();
         return attackers.players().stream()
                 .filter(player -> attackers.roleOf(player) != Role.GOALKEEPER)
@@ -195,8 +199,7 @@ public final class CrossResolver {
 
     private boolean crossReachesTheBox(MatchState state, TeamOnPitch attackers, Player crosser,
             TeamOnPitch defenders, Player defender) {
-        Duel attributeDuel = crossDuel(crosser, defender);
-        Duel duel = matchups.openPlayDuel(attributeDuel, state, attackers, crosser, defenders, defender);
+        Duel duel = crossDuel(state, attackers, crosser, defenders, defender);
         return attackerWins(duel);
     }
 

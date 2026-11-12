@@ -165,7 +165,7 @@ class OffsideRuleTest {
 
     @Test
     void anAdvancingPassIsOffsideInTheShareGivenByThePositioningOfReceiversAndDefenders() {
-        TeamOnPitch attackers = attackersWithForwardPositioning(40, ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(40, ordinary);
         TeamOnPitch backline = defendersWithPositioning(80);
         OffsideRule rule = ruleWith(config, SEED);
         Player receiver = attackers.playersIn(Role.FORWARD).getFirst();
@@ -181,8 +181,8 @@ class OffsideRuleTest {
     void theShareOfOffsidesDependsOnThePositioningOfTheReceiverAndNotOnHisOtherAttributes() {
         PlayerAttributes sharpPositioningButWeakElsewhere = new PlayerAttributes(10, 10, 10, 10, 90, 10, 10, 10);
         PlayerAttributes poorPositioningButStrongElsewhere = new PlayerAttributes(90, 90, 90, 90, 10, 90, 90, 90);
-        TeamOnPitch sharp = attackersWithForwardPositioning(sharpPositioningButWeakElsewhere);
-        TeamOnPitch poor = attackersWithForwardPositioning(poorPositioningButStrongElsewhere);
+        TeamOnPitch sharp = attackersWithOutfield(sharpPositioningButWeakElsewhere);
+        TeamOnPitch poor = attackersWithOutfield(poorPositioningButStrongElsewhere);
         OffsideRule rule = ruleWith(config, SEED);
         Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
         double sharpExpected = rule.offsideProbability(sharp, sharp.playersIn(Role.FORWARD).getFirst(), defenders,
@@ -202,7 +202,7 @@ class OffsideRuleTest {
     void theShareOfOffsidesDependsOnThePositioningOfTheDefenderAndNotOnHisOtherAttributes() {
         PlayerAttributes sharpPositioningButWeakElsewhere = new PlayerAttributes(10, 10, 10, 10, 90, 10, 10, 10);
         PlayerAttributes poorPositioningButStrongElsewhere = new PlayerAttributes(90, 90, 90, 90, 10, 90, 90, 90);
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         TeamOnPitch sharp = defendersWith(sharpPositioningButWeakElsewhere);
         TeamOnPitch poor = defendersWith(poorPositioningButStrongElsewhere);
         OffsideRule rule = ruleWith(config, SEED);
@@ -223,7 +223,7 @@ class OffsideRuleTest {
     @ParameterizedTest
     @EnumSource(value = ZoneRole.class, names = {"ATTACKING_THIRD", "OPPONENT_BOX"})
     void aPassArrivingInTheAttackingThirdOrInTheOpponentBoxCanBeOffside(ZoneRole arrivalRole) {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         ActionOutcome pass = passArrivingIn(MatchSide.HOME, arrivalRole, attackers);
 
@@ -235,7 +235,7 @@ class OffsideRuleTest {
     @ParameterizedTest
     @EnumSource(value = ZoneRole.class, names = {"OWN_BOX", "DEFENCE", "MIDFIELD"})
     void aPassArrivingBeforeTheAttackingThirdIsNeverOffside(ZoneRole arrivalRole) {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         ActionOutcome pass = passArrivingIn(MatchSide.HOME, arrivalRole, attackers);
 
@@ -247,7 +247,7 @@ class OffsideRuleTest {
     @ParameterizedTest
     @EnumSource(value = EventType.class, names = {"DRIBBLE_COMPLETED", "INTERCEPTION", "TACKLE", "FOUL"})
     void anOutcomeWhichIsNotACompletedPassIsLeftAsItIs(EventType type) {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         Player player = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Zone arrival = zoneWithRole(MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
@@ -262,7 +262,7 @@ class OffsideRuleTest {
     @ParameterizedTest
     @EnumSource(MatchSide.class)
     void anOffsideGivesTheBallToTheDefendersInTheirDefenceZoneForAnOffsideFreeKick(MatchSide attackingSide) {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         ActionOutcome pass = passArrivingIn(attackingSide, ZoneRole.ATTACKING_THIRD, attackers);
         MatchSide defendingSide = attackingSide.opposite();
@@ -278,8 +278,8 @@ class OffsideRuleTest {
     }
 
     @Test
-    void theOffsidePlayerIsAForwardOfTheAttackersAndThePasserIsTheSecondaryPlayer() {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+    void theOffsidePlayerIsAnOutfieldPlayerOfTheAttackersAndThePasserIsTheSecondaryPlayer() {
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         ActionOutcome pass = passArrivingIn(MatchSide.HOME, ZoneRole.ATTACKING_THIRD, attackers);
         Player passer = pass.participants().primary().orElseThrow();
@@ -287,14 +287,16 @@ class OffsideRuleTest {
         ActionOutcome outcome = rule.callOffsideIfCaught(pass, attackers, defenders);
 
         Player offsidePlayer = outcome.participants().primary().orElseThrow();
-        assertThat(attackers.playersIn(Role.FORWARD)).contains(offsidePlayer);
+        assertThat(attackers.players()).contains(offsidePlayer);
+        assertThat(attackers.roleOf(offsidePlayer)).isNotEqualTo(Role.GOALKEEPER);
+        assertThat(offsidePlayer).isNotEqualTo(passer);
         assertThat(outcome.participants().secondary()).contains(passer);
         assertThat(outcome.participants()).isEqualTo(Participants.of(offsidePlayer, MatchSide.HOME, passer, MatchSide.HOME));
     }
 
     @Test
     void theOffsidePlayerIsNeverThePasserEvenWhenBothBelongToTheArrivalSector() {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         Player passer = attackers.playersIn(Role.FORWARD).getFirst();
         ActionOutcome pass = passFrom(passer, MatchSide.HOME, ZoneRole.OPPONENT_BOX);
@@ -309,7 +311,7 @@ class OffsideRuleTest {
 
     @Test
     void theOffsideKeepsTheDurationOfThePassAndCarriesNoDetail() {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         ActionOutcome pass = passArrivingIn(MatchSide.HOME, ZoneRole.ATTACKING_THIRD, attackers);
 
@@ -322,7 +324,7 @@ class OffsideRuleTest {
     @Test
     void aPassWhichIsNotOffsideIsReturnedUnchanged() {
         OffsideConfig almostNever = new OffsideConfig(0.000001, 0.0);
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(almostNever, SEED);
         ActionOutcome pass = passArrivingIn(MatchSide.HOME, ZoneRole.ATTACKING_THIRD, attackers);
 
@@ -333,7 +335,7 @@ class OffsideRuleTest {
 
     @Test
     void theSameSeedGivesTheSameOffsides() {
-        TeamOnPitch attackers = attackersWithForwardPositioning(40, ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(40, ordinary);
         ActionOutcome pass = passArrivingIn(MatchSide.HOME, ZoneRole.ATTACKING_THIRD, attackers);
 
         List<ActionOutcome> first = callMany(ruleWith(config, SEED), pass, attackers, defenders, 200);
@@ -344,7 +346,7 @@ class OffsideRuleTest {
 
     @Test
     void aCompletedPassWithoutThePasserIsRejected() {
-        TeamOnPitch attackers = attackersWithForwardPositioning(ordinary);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
         OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
         Zone arrival = zoneWithRole(MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         MatchState next = MatchState.openPlay(MatchSide.HOME, arrival);
@@ -392,24 +394,27 @@ class OffsideRuleTest {
                 .orElseThrow();
     }
 
-    private TeamOnPitch attackersWithForwardPositioning(int positioning, PlayerAttributes others) {
-        PlayerAttributes forwards = new PlayerAttributes(others.passing(), others.dribbling(), others.shooting(),
+    private TeamOnPitch attackersWithOutfield(int positioning, PlayerAttributes others) {
+        PlayerAttributes outfield = new PlayerAttributes(others.passing(), others.dribbling(), others.shooting(),
                 others.tackling(), positioning, others.pace(), others.aerial(), others.goalkeeping());
-        return attackersWithForwardPositioning(forwards);
+        return attackersWithOutfield(outfield);
     }
 
-    private TeamOnPitch attackersWithForwardPositioning(PlayerAttributes forwards) {
-        return TeamOnPitch.startingWith(TestTeams.teamWithKeeperAndForwards("Home", ordinary, forwards));
+    private TeamOnPitch attackersWithOutfield(PlayerAttributes outfield) {
+        List<Player> starters = new ArrayList<>();
+        starters.addAll(TestTeams.squad("Home", "S", ordinary, 1, 0, 0, 0));
+        starters.addAll(TestTeams.squad("Home", "S", outfield, 0, 4, 4, 2));
+        return TeamOnPitch.startingWith(TestTeams.teamOf("Home", starters));
     }
 
     private TeamOnPitch defendersWithPositioning(int positioning) {
         return defendersWith(TestTeams.withDuelAttributes(50, 50, 50, positioning));
     }
 
-    private TeamOnPitch defendersWith(PlayerAttributes defenderAttributes) {
+    private TeamOnPitch defendersWith(PlayerAttributes outfieldAttributes) {
         List<Player> starters = new ArrayList<>();
-        starters.addAll(TestTeams.squad("Away", "S", ordinary, 1, 0, 4, 2));
-        starters.addAll(TestTeams.squad("Away", "D", defenderAttributes, 0, 4, 0, 0));
+        starters.addAll(TestTeams.squad("Away", "S", ordinary, 1, 0, 0, 0));
+        starters.addAll(TestTeams.squad("Away", "D", outfieldAttributes, 0, 4, 4, 2));
         return TeamOnPitch.startingWith(TestTeams.teamOf("Away", starters));
     }
 
@@ -434,7 +439,7 @@ class OffsideRuleTest {
 
     private OffsideRule ruleWith(OffsideConfig offsideConfig, long seed) {
         MatchRandom random = new MatchRandom(seed);
-        PlayerPicker picker = new PlayerPicker(random);
+        PlayerPicker picker = TestResolvers.playerPicker(EngineConfig.defaults(), random);
         OutOfPositionPenalty outOfPosition = TestResolvers.outOfPositionPenalty(EngineConfig.defaults());
         return new OffsideRule(offsideConfig, layout, random, picker, outOfPosition);
     }

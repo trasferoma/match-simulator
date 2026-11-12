@@ -26,44 +26,31 @@ lavoro una volta per ognuna.
 
 Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-motore-partita-v1.md`.
 
-## SPEC v1: scelta dei giocatori
+## Reparti per zona: struttura
 
-### Ogni zona coinvolge un solo reparto: pochi nomi dominano la cronaca
-- **Oggi:** `PlayerPicker.sectorOf` lega ogni zona a un solo reparto (area propria e difesa → difensori,
-  centrocampo → centrocampisti, trequarti e area avversaria → attaccanti); dentro il reparto si estrae pesando gli
-  attributi di movimento. Con due attaccanti e due zone d'attacco, gli attaccanti compaiono molto più degli altri:
-  in tre partite intere fra le squadre d'esempio ogni attaccante della squadra di casa compare circa 120 volte, i
-  centrocampisti fra 30 e 50. Nel calcio reale i centrocampisti toccano più palloni e anche in trequarti partecipano
-  centrocampisti e terzini.
-- **Alternative:** per ogni zona un mix di reparti con pesi in configurazione (per esempio trequarti: attaccanti 50%,
-  centrocampisti 40%, difensori 10%); lasciare la regola com'è se la taratura non ne soffre. Il mix cambia le
-  estrazioni (stesso seme, partita diversa) e chiede di ripassare il banco di taratura.
-- **Dal:** 2026-11-11.
+### Le regole del passaggio e del cross ricevono otto collaboratori nel costruttore
+- **Oggi:** `CrossResolver` e `PossessionActionResolver` ricevono anche `ZonePresence` (scelta del crossatore e soglia
+  degli uomini per il passaggio) e salgono a otto parametri nel costruttore; erano già a sette.
+- **Alternative:** `CrossResolver` può chiedere i giocatori presenti a `PlayerPicker`, che ha già `ZonePresence`
+  (scende a sette, ma con un metodo che inoltra soltanto); `PossessionActionResolver` può chiedere gli uomini nella
+  zona a `Matchups`, che riceve `ZonePresence`, oppure ricevere i soli gruppi di configurazione che usa invece di
+  `EngineConfig` intera; lasciare com'è.
+- **Dal:** 2026-11-12.
 
-### Il numero di giocatori in un reparto non cambia la forza del reparto
-- **Priorità: alta.** Secondo l'utente, oggi il modello su questo punto non ha senso: va deciso prima di altre voci.
-- **Oggi:** in ogni zona `PlayerPicker.pickFrom` estrae **un solo** giocatore del reparto e il duello è sempre uno
-  contro uno. La forza di un reparto è quindi la qualità media dei suoi giocatori, non la quantità: un solo difensore
-  da 80 difende come cinque difensori da 80, e meglio di cinque con media 70. Il modulo (5-4-1 o 3-4-3) non ha effetto
-  tattico, e chi compone la squadra ha l'incentivo opposto al calcio reale: mettere in un reparto pochi giocatori, i
-  migliori. Il numero conta solo in tre casi: la penalità per uomo in meno rispetto ai titolari del reparto
-  (`Matchups.inferiorityFactor`), il dribbling forzato quando nel reparto davanti non c'è un compagno
-  (`PossessionActionResolver.hasNoTeammateToPassTo`), il cross negato all'unico attaccante (`CrossResolver`).
-- **Alternative:** la forza del duello dipende anche da quanti giocatori il reparto ha rispetto al reparto avversario
-  che lo fronteggia (superiorità numerica di zona, per esempio un moltiplicatore per ogni uomo in più o in meno);
-  un modulo esplicito nel file squadra con effetti in configurazione; una soglia minima per reparto nelle regole
-  della squadra (attenua l'incentivo, non dà effetto al modulo). Si lega alla voce sopra: con un mix di reparti per
-  zona il conteggio entra già in parte nel calcolo. Cambia le estrazioni e chiede di ripassare il banco di taratura.
-- **Dal:** 2026-11-11.
+### Una soglia del passaggio a zero può far fallire la partita con presenze non di default
+- **Oggi:** la configurazione accetta una soglia degli uomini per il passaggio pari a 0. Con una tabella delle presenze
+  che lascia una zona senza nessun compagno presente, il passaggio parte lo stesso e la scelta di chi riceve
+  (`PlayerPicker.pickOtherThan`) fallisce con un'eccezione. Con le presenze di default non accade.
+- **Alternative:** rifiutare in configurazione una soglia che non sia positiva; non tentare il passaggio quando gli
+  uomini sono 0, qualunque sia la soglia; lasciare com'è, perché l'errore è esplicito e la configurazione non è di
+  default.
+- **Dal:** 2026-11-12.
 
-### Il giocatore del reparto si estrae pesando la qualità: i migliori giocano più palloni
-- **Oggi:** dentro il reparto `PlayerPicker` estrae con peso proporzionale a `PlayerAttributes.movementAverage`,
-  cioè la media di tutti gli attributi tranne `goalkeeping` (non solo la velocità). Il peso è lineare: fra due
-  giocatori con media 80 e 60, il primo gioca circa il 57% dei palloni. Con un giocatore molto più forte degli altri,
-  il reparto finisce per coincidere con lui; per l'utente non ha senso che la qualità decida quanto spesso un
-  giocatore è coinvolto.
-- **Alternative:** estrazione uniforme nel reparto; peso legato al ruolo specifico o alla posizione invece che alla
-  qualità; peso attenuato (per esempio radice della media) se si vuole che i migliori tocchino comunque un po' più
-  palloni. Si decide insieme alla voce sopra, perché oggi è proprio il peso sulla qualità a premiare i reparti
-  corti fatti di soli giocatori forti.
-- **Dal:** 2026-11-11.
+### Il cross da calcio piazzato usa le presenze dell'area, non quelle della zona della battuta
+- **Oggi:** per angolo e punizione crossata il duello del cross e la scelta del difensore usano il ruolo di zona
+  dell'area avversaria, perché lo stato della palla è già in area quando parte il cross. Per il cross in gioco aperto
+  usano la zona dell'azione (trequarti). La specifica dice «zona = quella dell'azione», che per un calcio piazzato non
+  è univoco.
+- **Alternative:** usare per i calci piazzati la zona da cui parte la battuta (trequarti per una punizione, area per
+  l'angolo); lasciare com'è.
+- **Dal:** 2026-11-12.

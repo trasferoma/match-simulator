@@ -17,6 +17,7 @@ public record EngineConfig(
         OffsideConfig offside,
         InjuryConfig injury,
         LineupConfig lineup,
+        ZonePresenceConfig zonePresence,
         double homeAdvantage) {
 
     public EngineConfig {
@@ -32,6 +33,7 @@ public record EngineConfig(
         Objects.requireNonNull(offside, "offside configuration must not be null");
         Objects.requireNonNull(injury, "injury configuration must not be null");
         Objects.requireNonNull(lineup, "lineup configuration must not be null");
+        Objects.requireNonNull(zonePresence, "zone presence configuration must not be null");
         requireProbability("dribble probability", dribbleProbability);
         requireProbability("no-teammate dribble threshold", noTeammateDribbleThreshold);
         requirePositiveAndFinite("home advantage", homeAdvantage);
@@ -54,10 +56,11 @@ public record EngineConfig(
         OffsideConfig offside = OffsideConfig.defaults();
         InjuryConfig injury = InjuryConfig.defaults();
         LineupConfig lineup = LineupConfig.defaults();
+        ZonePresenceConfig zonePresence = ZonePresenceConfig.defaults();
         double homeAdvantage = 1.08;
         return new EngineConfig(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability,
                 noTeammateDribbleThreshold, stoppage, shot, setPiece, cross, counterAttack, playStyles, foul,
-                offside, injury, lineup, homeAdvantage);
+                offside, injury, lineup, zonePresence, homeAdvantage);
     }
 
     private static void requireProbability(String name, double value) {

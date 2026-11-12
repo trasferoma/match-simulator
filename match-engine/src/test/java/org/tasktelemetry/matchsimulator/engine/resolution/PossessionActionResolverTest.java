@@ -40,6 +40,7 @@ class PossessionActionResolverTest {
 
     private static final long SEED = 11L;
     private static final int TRIALS = 20_000;
+    private static final double TOO_MANY_TEAMMATES_REQUIRED = 3.0;
     private static final Set<EventType> COMPLETED = EnumSet.of(EventType.PASS_COMPLETED, EventType.DRIBBLE_COMPLETED);
     private static final Set<EventType> TURNOVERS = EnumSet.of(EventType.INTERCEPTION, EventType.TACKLE);
     private static final Set<EventType> PASS_OUTCOMES = EnumSet.of(EventType.PASS_COMPLETED, EventType.INTERCEPTION);
@@ -127,7 +128,7 @@ class PossessionActionResolverTest {
 
     @ParameterizedTest
     @EnumSource(MatchSide.class)
-    void inTheOpponentBoxACompletedActionIsAShotByAForwardOfTheAttackers(MatchSide side) {
+    void inTheOpponentBoxACompletedActionIsAShotByAnOutfieldPlayerOfTheAttackers(MatchSide side) {
         PitchLayout layout = PitchLayout.standard();
         Zone box = zoneWithRole(layout, side, ZoneRole.OPPONENT_BOX);
         MatchState state = new MatchState(side, box, PlayPhase.BUILD_UP);
@@ -138,7 +139,8 @@ class PossessionActionResolverTest {
                 .toList();
 
         assertThat(shots).isNotEmpty().allSatisfy(outcome ->
-                assertThat(primaryPlayerOf(outcome).role()).isEqualTo(Role.FORWARD));
+                assertThat(primaryPlayerOf(outcome).role()).isNotEqualTo(Role.GOALKEEPER));
+        assertThat(shots).extracting(outcome -> primaryPlayerOf(outcome).role()).contains(Role.FORWARD);
         assertThat(shots).extracting(outcome -> teamOf(side).players().contains(primaryPlayerOf(outcome)))
                 .containsOnly(true);
         assertThat(outcomes).filteredOn(outcome -> COMPLETED.contains(outcome.type())).isEmpty();
@@ -323,7 +325,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(dribbling));
         TeamOnPitch defenders = tacklerTeam(tackling);
 
-        List<ActionOutcome> outcomes = resolveMany(resolverFor(onlyPassChosenByTheDraw(), layout, SEED), state,
+        List<ActionOutcome> outcomes = resolveMany(resolverFor(withTooFewTeammatesToPassTo(), layout, SEED), state,
                 attackers, defenders, 2_000);
 
         assertThat(outcomes).extracting(ActionOutcome::type).doesNotContainAnyElementsOf(PASS_OUTCOMES);
@@ -337,9 +339,9 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         MatchState state = new MatchState(MatchSide.HOME, zoneWithRole(layout, MatchSide.HOME, ZoneRole.MIDFIELD),
                 PlayPhase.BUILD_UP);
         TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(dribbling));
-        TeamOnPitch defenders = tacklerTeam(tackling);
+        TeamOnPitch defenders = withoutForwards(tacklerTeam(tackling));
 
-        List<ActionOutcome> outcomes = resolveMany(resolverFor(onlyPassChosenByTheDraw(), layout, SEED), state,
+        List<ActionOutcome> outcomes = resolveMany(resolverFor(withTooFewTeammatesToPassTo(), layout, SEED), state,
                 attackers, defenders, TRIALS);
 
         assertThat(outcomes).extracting(ActionOutcome::type)
@@ -357,7 +359,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         MatchState state = new MatchState(MatchSide.HOME, midfield, PlayPhase.BUILD_UP);
         TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(dribbling));
         TeamOnPitch defenders = tacklerTeam(tackling);
-        EngineConfig config = onlyPassChosenByTheDraw();
+        EngineConfig config = withTooFewTeammatesToPassTo();
 
         List<ActionOutcome> outcomes = resolveMany(resolverFor(config, layout, SEED), state, attackers, defenders,
                 500);
@@ -365,7 +367,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         assertThat(outcomes).allSatisfy(outcome -> {
             assertThat(outcome.type()).isEqualTo(EventType.BALL_CIRCULATED);
             assertThat(outcome.next()).isEqualTo(state);
-            assertThat(attackers.playersIn(Role.MIDFIELDER)).contains(primaryPlayerOf(outcome));
+            assertThat(attackers.players()).contains(primaryPlayerOf(outcome));
             assertThat(config.buildUpAndMidfieldDuration().contains(outcome.durationSeconds())).isTrue();
         });
     }
@@ -378,7 +380,8 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         TeamOnPitch defenders = tacklerTeam(90);
         Player passer = attackers.playersIn(Role.MIDFIELDER).getFirst();
         MatchState state = new MatchState(MatchSide.HOME, attackingThird, PlayPhase.BUILD_UP).withLastPasser(passer);
-        EngineConfig config = TestConfigs.withoutFouls(distinctRangesConfig());
+        EngineConfig config = TestConfigs.withPassMinimumPlayers(TestConfigs.withoutFouls(distinctRangesConfig()),
+                TOO_MANY_TEAMMATES_REQUIRED);
 
         List<ActionOutcome> circulations = resolveMany(resolverFor(config, layout, SEED), state, attackers,
                 defenders, 2_000).stream()
@@ -389,22 +392,62 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
             assertThat(outcome.next()).isEqualTo(state);
             assertThat(outcome.next().lastPasser()).isEqualTo(passer);
             assertThat(config.attackingThirdDuration().contains(outcome.durationSeconds())).isTrue();
-            assertThat(primaryPlayerOf(outcome)).isEqualTo(attackers.playersIn(Role.FORWARD).getFirst());
+            assertThat(attackers.players()).contains(primaryPlayerOf(outcome));
         });
     }
 
     @Test
-    void theSectorAheadHoldingOnlyTheCarrierCountsAsWithoutTeammates() {
+    void withFewerMenInTheZoneAheadThanTheMinimumNoPassIsAttempted() {
         PitchLayout layout = PitchLayout.standard();
         Zone attackingThird = zoneWithRole(layout, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         MatchState state = new MatchState(MatchSide.HOME, attackingThird, PlayPhase.BUILD_UP);
         TeamOnPitch attackers = teamWithLoneForward(dribblerAttributes(10));
 
-        List<ActionOutcome> outcomes = resolveMany(resolverFor(onlyPassChosenByTheDraw(), layout, SEED), state,
+        List<ActionOutcome> outcomes = resolveMany(resolverFor(withTooFewTeammatesToPassTo(), layout, SEED), state,
                 attackers, tacklerTeam(90), 2_000);
 
         assertThat(outcomes).extracting(ActionOutcome::type).doesNotContainAnyElementsOf(PASS_OUTCOMES);
         assertThat(outcomes).extracting(ActionOutcome::type).contains(EventType.BALL_CIRCULATED);
+    }
+
+    @Test
+    void aFourFourZeroInTheOpponentBoxTriesThePassWithTheDefaultMinimumButNotWithOnePointFive() {
+        PitchLayout layout = PitchLayout.standard();
+        Zone attackingThird = zoneWithRole(layout, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
+        MatchState state = new MatchState(MatchSide.HOME, attackingThird, PlayPhase.BUILD_UP);
+        TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(10));
+        EngineConfig defaultMinimum = onlyPassChosenByTheDraw();
+        EngineConfig onePointFive = TestConfigs.withPassMinimumPlayers(onlyPassChosenByTheDraw(), 1.5);
+
+        List<ActionOutcome> withDefault = resolveMany(resolverFor(defaultMinimum, layout, SEED), state, attackers,
+                tacklerTeam(90), 2_000);
+        List<ActionOutcome> withOnePointFive = resolveMany(resolverFor(onePointFive, layout, SEED), state,
+                attackers, tacklerTeam(90), 2_000);
+
+        assertThat(withDefault).extracting(ActionOutcome::type).contains(EventType.PASS_COMPLETED);
+        assertThat(withDefault).extracting(ActionOutcome::type).doesNotContain(EventType.BALL_CIRCULATED);
+        assertThat(withOnePointFive).extracting(ActionOutcome::type)
+                .doesNotContainAnyElementsOf(PASS_OUTCOMES);
+        assertThat(withOnePointFive).extracting(ActionOutcome::type).contains(EventType.BALL_CIRCULATED);
+    }
+
+    @Test
+    void aTeamWithExactlyTheMinimumOfMenInTheZoneAheadStillTriesThePass() {
+        PitchLayout layout = PitchLayout.standard();
+        MatchState state = new MatchState(MatchSide.HOME, zoneWithRole(layout, MatchSide.HOME, ZoneRole.MIDFIELD),
+                PlayPhase.BUILD_UP);
+        TeamOnPitch attackers = keeperAndMidfieldersOnly(dribblerAttributes(10));
+        EngineConfig exactlyTheMen = TestConfigs.withPassMinimumPlayers(onlyPassChosenByTheDraw(), 1.5);
+        EngineConfig oneManMore = TestConfigs.withPassMinimumPlayers(onlyPassChosenByTheDraw(), 1.6);
+
+        List<ActionOutcome> atTheMinimum = resolveMany(resolverFor(exactlyTheMen, layout, SEED), state, attackers,
+                tacklerTeam(90), 500);
+        List<ActionOutcome> belowTheMinimum = resolveMany(resolverFor(oneManMore, layout, SEED), state, attackers,
+                tacklerTeam(90), 500);
+
+        assertThat(atTheMinimum).extracting(ActionOutcome::type)
+                .containsOnly(EventType.PASS_COMPLETED, EventType.INTERCEPTION);
+        assertThat(belowTheMinimum).extracting(ActionOutcome::type).containsOnly(EventType.BALL_CIRCULATED);
     }
 
     @Test
@@ -442,8 +485,8 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
                 PlayPhase.BUILD_UP);
         TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(90));
         TeamOnPitch defenders = tacklerTeam(10);
-        EngineConfig demanding = TestConfigs.withNoTeammateDribbleThreshold(onlyPassChosenByTheDraw(), 0.95);
-        EngineConfig lenient = TestConfigs.withNoTeammateDribbleThreshold(onlyPassChosenByTheDraw(), 0.85);
+        EngineConfig demanding = TestConfigs.withNoTeammateDribbleThreshold(withTooFewTeammatesToPassTo(), 0.95);
+        EngineConfig lenient = TestConfigs.withNoTeammateDribbleThreshold(withTooFewTeammatesToPassTo(), 0.85);
 
         List<ActionOutcome> underDemanding = resolveMany(resolverFor(demanding, layout, SEED), state, attackers,
                 defenders, 500);
@@ -508,8 +551,8 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
                 PlayPhase.BUILD_UP);
         TeamOnPitch inPosition = teamWithoutForwards(dribblerAttributes(50));
         TeamOnPitch outOfPosition = swapMidfieldersAndDefenders(inPosition);
-        TeamOnPitch defenders = tacklerTeam(50);
-        PossessionActionResolver resolver = resolverFor(onlyPassChosenByTheDraw(), layout, SEED);
+        TeamOnPitch defenders = withoutForwards(tacklerTeam(50));
+        PossessionActionResolver resolver = resolverFor(withTooFewTeammatesToPassTo(), layout, SEED);
 
         List<ActionOutcome> asInPosition = resolveMany(resolver, state, inPosition, defenders, 300);
         List<ActionOutcome> asOutOfPosition = resolveMany(resolver, state, outOfPosition, defenders, 300);
@@ -520,15 +563,15 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
     }
 
     @Test
-    void theMenMissingInTheSectorOfTheCarrierWeighLessInTheDribbleThresholdAndTheTeamCirculatesTheBall() {
+    void aMidfielderLessInTheZoneOfTheCarrierWeighsLessInTheDribbleThresholdAndTheTeamCirculatesTheBall() {
         PitchLayout layout = PitchLayout.standard();
         MatchState state = new MatchState(MatchSide.HOME, zoneWithRole(layout, MatchSide.HOME, ZoneRole.MIDFIELD),
                 PlayPhase.BUILD_UP);
         TeamOnPitch complete = teamWithoutForwards(dribblerAttributes(50));
         Player missing = complete.playersIn(Role.MIDFIELDER).getFirst();
         TeamOnPitch oneMidfielderDown = complete.withoutPlayer(missing);
-        TeamOnPitch defenders = tacklerTeam(50);
-        PossessionActionResolver resolver = resolverFor(onlyPassChosenByTheDraw(), layout, SEED);
+        TeamOnPitch defenders = withoutForwards(tacklerTeam(50));
+        PossessionActionResolver resolver = resolverFor(withTooFewTeammatesToPassTo(), layout, SEED);
 
         List<ActionOutcome> withAll = resolveMany(resolver, state, complete, defenders, 300);
         List<ActionOutcome> withOneDown = resolveMany(resolver, state, oneMidfielderDown, defenders, 300);
@@ -539,15 +582,15 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
     }
 
     @Test
-    void theMenMissingInTheSectorOfTheOpponentWeighInTheDribbleThresholdInFavourOfTheCarrier() {
+    void aMidfielderLessInTheZoneOfTheOpponentWeighsInTheDribbleThresholdInFavourOfTheCarrier() {
         PitchLayout layout = PitchLayout.standard();
         MatchState state = new MatchState(MatchSide.HOME, zoneWithRole(layout, MatchSide.HOME, ZoneRole.MIDFIELD),
                 PlayPhase.BUILD_UP);
         TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(47));
-        TeamOnPitch completeDefenders = tacklerTeam(50);
+        TeamOnPitch completeDefenders = withoutForwards(tacklerTeam(50));
         Player missing = completeDefenders.playersIn(Role.MIDFIELDER).getFirst();
         TeamOnPitch defendersOneDown = completeDefenders.withoutPlayer(missing);
-        PossessionActionResolver resolver = resolverFor(onlyPassChosenByTheDraw(), layout, SEED);
+        PossessionActionResolver resolver = resolverFor(withTooFewTeammatesToPassTo(), layout, SEED);
 
         List<ActionOutcome> againstAll = resolveMany(resolver, state, attackers, completeDefenders, 300);
         List<ActionOutcome> againstOneDown = resolveMany(resolver, state, attackers, defendersOneDown, 300);
@@ -568,6 +611,10 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
         return swapped;
     }
 
+    private EngineConfig withTooFewTeammatesToPassTo() {
+        return TestConfigs.withPassMinimumPlayers(onlyPassChosenByTheDraw(), TOO_MANY_TEAMMATES_REQUIRED);
+    }
+
     private EngineConfig onlyPassChosenByTheDraw() {
         return TestConfigs.withoutFouls(withDribbleProbability(0.0));
     }
@@ -582,11 +629,23 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
     }
 
     private TeamOnPitch teamWithoutForwards(PlayerAttributes attributes) {
-        TeamOnPitch complete = TeamOnPitch.startingWith(teamWith("Short", attributes));
+        return withoutForwards(TeamOnPitch.startingWith(teamWith("Short", attributes)));
+    }
+
+    private TeamOnPitch withoutForwards(TeamOnPitch complete) {
         List<Player> withoutForwards = complete.players().stream()
                 .filter(player -> complete.roleOf(player) != Role.FORWARD)
                 .toList();
         return new TeamOnPitch(complete.team(), withoutForwards);
+    }
+
+    private TeamOnPitch keeperAndMidfieldersOnly(PlayerAttributes attributes) {
+        TeamOnPitch complete = TeamOnPitch.startingWith(teamWith("Midfield", attributes));
+        List<Player> keeperAndMidfielders = complete.players().stream()
+                .filter(player -> complete.roleOf(player) != Role.DEFENDER)
+                .filter(player -> complete.roleOf(player) != Role.FORWARD)
+                .toList();
+        return new TeamOnPitch(complete.team(), keeperAndMidfielders);
     }
 
     private TeamOnPitch teamWithLoneForward(PlayerAttributes attributes) {
@@ -642,7 +701,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
                 dribbleProbability, defaults.noTeammateDribbleThreshold(), defaults.stoppage(), defaults.shot(),
                 defaults.setPiece(),
                 defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(), defaults.injury(),
-                defaults.lineup(), defaults.homeAdvantage());
+                defaults.lineup(), defaults.zonePresence(), defaults.homeAdvantage());
     }
 
     private TeamOnPitch teamOf(MatchSide side) {
@@ -668,7 +727,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
                 defaults.stoppage(),
                 defaults.shot(),
                 defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(), defaults.injury(),
-                defaults.lineup(),
+                defaults.lineup(), defaults.zonePresence(),
                 defaults.homeAdvantage());
     }
 
