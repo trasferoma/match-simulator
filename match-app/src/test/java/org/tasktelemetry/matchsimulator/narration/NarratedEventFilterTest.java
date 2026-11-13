@@ -91,6 +91,17 @@ class NarratedEventFilterTest {
     }
 
     @Test
+    void aFoulFollowedByACardForANamesakeOfTheOtherSideIsNotNarratedWhileTheCardIs() {
+        fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD, NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD),
+                EventDetail.foul(FoulSeverity.LIGHT, false));
+        Participants namesakeOfTheFouler = Participants.of(AWAY_DEFENDER, MatchSide.HOME);
+        MatchEvent card = fixture.add(EventType.YELLOW_CARD, MatchSide.HOME, ZoneRole.MIDFIELD, namesakeOfTheFouler,
+                NO_DETAIL);
+
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(card);
+    }
+
+    @Test
     void aFoulWithAPenaltyIsNarratedEvenWithoutACard() {
         MatchEvent foul = fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
                 NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD), EventDetail.foul(FoulSeverity.HARD, true));

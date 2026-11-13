@@ -6,6 +6,8 @@ import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Files;
 import java.nio.file.Path;
+import java.time.Duration;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -25,6 +27,12 @@ class MatchCommandLineTest {
     private static final Pattern SCORED_GOAL_ROW =
             Pattern.compile("(?m)^(\\d+(?:\\+\\d+)?' .+) \\((Atletico Mare|Sporting Collina)\\)$");
     private static final String SCOREBOARD_TITLE = "Tabellino";
+    private static final String NL = System.lineSeparator();
+    private static final String CURSOR_UP = "\u001B[1A";
+    private static final Pattern REDRAW_CARRIAGE_RETURN = Pattern.compile("\r(?!\n)");
+    private static final Duration LAST_STOP_LINE_PAUSE = Duration.ofMillis(1000);
+    private static final String INCOMPATIBLE_TEXT =
+            "l'opzione --highlights non si combina con --full né con --stepByStep";
     private static final String ENTER_KEYS = "\n".repeat(5000);
     private static final int MATCHES_CHECKED_FOR_GOALS = 8;
     private static final byte UTF8_TWO_BYTE_LEAD = (byte) 0xC3;
@@ -69,6 +77,36 @@ class MatchCommandLineTest {
         assertThat(output).containsPattern(ACCENTED_LETTER);
         assertThat(output.getBytes(StandardCharsets.UTF_8)).isEqualTo(run.outBytes());
         assertThat(run.outBytes()).contains(UTF8_TWO_BYTE_LEAD);
+    }
+
+    @Test
+    void onAnInteractiveTerminalTheOutputUsesTheCharsetOfTheConsole() {
+        CliRun run = CliRun.withConsoleCharset(true, StandardCharsets.ISO_8859_1, home, away, "--seed", "42");
+
+        String output = new String(run.outBytes(), StandardCharsets.ISO_8859_1);
+        assertThat(run.exitCode()).isZero();
+        assertThat(output).containsPattern(ACCENTED_LETTER).contains("Atletico Mare");
+        assertThat(run.outBytes()).doesNotContain(UTF8_TWO_BYTE_LEAD);
+    }
+
+    @Test
+    void onAnInteractiveTerminalTheErrorsUseTheCharsetOfTheConsole() {
+        CliRun run = CliRun.withConsoleCharset(true, StandardCharsets.ISO_8859_1, home, away, "--animate");
+
+        String error = new String(run.errBytes(), StandardCharsets.ISO_8859_1);
+        assertThat(run.exitCode()).isEqualTo(2);
+        assertThat(error).contains("l'opzione --animate si usa solo insieme a --highlights");
+        assertThat(run.errBytes()).doesNotContain(UTF8_TWO_BYTE_LEAD);
+    }
+
+    @Test
+    void withoutAnInteractiveTerminalTheOutputStaysUtf8WhateverTheConsoleCharset() {
+        CliRun withLatinConsole =
+                CliRun.withConsoleCharset(false, StandardCharsets.ISO_8859_1, home, away, "--seed", "42");
+        CliRun plain = CliRun.of(home, away, "--seed", "42");
+
+        assertThat(withLatinConsole.outBytes()).isEqualTo(plain.outBytes());
+        assertThat(withLatinConsole.outBytes()).contains(UTF8_TWO_BYTE_LEAD);
     }
 
     @Test
@@ -322,6 +360,157 @@ class MatchCommandLineTest {
 
         assertThat(run.outBytes()).isEmpty();
         assertThat(run.errBytes()).isNotEmpty();
+    }
+
+    @Test
+    void highlightsWithoutATerminalPrintOnlyTheStopsWithoutCarriageReturnsOrPauses() {
+        List<Duration> pauses = new ArrayList<>();
+
+        CliRun run = CliRun.withTerminal(false, pauses::add, home, away, "--seed", "42", "--highlights");
+
+        assertThat(run.exitCode()).isZero();
+        assertThat(run.err()).isEmpty();
+        assertThat(pauses).isEmpty();
+        assertThat(run.out()).doesNotContainPattern(REDRAW_CARRIAGE_RETURN)
+                .contains(SCOREBOARD_TITLE)
+                .contains("Seme: 42");
+        assertThat(linesBeforeTheScoreboard(run).getFirst()).startsWith("    ").endsWith("(0 - 0) 0'");
+        assertThat(chronicleOf(run)).contains(NL + NL).doesNotContain(NL + NL + NL);
+    }
+
+    @Test
+    void highlightsOnATerminalRedrawTheTwoRowsPauseAndEndTheChronicleWithoutResuming() {
+        List<Duration> pauses = new ArrayList<>();
+
+        CliRun run = CliRun.withTerminal(true, pauses::add, home, away, "--seed", "42", "--highlights");
+
+        assertThat(run.exitCode()).isZero();
+        assertThat(run.err()).isEmpty();
+        assertThat(run.out()).containsPattern(REDRAW_CARRIAGE_RETURN)
+                .contains("\u001B[1A")
+                .contains(SCOREBOARD_TITLE)
+                .contains("Seme: 42");
+        assertThat(pauses).isNotEmpty();
+        assertThat(pauses.getLast()).isEqualTo(LAST_STOP_LINE_PAUSE);
+    }
+
+    @Test
+    void highlightsHaveExactlyOneBlankLineBetweenTheLastChronicleLineAndTheScoreboard() {
+        for (boolean interactiveTerminal : List.of(false, true)) {
+            for (int seed = 1; seed <= MATCHES_CHECKED_FOR_GOALS; seed++) {
+                CliRun run = CliRun.withTerminal(interactiveTerminal, duration -> { }, home, away, "--seed",
+                        String.valueOf(seed), "--highlights");
+
+                assertThat(chronicleOf(run)).as("terminal %s, seed %d", interactiveTerminal, seed)
+                        .endsWith(NL + NL)
+                        .doesNotEndWith(NL + NL + NL);
+            }
+        }
+    }
+
+    @Test
+    void highlightsWithTheSameSeedGiveTheSameBytesWithAndWithoutATerminalEvenWithDifferentPauses() {
+        List<Duration> pauses = new ArrayList<>();
+        for (boolean interactiveTerminal : List.of(false, true)) {
+            CliRun first = CliRun.withTerminal(interactiveTerminal, pauses::add, home, away, "--seed", "42",
+                    "--highlights");
+            CliRun second = CliRun.withTerminal(interactiveTerminal, duration -> { }, "--highlights", home, away,
+                    "--seed", "42");
+
+            assertThat(second.outBytes()).as("terminal %s", interactiveTerminal).isEqualTo(first.outBytes());
+        }
+    }
+
+    @Test
+    void highlightsWithAndWithoutATerminalShowTheChronicleDifferentlyAndPrintTheSameScoreboard() {
+        CliRun terminal = CliRun.withTerminal(true, duration -> { }, home, away, "--seed", "42", "--highlights");
+        CliRun plain = CliRun.withTerminal(false, duration -> { }, home, away, "--seed", "42", "--highlights");
+
+        assertThat(scoreboardOf(terminal)).isEqualTo(scoreboardOf(plain));
+        assertThat(terminal.outBytes()).isNotEqualTo(plain.outBytes());
+    }
+
+    @Test
+    void highlightsLeaveTheDefaultModeUnchangedAndShareItsScoreboard() {
+        CliRun defaultBefore = CliRun.of(home, away, "--seed", "42");
+        CliRun highlights = CliRun.withTerminal(false, duration -> { }, home, away, "--seed", "42", "--highlights");
+        CliRun defaultAfter = CliRun.of(home, away, "--seed", "42");
+
+        assertThat(highlights.outBytes()).isNotEqualTo(defaultBefore.outBytes());
+        assertThat(defaultAfter.outBytes()).isEqualTo(defaultBefore.outBytes());
+        assertThat(scoreboardOf(highlights)).isEqualTo(scoreboardOf(defaultBefore));
+    }
+
+    @Test
+    void highlightsTogetherWithFullPrintTheUsageOnStderrAndSimulateNothing() {
+        assertUsageError(CliRun.of(home, away, "--highlights", "--full"), INCOMPATIBLE_TEXT);
+    }
+
+    @Test
+    void highlightsTogetherWithStepByStepPrintTheUsageOnStderrAndSimulateNothing() {
+        assertUsageError(CliRun.of(home, away, "--stepByStep", "--highlights"), INCOMPATIBLE_TEXT);
+    }
+
+    @Test
+    void aRepeatedHighlightsOptionPrintsTheUsageOnStderrAndSimulatesNothing() {
+        assertUsageError(CliRun.of(home, away, "--highlights", "--highlights"),
+                "l'opzione --highlights è indicata più di una volta");
+    }
+
+    @Test
+    void animateForcesTheAnimationAndThePausesEvenWithoutATerminal() {
+        List<Duration> pauses = new ArrayList<>();
+
+        CliRun run = CliRun.withTerminal(false, pauses::add, home, away, "--seed", "42", "--highlights",
+                "--animate");
+
+        assertThat(run.exitCode()).isZero();
+        assertThat(run.err()).isEmpty();
+        assertThat(run.out()).containsPattern(REDRAW_CARRIAGE_RETURN).contains(SCOREBOARD_TITLE);
+        assertThat(run.out()).doesNotContain(CURSOR_UP);
+        assertThat(pauses).isNotEmpty();
+    }
+
+    @Test
+    void animateWithoutATerminalUsesASingleRowWhileATerminalUsesTwoRows() {
+        CliRun forced = CliRun.withTerminal(false, duration -> { }, home, away, "--seed", "42", "--animate",
+                "--highlights");
+        CliRun terminal = CliRun.withTerminal(true, duration -> { }, home, away, "--seed", "42", "--highlights");
+
+        assertThat(forced.out()).doesNotContain(CURSOR_UP);
+        assertThat(terminal.out()).contains(CURSOR_UP);
+        assertThat(forced.outBytes()).isNotEqualTo(terminal.outBytes());
+    }
+
+    @Test
+    void animateWithoutHighlightsPrintsTheUsageOnStderrAndSimulatesNothing() {
+        assertUsageError(CliRun.of(home, away, "--animate"),
+                "l'opzione --animate si usa solo insieme a --highlights");
+    }
+
+    @Test
+    void aRepeatedAnimateOptionPrintsTheUsageOnStderrAndSimulatesNothing() {
+        assertUsageError(CliRun.of(home, away, "--highlights", "--animate", "--animate"),
+                "l'opzione --animate è indicata più di una volta");
+    }
+
+    @Test
+    void theUsageMentionsTheAnimateOption() {
+        CliRun run = CliRun.of();
+
+        assertThat(run.err()).contains("[--highlights] [--animate]");
+    }
+
+    @Test
+    void theUsageMentionsTheHighlightsOption() {
+        CliRun run = CliRun.of();
+
+        assertThat(run.err()).contains("[--highlights]");
+    }
+
+    private String chronicleOf(CliRun run) {
+        String output = run.out();
+        return output.substring(0, output.indexOf(SCOREBOARD_TITLE));
     }
 
     private List<String> chronicleLinesOf(CliRun run) {

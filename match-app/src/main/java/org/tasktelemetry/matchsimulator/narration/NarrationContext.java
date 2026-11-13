@@ -21,11 +21,13 @@ public final class NarrationContext {
     private final List<MatchEvent> events;
     private final TeamNames teamNames;
     private final Map<Integer, Score> scoreAfterEvent;
+    private final Map<Integer, MatchEvent> previousEventByOrder;
 
     public NarrationContext(List<MatchEvent> events, TeamNames teamNames) {
         this.events = List.copyOf(events);
         this.teamNames = teamNames;
         this.scoreAfterEvent = accumulateScoreAfterEachEvent(this.events);
+        this.previousEventByOrder = indexPreviousEvents(this.events);
     }
 
     public TeamNames teamNames() {
@@ -35,6 +37,11 @@ public final class NarrationContext {
     public Score scoreAfter(MatchEvent event) {
         Score score = scoreAfterEvent.get(event.order());
         return Objects.requireNonNull(score, "the event must belong to the match: " + event);
+    }
+
+    public Optional<MatchEvent> previousOf(MatchEvent event) {
+        MatchEvent previous = previousEventByOrder.get(event.order());
+        return Optional.ofNullable(previous);
     }
 
     public Optional<GoalHighlight> highlightOf(MatchEvent event) {
@@ -85,5 +92,15 @@ public final class NarrationContext {
             scores.put(event.order(), score);
         }
         return Map.copyOf(scores);
+    }
+
+    private static Map<Integer, MatchEvent> indexPreviousEvents(List<MatchEvent> events) {
+        Map<Integer, MatchEvent> previousByOrder = new HashMap<>();
+        for (int position = 1; position < events.size(); position++) {
+            MatchEvent previous = events.get(position - 1);
+            MatchEvent event = events.get(position);
+            previousByOrder.put(event.order(), previous);
+        }
+        return Map.copyOf(previousByOrder);
     }
 }

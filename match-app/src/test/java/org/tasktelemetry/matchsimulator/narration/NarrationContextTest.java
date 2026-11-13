@@ -106,6 +106,18 @@ class NarrationContextTest {
         assertThat(context.scoreAfter(awayGoal)).isEqualTo(new Score(1, 1));
     }
 
+    @Test
+    void thePreviousEventIsTheOneImmediatelyBeforeInTheWholeListAndTheFirstHasNone() {
+        MatchEvent kickOff = fixture.add(EventType.KICK_OFF, MatchSide.HOME, HOME_FORWARD);
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        MatchEvent tackle = fixture.add(EventType.TACKLE, MatchSide.AWAY, AWAY_FORWARD);
+        NarrationContext context = contextOfTheMatch();
+
+        assertThat(context.previousOf(kickOff)).isEmpty();
+        assertThat(context.previousOf(pass)).contains(kickOff);
+        assertThat(context.previousOf(tackle)).contains(pass);
+    }
+
     private NarrationContext contextOfTheMatch() {
         return new NarrationContext(fixture.list(), NarrationEvents.TEAM_NAMES);
     }

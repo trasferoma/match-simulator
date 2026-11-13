@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.cli;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.io.PrintStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.function.LongSupplier;
@@ -10,6 +11,8 @@ import java.util.random.RandomGenerator;
 
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
+import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfig;
+import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfigReader;
 import org.tasktelemetry.matchsimulator.teamfile.InvalidTeamFileException;
 import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
 
@@ -19,20 +22,20 @@ public final class MatchCommandLine {
     static final int EXIT_INVALID_TEAM_FILE = 1;
     static final int EXIT_USAGE_ERROR = 2;
 
-    private final PrintStream err;
-    private final UserMessages messages;
+    private final ErrorReporter errorReporter;
     private final TeamFileReader reader;
     private final MatchRunner runner;
     private final MatchPrinter printer;
+    private final HighlightsPrinter highlightsPrinter;
     private final LongSupplier seedSource;
 
-    MatchCommandLine(PrintStream err, UserMessages messages, TeamFileReader reader, MatchRunner runner,
-            MatchPrinter printer, LongSupplier seedSource) {
-        this.err = err;
-        this.messages = messages;
+    MatchCommandLine(ErrorReporter errorReporter, TeamFileReader reader, MatchRunner runner,
+            MatchPrinter printer, HighlightsPrinter highlightsPrinter, LongSupplier seedSource) {
+        this.errorReporter = errorReporter;
         this.reader = reader;
         this.runner = runner;
         this.printer = printer;
+        this.highlightsPrinter = highlightsPrinter;
         this.seedSource = seedSource;
     }
 
@@ -43,16 +46,30 @@ public final class MatchCommandLine {
     }
 
     static MatchCommandLine standard(InputStream in, OutputStream out, OutputStream err) {
-        PrintStream utf8Out = utf8(out);
-        PrintStream utf8Err = utf8(err);
+        Pause pause = new ThreadSleepPause();
+        TerminalDetector terminalDetector = new TerminalDetector();
+        boolean interactiveTerminal = terminalDetector.isInteractiveTerminal();
+        Charset consoleCharset = terminalDetector.consoleCharset();
+        return standard(in, out, err, pause, interactiveTerminal, consoleCharset);
+    }
+
+    static MatchCommandLine standard(InputStream in, OutputStream out, OutputStream err, Pause pause,
+            boolean interactiveTerminal, Charset consoleCharset) {
+        Charset outputCharset = interactiveTerminal ? consoleCharset : StandardCharsets.UTF_8;
+        PrintStream encodedOut = encoded(out, outputCharset);
+        PrintStream encodedErr = encoded(err, outputCharset);
         UserMessages messages = UserMessages.italian();
         TeamFileReader reader = TeamFileReader.italian();
-        MatchRunner runner = MatchRunner.standard();
+        HighlightsConfig highlightsConfig = new HighlightsConfigReader().readDefault();
+        MatchRunner runner = MatchRunner.standard(highlightsConfig);
         EnterKeyReader enterKeyReader = EnterKeyReader.standard(in);
-        MatchPrinter printer = new MatchPrinter(messages, utf8Out, enterKeyReader);
+        MatchPrinter printer = new MatchPrinter(messages, encodedOut, enterKeyReader);
+        HighlightsPrinter highlightsPrinter =
+                new HighlightsPrinter(encodedOut, pause, highlightsConfig, printer, interactiveTerminal);
         RandomGenerator random = RandomGenerator.getDefault();
         LongSupplier seedSource = random::nextLong;
-        return new MatchCommandLine(utf8Err, messages, reader, runner, printer, seedSource);
+        ErrorReporter errorReporter = new ErrorReporter(encodedErr, messages);
+        return new MatchCommandLine(errorReporter, reader, runner, printer, highlightsPrinter, seedSource);
     }
 
     int run(String... arguments) {
@@ -71,12 +88,29 @@ public final class MatchCommandLine {
         Team home = reader.read(arguments.homeFile());
         Team away = reader.read(arguments.awayFile());
         long seed = arguments.seed().orElseGet(seedSource::getAsLong);
-        MatchReport report = runner.play(home, away, seed, arguments.chronicleMode());
-        printReport(report, arguments);
+        if (arguments.highlights()) {
+            playAndPrintHighlights(home, away, seed, arguments);
+        } else {
+            playAndPrintChronicle(home, away, seed, arguments);
+        }
         return EXIT_SUCCESS;
     }
 
-    private void printReport(MatchReport report, CommandLineArguments arguments) {
+    private void playAndPrintHighlights(Team home, Team away, long seed, CommandLineArguments arguments) {
+        HighlightsReport report = runner.playHighlights(home, away, seed);
+        if (arguments.animate()) {
+            highlightsPrinter.printAnimated(report);
+            return;
+        }
+        highlightsPrinter.print(report);
+    }
+
+    private void playAndPrintChronicle(Team home, Team away, long seed, CommandLineArguments arguments) {
+        MatchReport report = runner.play(home, away, seed, arguments.chronicleMode());
+        printChronicle(report, arguments);
+    }
+
+    private void printChronicle(MatchReport report, CommandLineArguments arguments) {
         if (arguments.stepByStep()) {
             printer.printStepByStep(report);
             return;
@@ -85,29 +119,16 @@ public final class MatchCommandLine {
     }
 
     private int reportUsageError(InvalidCommandLineException exception) {
-        String reason = messages.text(exception.problem(), exception.arguments());
-        printError(reason);
-        printUsage();
+        errorReporter.reportUsageError(exception);
         return EXIT_USAGE_ERROR;
     }
 
     private int reportInvalidTeamFile(InvalidTeamFileException exception) {
-        String reason = exception.getMessage();
-        printError(reason);
+        errorReporter.reportInvalidTeamFile(exception);
         return EXIT_INVALID_TEAM_FILE;
     }
 
-    private void printError(String reason) {
-        String line = messages.text(CliText.ERROR, reason);
-        err.println(line);
-    }
-
-    private void printUsage() {
-        String line = messages.text(CliText.USAGE);
-        err.println(line);
-    }
-
-    private static PrintStream utf8(OutputStream stream) {
-        return new PrintStream(stream, true, StandardCharsets.UTF_8);
+    private static PrintStream encoded(OutputStream stream, Charset charset) {
+        return new PrintStream(stream, true, charset);
     }
 }

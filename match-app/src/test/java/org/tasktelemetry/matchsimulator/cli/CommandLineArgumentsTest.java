@@ -133,6 +133,80 @@ class CommandLineArgumentsTest {
         assertThat(combined.seed()).contains(9L);
     }
 
+    @Test
+    void withoutTheHighlightsOptionTheChronicleIsNotInHighlightsMode() {
+        CommandLineArguments arguments = CommandLineArguments.parse(List.of("a.json", "b.json", "--full"));
+
+        assertThat(arguments.highlights()).isFalse();
+    }
+
+    @Test
+    void theHighlightsOptionWorksInAnyPositionAndTogetherWithTheSeed() {
+        CommandLineArguments before = CommandLineArguments.parse(List.of("--highlights", "a.json", "b.json"));
+        CommandLineArguments between = CommandLineArguments.parse(List.of("a.json", "--highlights", "b.json"));
+        CommandLineArguments after = CommandLineArguments.parse(List.of("a.json", "b.json", "--highlights"));
+        CommandLineArguments combined = CommandLineArguments.parse(
+                List.of("--seed", "9", "a.json", "--highlights", "b.json"));
+
+        assertThat(before.highlights()).isTrue();
+        assertThat(between.highlights()).isTrue();
+        assertThat(after.highlights()).isTrue();
+        assertThat(between.homeFile()).isEqualTo(Path.of("a.json"));
+        assertThat(between.awayFile()).isEqualTo(Path.of("b.json"));
+        assertThat(combined.highlights()).isTrue();
+        assertThat(combined.seed()).contains(9L);
+    }
+
+    @Test
+    void aRepeatedHighlightsOptionIsRefused() {
+        assertProblem(List.of("a.json", "--highlights", "b.json", "--highlights"),
+                CommandLineProblem.DUPLICATE_OPTION, "--highlights");
+    }
+
+    @Test
+    void theHighlightsOptionTogetherWithFullIsRefused() {
+        assertProblem(List.of("a.json", "b.json", "--highlights", "--full"), CommandLineProblem.INCOMPATIBLE_OPTIONS);
+    }
+
+    @Test
+    void theHighlightsOptionTogetherWithStepByStepIsRefused() {
+        assertProblem(List.of("--stepByStep", "a.json", "b.json", "--highlights"),
+                CommandLineProblem.INCOMPATIBLE_OPTIONS);
+    }
+
+    @Test
+    void withoutTheAnimateOptionTheAnimationIsNotForced() {
+        CommandLineArguments arguments = CommandLineArguments.parse(List.of("a.json", "b.json", "--highlights"));
+
+        assertThat(arguments.animate()).isFalse();
+    }
+
+    @Test
+    void theAnimateOptionWorksInAnyPositionTogetherWithHighlights() {
+        CommandLineArguments before = CommandLineArguments.parse(
+                List.of("--animate", "a.json", "b.json", "--highlights"));
+        CommandLineArguments between = CommandLineArguments.parse(
+                List.of("a.json", "--highlights", "--animate", "b.json"));
+        CommandLineArguments after = CommandLineArguments.parse(
+                List.of("--highlights", "a.json", "b.json", "--animate"));
+
+        assertThat(before.animate()).isTrue();
+        assertThat(between.animate()).isTrue();
+        assertThat(after.animate()).isTrue();
+        assertThat(between.highlights()).isTrue();
+    }
+
+    @Test
+    void aRepeatedAnimateOptionIsRefused() {
+        assertProblem(List.of("a.json", "--highlights", "--animate", "b.json", "--animate"),
+                CommandLineProblem.DUPLICATE_OPTION, "--animate");
+    }
+
+    @Test
+    void theAnimateOptionWithoutHighlightsIsRefused() {
+        assertProblem(List.of("a.json", "b.json", "--animate"), CommandLineProblem.ANIMATE_WITHOUT_HIGHLIGHTS);
+    }
+
     private void assertProblem(List<String> arguments, CommandLineProblem problem, Object... problemArguments) {
         assertThatThrownBy(() -> CommandLineArguments.parse(arguments))
                 .isInstanceOfSatisfying(InvalidCommandLineException.class, exception -> {

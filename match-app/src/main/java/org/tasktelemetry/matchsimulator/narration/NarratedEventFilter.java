@@ -48,15 +48,15 @@ public final class NarratedEventFilter {
         return IntStream.range(0, events.size())
                 .filter(index -> isShot(events, index))
                 .boxed()
-                .flatMap(shotIndex -> findEventsPreparing(events, shotIndex).stream())
+                .flatMap(shotIndex -> findEventsPreparing(events, shotIndex, MAX_EVENTS_PREPARING_A_SHOT).stream())
                 .collect(Collectors.toSet());
     }
 
-    private List<Integer> findEventsPreparing(List<MatchEvent> events, int shotIndex) {
+    public List<Integer> findEventsPreparing(List<MatchEvent> events, int shotIndex, int maxEvents) {
         MatchSide shootingSide = actingSideAt(events, shotIndex);
-        return IntStream.rangeClosed(1, MAX_EVENTS_PREPARING_A_SHOT)
+        return IntStream.rangeClosed(1, maxEvents)
                 .map(distance -> shotIndex - distance)
-                .takeWhile(index -> index >= 0 && !isKickOff(events, index)
+                .takeWhile(index -> index >= 0 && !isKickOff(events.get(index))
                         && actingSideAt(events, index) == shootingSide)
                 .boxed()
                 .toList();
@@ -67,8 +67,7 @@ public final class NarratedEventFilter {
         return SHOT_TYPES.contains(event.type());
     }
 
-    private boolean isKickOff(List<MatchEvent> events, int index) {
-        MatchEvent event = events.get(index);
+    public boolean isKickOff(MatchEvent event) {
         return KICK_OFF_TYPES.contains(event.type());
     }
 
@@ -110,11 +109,11 @@ public final class NarratedEventFilter {
         return awardsPenalty(event) || isFollowedByCardForTheSamePlayer(events, index);
     }
 
-    private boolean awardsPenalty(MatchEvent foul) {
+    public boolean awardsPenalty(MatchEvent foul) {
         return foul.detail() instanceof EventDetail.Foul detail && detail.penalty();
     }
 
-    private boolean isFollowedByCardForTheSamePlayer(List<MatchEvent> events, int foulIndex) {
+    public boolean isFollowedByCardForTheSamePlayer(List<MatchEvent> events, int foulIndex) {
         int nextIndex = foulIndex + 1;
         if (nextIndex >= events.size()) {
             return false;
@@ -122,7 +121,8 @@ public final class NarratedEventFilter {
         MatchEvent foul = events.get(foulIndex);
         MatchEvent next = events.get(nextIndex);
         boolean isCard = next.type().isCard();
-        boolean isForTheFouler = next.participants().primary().equals(foul.participants().primary());
-        return isCard && isForTheFouler;
+        boolean isSamePlayer = next.participants().primary().equals(foul.participants().primary());
+        boolean isSameSide = next.participants().primarySide().equals(foul.participants().primarySide());
+        return isCard && isSamePlayer && isSameSide;
     }
 }

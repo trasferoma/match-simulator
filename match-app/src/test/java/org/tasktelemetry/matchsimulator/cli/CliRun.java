@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.cli;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.InputStream;
+import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 
@@ -21,6 +22,25 @@ record CliRun(int exitCode, byte[] outBytes, byte[] errBytes) {
         ByteArrayOutputStream out = new ByteArrayOutputStream();
         ByteArrayOutputStream err = new ByteArrayOutputStream();
         MatchCommandLine commandLine = MatchCommandLine.standard(in, out, err);
+        int exitCode = commandLine.run(arguments);
+        return new CliRun(exitCode, out.toByteArray(), err.toByteArray());
+    }
+
+    static CliRun withTerminal(boolean interactiveTerminal, Pause pause, String... arguments) {
+        return withTerminal(interactiveTerminal, StandardCharsets.UTF_8, pause, arguments);
+    }
+
+    static CliRun withConsoleCharset(boolean interactiveTerminal, Charset consoleCharset, String... arguments) {
+        return withTerminal(interactiveTerminal, consoleCharset, duration -> { }, arguments);
+    }
+
+    private static CliRun withTerminal(boolean interactiveTerminal, Charset consoleCharset, Pause pause,
+            String... arguments) {
+        InputStream in = new ByteArrayInputStream(new byte[0]);
+        ByteArrayOutputStream out = new ByteArrayOutputStream();
+        ByteArrayOutputStream err = new ByteArrayOutputStream();
+        MatchCommandLine commandLine = MatchCommandLine.standard(in, out, err, pause, interactiveTerminal,
+                consoleCharset);
         int exitCode = commandLine.run(arguments);
         return new CliRun(exitCode, out.toByteArray(), err.toByteArray());
     }

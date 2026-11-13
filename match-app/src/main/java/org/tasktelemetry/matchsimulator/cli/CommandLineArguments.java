@@ -14,6 +14,8 @@ final class CommandLineArguments {
     private static final String SEED_OPTION = "--seed";
     private static final String FULL_OPTION = "--full";
     private static final String STEP_BY_STEP_OPTION = "--stepByStep";
+    private static final String HIGHLIGHTS_OPTION = "--highlights";
+    private static final String ANIMATE_OPTION = "--animate";
     private static final String OPTION_PREFIX = "--";
     private static final int TEAM_FILE_COUNT = 2;
 
@@ -22,14 +24,18 @@ final class CommandLineArguments {
     private final ChronicleMode chronicleMode;
     private final Long seed;
     private final boolean stepByStep;
+    private final boolean highlights;
+    private final boolean animate;
 
     private CommandLineArguments(Path homeFile, Path awayFile, ChronicleMode chronicleMode, Long seed,
-            boolean stepByStep) {
+            boolean stepByStep, boolean highlights, boolean animate) {
         this.homeFile = homeFile;
         this.awayFile = awayFile;
         this.chronicleMode = chronicleMode;
         this.seed = seed;
         this.stepByStep = stepByStep;
+        this.highlights = highlights;
+        this.animate = animate;
     }
 
     static CommandLineArguments parse(List<String> arguments) {
@@ -37,6 +43,8 @@ final class CommandLineArguments {
         Long seed = null;
         boolean full = false;
         boolean stepByStep = false;
+        boolean highlights = false;
+        boolean animate = false;
         Iterator<String> remaining = arguments.iterator();
         while (remaining.hasNext()) {
             String argument = remaining.next();
@@ -49,6 +57,12 @@ final class CommandLineArguments {
             } else if (argument.equals(STEP_BY_STEP_OPTION)) {
                 requireNotRepeated(stepByStep, STEP_BY_STEP_OPTION);
                 stepByStep = true;
+            } else if (argument.equals(HIGHLIGHTS_OPTION)) {
+                requireNotRepeated(highlights, HIGHLIGHTS_OPTION);
+                highlights = true;
+            } else if (argument.equals(ANIMATE_OPTION)) {
+                requireNotRepeated(animate, ANIMATE_OPTION);
+                animate = true;
             } else if (argument.startsWith(OPTION_PREFIX)) {
                 throw new InvalidCommandLineException(CommandLineProblem.UNKNOWN_OPTION, argument);
             } else {
@@ -56,10 +70,13 @@ final class CommandLineArguments {
             }
         }
         requireTwoTeamFiles(files);
+        requireHighlightsAlone(highlights, full || stepByStep);
+        requireHighlightsForAnimation(animate, highlights);
         Path homeFile = readPath(files.get(0));
         Path awayFile = readPath(files.get(1));
         ChronicleMode chronicleMode = chronicleModeOf(full);
-        return new CommandLineArguments(homeFile, awayFile, chronicleMode, seed, stepByStep);
+        return new CommandLineArguments(homeFile, awayFile, chronicleMode, seed, stepByStep, highlights,
+                animate);
     }
 
     Path homeFile() {
@@ -82,6 +99,14 @@ final class CommandLineArguments {
         return stepByStep;
     }
 
+    boolean highlights() {
+        return highlights;
+    }
+
+    boolean animate() {
+        return animate;
+    }
+
     private static ChronicleMode chronicleModeOf(boolean full) {
         if (full) {
             return ChronicleMode.FULL;
@@ -92,6 +117,18 @@ final class CommandLineArguments {
     private static void requireNotRepeated(boolean alreadyGiven, String option) {
         if (alreadyGiven) {
             throw new InvalidCommandLineException(CommandLineProblem.DUPLICATE_OPTION, option);
+        }
+    }
+
+    private static void requireHighlightsAlone(boolean highlights, boolean otherPrintMode) {
+        if (highlights && otherPrintMode) {
+            throw new InvalidCommandLineException(CommandLineProblem.INCOMPATIBLE_OPTIONS);
+        }
+    }
+
+    private static void requireHighlightsForAnimation(boolean animate, boolean highlights) {
+        if (animate && !highlights) {
+            throw new InvalidCommandLineException(CommandLineProblem.ANIMATE_WITHOUT_HIGHLIGHTS);
         }
     }
 

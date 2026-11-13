@@ -62,6 +62,16 @@ class PhraseVariantPickerTest {
     }
 
     @Test
+    void eachRepetitionMovesToTheNextVariantAndWrapsAround() {
+        MatchEvent goal = goalByRossiAt(firstHalfSeconds(754));
+
+        assertThat(picker.variantIndexAfterRepetitions(goal, 0, 5)).isEqualTo(picker.variantIndex(goal, 5));
+        assertThat(picker.variantIndexAfterRepetitions(goal, 1, 3)).isEqualTo(1);
+        assertThat(picker.variantIndexAfterRepetitions(goal, 2, 5)).isEqualTo(1);
+        assertThat(picker.variantIndexAfterRepetitions(goal, 3, 1)).isZero();
+    }
+
+    @Test
     void aNegativeFingerprintStillGivesAnIndexInsideTheVariants() {
         MatchEvent kickOff = new MatchEvent(1, firstHalf(0), EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
                 MIDFIELD_BALL, PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none());

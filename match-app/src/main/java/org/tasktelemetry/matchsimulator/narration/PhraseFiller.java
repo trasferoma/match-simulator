@@ -21,8 +21,12 @@ public final class PhraseFiller {
     private static final String PLAYER_WITH_TEAM_FORMAT = "%s (%s)";
 
     public String fill(String phrase, MatchEvent event, TeamNames teamNames) {
-        return PLACEHOLDER.matcher(phrase)
-                .replaceAll(placeholder -> replacementFor(placeholder.group(1), phrase, event, teamNames));
+        return fillPart(phrase, phrase, event, teamNames);
+    }
+
+    public String fillPart(String part, String wholePhrase, MatchEvent event, TeamNames teamNames) {
+        return PLACEHOLDER.matcher(part)
+                .replaceAll(placeholder -> replacementFor(placeholder.group(1), wholePhrase, event, teamNames));
     }
 
     private String replacementFor(String placeholder, String phrase, MatchEvent event, TeamNames teamNames) {

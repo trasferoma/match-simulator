@@ -3,7 +3,6 @@ package org.tasktelemetry.matchsimulator.cli;
 import java.util.List;
 import java.util.Objects;
 
-import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 
 record MatchReport(String homeName, String awayName, List<List<String>> chronicle, MatchSummary summary, long seed) {
@@ -16,10 +15,7 @@ record MatchReport(String homeName, String awayName, List<List<String>> chronicl
         chronicle = List.copyOf(chronicle);
     }
 
-    String nameOf(MatchSide side) {
-        return switch (side) {
-            case HOME -> homeName;
-            case AWAY -> awayName;
-        };
+    Scoreboard scoreboard() {
+        return new Scoreboard(homeName, awayName, summary, seed);
     }
 }

@@ -13,6 +13,11 @@ public final class PhraseVariantPicker {
         return Math.floorMod(fingerprint, variantCount);
     }
 
+    public int variantIndexAfterRepetitions(MatchEvent firstOfRun, int repetitions, int variantCount) {
+        int firstIndex = variantIndex(firstOfRun, variantCount);
+        return Math.floorMod(firstIndex + repetitions, variantCount);
+    }
+
     public int fingerprintOf(MatchEvent event) {
         int minute = event.time().minute();
         String typeName = event.type().name();

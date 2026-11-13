@@ -8,7 +8,7 @@ import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 public final class PitchDrawing {
 
-    private static final String INDENT = "    ";
+    static final String INDENT = "    ";
     private static final String WORD_SEPARATOR = " ";
     private static final String SCORE_FORMAT = " (%d - %d)";
     private static final char FIELD_END = '|';

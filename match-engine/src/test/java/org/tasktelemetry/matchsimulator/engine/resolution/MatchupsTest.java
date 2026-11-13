@@ -442,6 +442,22 @@ class MatchupsTest {
     }
 
     @Test
+    void threeForwardsAgainstALoneDefenderInTheBoxWinAboutTwoDuelsOutOfThree() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
+        PlayerAttributes sameEverywhere = TestTeams.uniform(60);
+        TeamOnPitch threeUpFront = teamOf("ThreeUpFront", PlayStyle.BALANCED, sameEverywhere, 4, 3, 3);
+        TeamOnPitch loneDefender = teamOf("LoneDefender", PlayStyle.BALANCED, sameEverywhere, 1, 6, 3);
+        double factorOfThreePointOneMen = StrictMath.pow(1.25, 3.1);
+
+        Duel duel = passingDuel(matchups, state, threeUpFront, loneDefender);
+
+        assertThat(duel.attackerWinProbability())
+                .isCloseTo(factorOfThreePointOneMen / (1.0 + factorOfThreePointOneMen), within(EXACT))
+                .isStrictlyBetween(0.66, 0.67);
+    }
+
+    @Test
     void theBalancedStyleWithoutHomeAdvantageLeavesTheShotUntouched() {
         Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
         TeamOnPitch balanced = teamWithStyle(PlayStyle.BALANCED);

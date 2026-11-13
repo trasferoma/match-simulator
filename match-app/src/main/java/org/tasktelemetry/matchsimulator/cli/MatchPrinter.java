@@ -32,21 +32,21 @@ final class MatchPrinter {
 
     void print(MatchReport report) {
         printChronicle(report);
-        printScoreboard(report);
+        printScoreboard(report.scoreboard());
     }
 
     void printStepByStep(MatchReport report) {
         printChronicleOneEventAtATime(report);
-        printScoreboard(report);
+        printScoreboard(report.scoreboard());
     }
 
-    private void printScoreboard(MatchReport report) {
+    void printScoreboard(Scoreboard scoreboard) {
         printBlankLine();
         printTitle();
-        printResult(report);
-        printScorers(report);
-        printStatistics(report);
-        printSeed(report);
+        printResult(scoreboard);
+        printScorers(scoreboard);
+        printStatistics(scoreboard);
+        printSeed(scoreboard);
         out.flush();
     }
 
@@ -89,58 +89,58 @@ final class MatchPrinter {
         printLine(ReportLabel.TITLE);
     }
 
-    private void printResult(MatchReport report) {
-        MatchSummary summary = report.summary();
+    private void printResult(Scoreboard scoreboard) {
+        MatchSummary summary = scoreboard.summary();
         if (summary.isSuspended()) {
-            printSuspendedResult(report);
+            printSuspendedResult(scoreboard);
             return;
         }
         Score score = summary.officialScore();
-        printScore(ReportLabel.RESULT, report, score);
+        printScore(ReportLabel.RESULT, scoreboard, score);
     }
 
-    private void printSuspendedResult(MatchReport report) {
-        MatchSummary summary = report.summary();
+    private void printSuspendedResult(Scoreboard scoreboard) {
+        MatchSummary summary = scoreboard.summary();
         Suspension suspension = summary.suspension();
         String suspensionMinute = suspension.time().display();
-        String responsibleTeam = report.nameOf(suspension.responsibleSide());
+        String responsibleTeam = scoreboard.nameOf(suspension.responsibleSide());
         Score officialScore = summary.officialScore();
         Score fieldScore = summary.fieldScore();
         printLine(ReportLabel.SUSPENDED_AT, suspensionMinute);
         printLine(ReportLabel.RESPONSIBLE_TEAM, responsibleTeam);
-        printScore(ReportLabel.OFFICIAL_RESULT, report, officialScore);
-        printScore(ReportLabel.FIELD_SCORE, report, fieldScore);
+        printScore(ReportLabel.OFFICIAL_RESULT, scoreboard, officialScore);
+        printScore(ReportLabel.FIELD_SCORE, scoreboard, fieldScore);
     }
 
-    private void printScore(ReportLabel label, MatchReport report, Score score) {
-        printLine(label, report.homeName(), report.awayName(), score.home(), score.away());
+    private void printScore(ReportLabel label, Scoreboard scoreboard, Score score) {
+        printLine(label, scoreboard.homeName(), scoreboard.awayName(), score.home(), score.away());
     }
 
-    private void printScorers(MatchReport report) {
-        List<ScoredGoal> goals = report.summary().goals();
+    private void printScorers(Scoreboard scoreboard) {
+        List<ScoredGoal> goals = scoreboard.summary().goals();
         if (goals.isEmpty()) {
             return;
         }
         printLine(ReportLabel.SCORERS);
         for (ScoredGoal goal : goals) {
-            printGoal(goal, report);
+            printGoal(goal, scoreboard);
         }
     }
 
-    private void printGoal(ScoredGoal goal, MatchReport report) {
+    private void printGoal(ScoredGoal goal, Scoreboard scoreboard) {
         String minute = goal.time().display();
         String scorer = goal.scorer().name();
-        String team = report.nameOf(goal.side());
+        String team = scoreboard.nameOf(goal.side());
         printLine(ReportLabel.GOAL, minute, scorer, team);
     }
 
-    private void printStatistics(MatchReport report) {
-        MatchSummary summary = report.summary();
+    private void printStatistics(Scoreboard scoreboard) {
+        MatchSummary summary = scoreboard.summary();
         TeamStatistics home = summary.home();
         TeamStatistics away = summary.away();
         ContourCounters homeContour = home.contour();
         ContourCounters awayContour = away.contour();
-        printLine(ReportLabel.STATISTICS, report.homeName(), report.awayName());
+        printLine(ReportLabel.STATISTICS, scoreboard.homeName(), scoreboard.awayName());
         printCountRow(ReportLabel.SHOTS, home.shots(), away.shots());
         printCountRow(ReportLabel.SHOTS_ON_TARGET, home.shotsOnTarget(), away.shotsOnTarget());
         printExpectedGoalsRow(home, away);
@@ -184,8 +184,8 @@ final class MatchPrinter {
         printLine(ReportLabel.STATISTIC_ROW, labelText, homeValue, awayValue);
     }
 
-    private void printSeed(MatchReport report) {
-        printLine(ReportLabel.SEED, report.seed());
+    private void printSeed(Scoreboard scoreboard) {
+        printLine(ReportLabel.SEED, scoreboard.seed());
     }
 
     private void printLine(ReportLabel label, Object... arguments) {

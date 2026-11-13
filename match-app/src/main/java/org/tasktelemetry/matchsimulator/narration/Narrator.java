@@ -7,6 +7,7 @@ import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
+import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 
 public final class Narrator {
@@ -79,9 +80,31 @@ public final class Narrator {
         return pitchDrawing.draw(event, teamNames, score);
     }
 
+    public String narrateEventLine(MatchEvent event, NarrationContext context) {
+        String wholePhrase = composePhrase(event, context);
+        String eventVariant = chooseEventVariant(event, context);
+        String sentence = fillPart(eventVariant, wholePhrase, event, context);
+        return composeLine(event, sentence);
+    }
+
+    public Optional<String> narrateGoalContextLine(MatchEvent event, NarrationContext context) {
+        Optional<String> highlightVariant = chooseHighlightVariant(event, context);
+        return highlightVariant.map(variant -> composeContextLine(variant, event, context));
+    }
+
+    private String composeContextLine(String highlightVariant, MatchEvent event, NarrationContext context) {
+        String wholePhrase = composePhrase(event, context);
+        String sentence = fillPart(highlightVariant, wholePhrase, event, context);
+        return PitchDrawing.INDENT + sentence;
+    }
+
     private String narrateLine(MatchEvent event, NarrationContext context) {
-        String time = event.time().display();
         String sentence = composeSentence(event, context);
+        return composeLine(event, sentence);
+    }
+
+    private String composeLine(MatchEvent event, String sentence) {
+        String time = event.time().display();
         String line = time + WORD_SEPARATOR + sentence;
         return markIfGoal(event, line);
     }
@@ -103,16 +126,45 @@ public final class Narrator {
     }
 
     private String composePhrase(MatchEvent event, NarrationContext context) {
-        String eventVariant = chooseEventVariant(event);
+        String eventVariant = chooseEventVariant(event, context);
         Optional<String> highlightVariant = chooseHighlightVariant(event, context);
         return highlightVariant
                 .map(variant -> eventVariant + WORD_SEPARATOR + variant)
                 .orElse(eventVariant);
     }
 
-    private String chooseEventVariant(MatchEvent event) {
+    private String chooseEventVariant(MatchEvent event, NarrationContext context) {
         String key = findPhraseKey(event);
-        return chooseVariant(key, event);
+        List<String> variants = catalog.variantsOf(key);
+        RepeatedRun run = findRepeatedRun(event, key, context);
+        int index = picker.variantIndexAfterRepetitions(run.first(), run.repetitions(), variants.size());
+        return variants.get(index);
+    }
+
+    private RepeatedRun findRepeatedRun(MatchEvent event, String key, NarrationContext context) {
+        MatchEvent first = event;
+        int repetitions = 0;
+        Optional<MatchEvent> previous = context.previousOf(first);
+        while (previous.isPresent() && repeats(previous.get(), first, key)) {
+            first = previous.get();
+            repetitions++;
+            previous = context.previousOf(first);
+        }
+        return new RepeatedRun(first, repetitions);
+    }
+
+    private boolean repeats(MatchEvent previous, MatchEvent event, String key) {
+        boolean sameKey = findPhraseKey(previous).equals(key);
+        return sameKey && haveSamePrimaryPlayerWithTeam(previous, event);
+    }
+
+    private boolean haveSamePrimaryPlayerWithTeam(MatchEvent first, MatchEvent second) {
+        Participants firstParticipants = first.participants();
+        Participants secondParticipants = second.participants();
+        boolean hasPlayer = firstParticipants.primary().isPresent();
+        boolean samePlayer = firstParticipants.primary().equals(secondParticipants.primary());
+        boolean sameTeam = firstParticipants.primarySide().equals(secondParticipants.primarySide());
+        return hasPlayer && samePlayer && sameTeam;
     }
 
     private Optional<String> chooseHighlightVariant(MatchEvent event, NarrationContext context) {
@@ -142,9 +194,17 @@ public final class Narrator {
         return filler.fill(phrase, event, teamNames);
     }
 
+    private String fillPart(String part, String wholePhrase, MatchEvent event, NarrationContext context) {
+        TeamNames teamNames = context.teamNames();
+        return filler.fillPart(part, wholePhrase, event, teamNames);
+    }
+
     private String chooseVariant(String key, MatchEvent event) {
         List<String> variants = catalog.variantsOf(key);
         int index = picker.variantIndex(event, variants.size());
         return variants.get(index);
+    }
+
+    private record RepeatedRun(MatchEvent first, int repetitions) {
     }
 }
