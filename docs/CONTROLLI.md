@@ -29,7 +29,7 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D7 fallo a catena | `FoulResolverTest` | 3 | fatto |
 | D8 motore isolato | modulo `match-engine` che non vede `match-app`; `EngineIsolationTest`: import solo da `java.*` e dai package del motore, niente I/O né console | 1 e 2 | fatto |
 | D9 eventi unica fonte | `MatchSummaryCalculatorTest` su eventi costruiti a mano | 3 | fatto |
-| D10 racconto che non inventa | `NarratorTest`, `PhraseCatalogTest`: ogni chiave ha una frase che nomina chi fa cosa e usa solo il lessico del proprio valore | 2 | fatto |
+| D10 racconto che non inventa | `NarratorTest`, `PhraseCatalogTest`: ogni chiave ha una frase che nomina chi fa cosa e usa solo il lessico del proprio valore; `HighlightsNarratorTest`: ogni riga della cronaca highlights è quella di `--full`, il contesto del gol usa la stessa frase | 2 | fatto |
 | D12 riproducibilità: casualità e ordine | `EngineIsolationTest`: nessuna sorgente di casualità fuori da `MatchRandom`, nessuna struttura a ordine non garantito | 2 | fatto |
 | D12 riproducibilità: stessa partita | `MatchReproducibilityTest`; `CrossJvmReproducibilityTest` in `match-engine` sugli eventi e in `match-app` sul testo della cronaca | 3 | fatto |
 | D13 nessun numero sparso | `TuningConstantsTest` sui sorgenti di `match-engine` | 2 | fatto |
@@ -45,7 +45,7 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D35 librerie di test solo nello scope test | `EngineIsolationTest` sul pom del motore | 2 | fatto |
 | D49 il motore vede solo le proprie costanti | modulo `match-engine` che non vede `match-app`; `TeamFileTermsTest` per la traduzione | 1 e 3 | fatto |
 | D57 tutti i reparti in ogni zona, forza per uomini, scelta per presenza | `ZonePresenceTest` (un 4-4-2 contro un 4-4-2 è neutro, un uomo in meno pesa), `PlayerPickerTest` (scelta per presenza, uniforme nel reparto), `FormationEffectTest` (i moduli estremi non battono il 4-4-2) | 3 | fatto |
-| D56 giocatore identificato con la sua squadra | `NarrationContextTest` e `NarratorTest` (doppietta con lo stesso giocatore in casa e in ospite), `MatchAssistsTest` (stesso `Team` per casa e ospite); un gradino più alto richiederebbe un tipo che porti insieme giocatore e squadra | 3 | fatto |
+| D56 giocatore identificato con la sua squadra | `NarrationContextTest` e `NarratorTest` (doppietta con lo stesso giocatore in casa e in ospite), `MatchAssistsTest` (stesso `Team` per casa e ospite), `NarratedEventFilterTest` (cartellino a un omonimo dell'altra squadra dopo il fallo), `NarratorRepeatedEventsTest` (un omonimo dell'altra squadra non è un evento ripetuto); un gradino più alto richiederebbe un tipo che porti insieme giocatore e squadra | 3 | fatto |
 
 `Stato`: `previsto` se il controllo è pianificato ma non esiste, `fatto` se la classe o la struttura esiste.
 

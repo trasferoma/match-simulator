@@ -54,3 +54,52 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
 - **Alternative:** usare per i calci piazzati la zona da cui parte la battuta (trequarti per una punizione, area per
   l'angolo); lasciare com'è.
 - **Dal:** 2026-11-12.
+
+## Cronaca highlights
+
+### Un messaggio più largo della finestra sporca il ridisegno sul posto
+- **Oggi:** il terminale manda a capo la riga e la risalita di una riga cade sulla riga sbagliata, su due righe come su
+  una; con la finestra a tutto schermo le frasi (fino a circa 120 caratteri) ci stanno.
+- **Alternative:** troncare il messaggio alla larghezza della finestra con «…»; calcolare quante righe risalire.
+- **Dal:** 2026-11-13.
+
+### stderr rediretto su file usa la codifica della console
+- **Oggi:** su un terminale interattivo stdout e stderr usano la codifica della console; con `2>file` il file non è
+  UTF-8, perché il rilevamento guarda stdin e stdout.
+- **Alternative:** stderr sempre in UTF-8.
+- **Dal:** 2026-11-13.
+
+### Rilevamento del terminale non provato a vista su JDK 22+ e con il terminale emulato di IntelliJ
+- **Oggi:** `TerminalDetector` usa `System.console()` e, se esiste, `isTerminal()`; da Git Bash e dalla console Run di
+  IntelliJ si ha il ripiego (con `--animate` una riga sola).
+- **Da decidere:** provare su JDK 22+ e con «Emulate terminal in output console».
+- **Dal:** 2026-11-13.
+
+### Due eventi uguali consecutivi senza giocatore tengono la stessa frase
+- **Oggi:** la variante diversa per eventi ripetuti vale solo se c'è un giocatore primario (con la squadra).
+- **Alternative:** includere gli eventi senza giocatore nella regola.
+- **Dal:** 2026-11-13.
+
+### La configurazione degli highlights si legge a ogni avvio
+- **Oggi:** `MatchCommandLine.standard` legge `narration/highlights.properties` anche per cronaca predefinita, `--full`
+  e `--stepByStep`; un file rotto fermerebbe anche quelle.
+- **Alternative:** lettura solo con `--highlights`.
+- **Dal:** 2026-11-13.
+
+### Pause di un gol raccontato in una fermata senza occasione
+- **Oggi:** se il gol non è trattato come occasione (configurazione diversa dal default), prima del gol e del contesto
+  c'è la pausa di riga d'evento (1000 ms), dopo il gol quella del gol; la specifica non lo decideva.
+- **Alternative:** pausa d'occasione anche lì.
+- **Dal:** 2026-11-13.
+
+### Nel ripiego la riga del campo di una fermata con gol mostra il punteggio di prima
+- **Oggi:** senza animazione il campo si stampa una volta prima della fermata, con il punteggio dopo il primo evento;
+  il gol si legge dalla sua riga.
+- **Alternative:** stampare la riga del campo anche dopo il gol.
+- **Dal:** 2026-11-13.
+
+### Il motore fa fare allo stesso giocatore due azioni uguali di fila
+- **Oggi:** succede in molte partite (stesso passaggio o dribbling due volte); la cronaca lo maschera scegliendo
+  un'altra variante della frase.
+- **Alternative:** impedirlo nel motore (cambia le partite simulate e richiede una nuova taratura); lasciare com'è.
+- **Dal:** 2026-11-13.

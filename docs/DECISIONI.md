@@ -139,4 +139,4 @@ Decisioni che erano qui ma riguardano una sola funzionalità: il numero resta va
 | D41, D50, D53 | squadre del banco: composizione, profili, forze | SPEC, "Banco di taratura" |
 | D44 | rigore | SPEC, "Tiro" |
 | D48 | regola dei 7 e risultato a tavolino | SPEC, "Eventi di contorno" |
-| D51 | uscita in UTF-8 e numeri in formato italiano | SPEC, "Riga di comando" |
+| D51 | uscita in UTF-8 e numeri in formato italiano; su un terminale interattivo stdout e stderr usano la codifica della console | SPEC, "Riga di comando"; cronaca highlights, piano, registro |
