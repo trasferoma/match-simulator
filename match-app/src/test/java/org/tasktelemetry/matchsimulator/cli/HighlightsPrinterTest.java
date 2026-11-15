@@ -12,12 +12,12 @@ import java.time.Duration;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.List;
-import java.util.function.BiConsumer;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfig;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfigReader;
+import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsListener;
 import org.tasktelemetry.matchsimulator.narration.highlights.LinePause;
 import org.tasktelemetry.matchsimulator.narration.highlights.NarratedLine;
 import org.tasktelemetry.matchsimulator.narration.highlights.NarratedSegment;
@@ -297,6 +297,30 @@ class HighlightsPrinterTest {
         assertThat(run.pauses()).isEmpty();
     }
 
+    @Test
+    void noPauseFollowsTheLastSegmentWhateverItsKind() {
+        Run endingWithAFrame = new Run(CONFIG, true, List.of(frame("a"), frame("b")));
+        Run endingWithAStop = Run.forced(CONFIG, List.of(frame("a"),
+                stop("g", false, line("x", LinePause.EVENT_LINE))));
+
+        assertThat(endingWithAFrame.pauses()).containsExactly(FRAME);
+        assertThat(endingWithAStop.pauses()).containsExactly(FRAME, EVENT_LINE);
+    }
+
+    @Test
+    void thePauseOfAFrameOrOfAStopIsMadeOnlyWhenTheNextSegmentArrives() {
+        Run run = Run.started(CONFIG, true);
+
+        run.deliver(frame("a"));
+        assertThat(run.pauses()).isEmpty();
+        run.deliver(stop("g", false, line("x", LinePause.EVENT_LINE)));
+        assertThat(run.pauses()).containsExactly(FRAME, EVENT_LINE);
+        run.deliver(frame("b"));
+        assertThat(run.pauses()).containsExactly(FRAME, EVENT_LINE, RESUME);
+        run.deliver(frame("c"));
+        assertThat(run.pauses()).containsExactly(FRAME, EVENT_LINE, RESUME, FRAME);
+    }
+
     private static List<NarratedSegment> goalAndFollowingSegments() {
         return List.of(
                 frame("frame one"),
@@ -353,22 +377,40 @@ class HighlightsPrinterTest {
 
         private final BufferingStream stream = new BufferingStream();
         private final PauseProbe pause = new PauseProbe(stream);
+        private final MatchPrinter matchPrinter;
+        private final HighlightsListener session;
 
         Run(HighlightsConfig config, boolean interactiveTerminal, List<NarratedSegment> segments) {
-            this(config, interactiveTerminal, segments, HighlightsPrinter::print);
+            this(config, interactiveTerminal, false);
+            printTheChronicle(segments);
         }
 
         static Run forced(HighlightsConfig config, List<NarratedSegment> segments) {
-            return new Run(config, false, segments, HighlightsPrinter::printAnimated);
+            Run run = new Run(config, false, true);
+            run.printTheChronicle(segments);
+            return run;
         }
 
-        private Run(HighlightsConfig config, boolean interactiveTerminal, List<NarratedSegment> segments,
-                BiConsumer<HighlightsPrinter, HighlightsReport> action) {
+        static Run started(HighlightsConfig config, boolean interactiveTerminal) {
+            return new Run(config, interactiveTerminal, false);
+        }
+
+        private Run(HighlightsConfig config, boolean interactiveTerminal, boolean forceAnimation) {
             PrintStream out = new PrintStream(stream, false, StandardCharsets.UTF_8);
             BufferedReader noInput = new BufferedReader(new StringReader(""));
-            MatchPrinter matchPrinter = new MatchPrinter(UserMessages.italian(), out, new EnterKeyReader(noInput));
-            HighlightsPrinter printer = new HighlightsPrinter(out, pause, config, matchPrinter, interactiveTerminal);
-            action.accept(printer, new HighlightsReport(segments, scoreboard()));
+            matchPrinter = new MatchPrinter(UserMessages.italian(), out, new EnterKeyReader(noInput));
+            HighlightsPrinter printer = new HighlightsPrinter(out, pause, config, interactiveTerminal);
+            session = printer.openSession(forceAnimation);
+        }
+
+        void deliver(NarratedSegment segment) {
+            session.segmentNarrated(segment);
+        }
+
+        private void printTheChronicle(List<NarratedSegment> segments) {
+            segments.forEach(session::segmentNarrated);
+            session.chronicleFinished();
+            matchPrinter.printScoreboard(scoreboard());
         }
 
         String output() {

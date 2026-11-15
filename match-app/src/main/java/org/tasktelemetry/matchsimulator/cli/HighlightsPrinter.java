@@ -2,9 +2,9 @@ package org.tasktelemetry.matchsimulator.cli;
 
 import java.io.PrintStream;
 import java.time.Duration;
-import java.util.List;
 
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfig;
+import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsListener;
 import org.tasktelemetry.matchsimulator.narration.highlights.LinePause;
 import org.tasktelemetry.matchsimulator.narration.highlights.NarratedLine;
 import org.tasktelemetry.matchsimulator.narration.highlights.NarratedSegment;
@@ -21,72 +21,105 @@ final class HighlightsPrinter {
     private final PrintStream out;
     private final Pause pause;
     private final HighlightsConfig config;
-    private final MatchPrinter matchPrinter;
     private final boolean interactiveTerminal;
 
-    HighlightsPrinter(PrintStream out, Pause pause, HighlightsConfig config, MatchPrinter matchPrinter,
-            boolean interactiveTerminal) {
+    HighlightsPrinter(PrintStream out, Pause pause, HighlightsConfig config, boolean interactiveTerminal) {
         this.out = out;
         this.pause = pause;
         this.config = config;
-        this.matchPrinter = matchPrinter;
         this.interactiveTerminal = interactiveTerminal;
     }
 
-    void print(HighlightsReport report) {
+    HighlightsListener openSession(boolean forceAnimation) {
         if (interactiveTerminal) {
-            printAnimated(report);
-            return;
+            AnimatedRows twoRows = new TwoRows();
+            return new AnimatedSession(twoRows);
         }
-        printStopsOnly(report.segments());
-        matchPrinter.printScoreboard(report.scoreboard());
+        if (forceAnimation) {
+            AnimatedRows singleRow = new SingleRow();
+            return new AnimatedSession(singleRow);
+        }
+        return new StopsOnlySession();
     }
 
-    void printAnimated(HighlightsReport report) {
-        AnimatedRows rows = interactiveTerminal ? new TwoRows() : new SingleRow();
-        animate(report.segments(), rows);
-        matchPrinter.printScoreboard(report.scoreboard());
+    private final class AnimatedSession implements HighlightsListener {
+
+        private final AnimatedRows rows;
+        private Duration pendingPause;
+
+        private AnimatedSession(AnimatedRows rows) {
+            this.rows = rows;
+        }
+
+        @Override
+        public void segmentNarrated(NarratedSegment segment) {
+            waitForPendingPause();
+            switch (segment) {
+                case NarratedSegment.Frame frame -> animateFrame(frame);
+                case NarratedSegment.Stop stop -> animateStop(stop);
+            }
+        }
+
+        @Override
+        public void chronicleFinished() {
+            rows.finish();
+        }
+
+        private void waitForPendingPause() {
+            if (pendingPause == null) {
+                return;
+            }
+            waitFor(pendingPause);
+            pendingPause = null;
+        }
+
+        private void animateFrame(NarratedSegment.Frame frame) {
+            rows.show(frame.line(), NO_TEXT);
+            pendingPause = config.framePause();
+        }
+
+        private void animateStop(NarratedSegment.Stop stop) {
+            rows.show(stop.fieldLine(), NO_TEXT);
+            for (NarratedLine line : stop.lines()) {
+                tellLine(line, stop);
+            }
+            pendingPause = config.resumePause();
+        }
+
+        private void tellLine(NarratedLine line, NarratedSegment.Stop stop) {
+            Duration pauseBeforeLine = pauseBefore(line, stop.containsChance());
+            waitFor(pauseBeforeLine);
+            rows.show(line.fieldLine(), line.text());
+            if (line.pause() == LinePause.GOAL_LINE) {
+                waitFor(config.afterGoalPause());
+            }
+        }
     }
 
-    private void animate(List<NarratedSegment> segments, AnimatedRows rows) {
-        int lastIndex = segments.size() - 1;
-        for (int index = 0; index <= lastIndex; index++) {
-            boolean isLast = index == lastIndex;
-            animateSegment(segments.get(index), rows, isLast);
-        }
-        rows.finish();
-    }
+    private final class StopsOnlySession implements HighlightsListener {
 
-    private void animateSegment(NarratedSegment segment, AnimatedRows rows, boolean isLast) {
-        switch (segment) {
-            case NarratedSegment.Frame frame -> animateFrame(frame, rows, isLast);
-            case NarratedSegment.Stop stop -> animateStop(stop, rows, isLast);
-        }
-    }
+        private boolean stopPrinted;
 
-    private void animateFrame(NarratedSegment.Frame frame, AnimatedRows rows, boolean isLast) {
-        rows.show(frame.line(), NO_TEXT);
-        if (!isLast) {
-            waitFor(config.framePause());
+        @Override
+        public void segmentNarrated(NarratedSegment segment) {
+            if (segment instanceof NarratedSegment.Stop stop) {
+                printStop(stop);
+            }
         }
-    }
 
-    private void animateStop(NarratedSegment.Stop stop, AnimatedRows rows, boolean isLast) {
-        rows.show(stop.fieldLine(), NO_TEXT);
-        for (NarratedLine line : stop.lines()) {
-            tellLine(line, stop, rows);
+        @Override
+        public void chronicleFinished() {
         }
-        if (!isLast) {
-            waitFor(config.resumePause());
-        }
-    }
 
-    private void tellLine(NarratedLine line, NarratedSegment.Stop stop, AnimatedRows rows) {
-        Duration pauseBeforeLine = pauseBefore(line, stop.containsChance());
-        waitFor(pauseBeforeLine);
-        rows.show(line.fieldLine(), line.text());
-        if (line.pause() == LinePause.GOAL_LINE) {
-            waitFor(config.afterGoalPause());
+        private void printStop(NarratedSegment.Stop stop) {
+            if (stopPrinted) {
+                out.println();
+            }
+            out.println(stop.fieldLine());
+            for (NarratedLine line : stop.lines()) {
+                out.println(line.text());
+            }
+            stopPrinted = true;
         }
     }
 
@@ -102,26 +135,6 @@ final class HighlightsPrinter {
     private void waitFor(Duration duration) {
         out.flush();
         pause.waitFor(duration);
-    }
-
-    private void printStopsOnly(List<NarratedSegment> segments) {
-        List<NarratedSegment.Stop> stops = segments.stream()
-                .filter(NarratedSegment.Stop.class::isInstance)
-                .map(NarratedSegment.Stop.class::cast)
-                .toList();
-        for (int index = 0; index < stops.size(); index++) {
-            if (index > 0) {
-                out.println();
-            }
-            printStop(stops.get(index));
-        }
-    }
-
-    private void printStop(NarratedSegment.Stop stop) {
-        out.println(stop.fieldLine());
-        for (NarratedLine line : stop.lines()) {
-            out.println(line.text());
-        }
     }
 
     private interface AnimatedRows {

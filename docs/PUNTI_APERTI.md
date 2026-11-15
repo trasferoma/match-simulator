@@ -103,3 +103,21 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
   un'altra variante della frase.
 - **Alternative:** impedirlo nel motore (cambia le partite simulate e richiede una nuova taratura); lasciare com'è.
 - **Dal:** 2026-11-13.
+
+## Cronaca in diretta
+
+### La cronaca resta qualche evento indietro rispetto alla partita
+- **Oggi:** un blocco della cronaca highlights esce solo quando è deciso, cioè quando dopo il suo ultimo evento ne
+  sono accaduti almeno `lookAhead() + 1` (5 con la configurazione di default). Un intervento deciso guardando la
+  cronaca (sostituzione, cambio di modulo) agirà su una partita già un po' più avanti di quella raccontata.
+- **Da decidere:** quando si progettano gli interventi, se questo ritardo va bene, se l'intervento deve valere dal
+  momento raccontato o da quello reale, o se la partita va fermata finché la cronaca non la raggiunge.
+- **Dal:** 2026-11-15.
+
+### La cronaca in diretta non è pensata per un motore in un altro thread
+- **Oggi:** `LiveMatch` chiama l'osservatore dal thread che gioca la partita, e `LiveHighlights` tiene stato
+  modificabile senza sincronizzazione; le pause del terminale fermano il motore dentro la consegna. Va bene finché
+  motore e stampa stanno nello stesso thread.
+- **Da decidere:** con un front-end grafico, se il motore va in un thread suo e come si consegnano i blocchi al thread
+  dell'interfaccia (coda, consegna sempre dallo stesso thread).
+- **Dal:** 2026-11-15.

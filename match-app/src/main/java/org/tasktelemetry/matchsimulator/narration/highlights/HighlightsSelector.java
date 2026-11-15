@@ -16,12 +16,19 @@ import org.tasktelemetry.matchsimulator.narration.NarratedEventFilter;
 
 public final class HighlightsSelector {
 
+    private static final int DISTANCE_OF_A_FOLLOW_UP_PAIR = 1;
+
     private final HighlightsConfig config;
     private final NarratedEventFilter filter;
 
     public HighlightsSelector(HighlightsConfig config, NarratedEventFilter filter) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.filter = Objects.requireNonNull(filter, "filter must not be null");
+    }
+
+    public int lookAhead() {
+        int farthestChanceReach = Math.max(config.maxPreparationLines(), config.consequenceWindow());
+        return Math.max(farthestChanceReach, DISTANCE_OF_A_FOLLOW_UP_PAIR);
     }
 
     public List<HighlightSegment> select(List<MatchEvent> events) {

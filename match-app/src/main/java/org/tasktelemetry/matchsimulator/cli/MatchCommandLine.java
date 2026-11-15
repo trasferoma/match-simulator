@@ -13,6 +13,7 @@ import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfig;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfigReader;
+import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsListener;
 import org.tasktelemetry.matchsimulator.teamfile.InvalidTeamFileException;
 import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
 
@@ -65,7 +66,7 @@ public final class MatchCommandLine {
         EnterKeyReader enterKeyReader = EnterKeyReader.standard(in);
         MatchPrinter printer = new MatchPrinter(messages, encodedOut, enterKeyReader);
         HighlightsPrinter highlightsPrinter =
-                new HighlightsPrinter(encodedOut, pause, highlightsConfig, printer, interactiveTerminal);
+                new HighlightsPrinter(encodedOut, pause, highlightsConfig, interactiveTerminal);
         RandomGenerator random = RandomGenerator.getDefault();
         LongSupplier seedSource = random::nextLong;
         ErrorReporter errorReporter = new ErrorReporter(encodedErr, messages);
@@ -97,12 +98,9 @@ public final class MatchCommandLine {
     }
 
     private void playAndPrintHighlights(Team home, Team away, long seed, CommandLineArguments arguments) {
-        HighlightsReport report = runner.playHighlights(home, away, seed);
-        if (arguments.animate()) {
-            highlightsPrinter.printAnimated(report);
-            return;
-        }
-        highlightsPrinter.print(report);
+        HighlightsListener session = highlightsPrinter.openSession(arguments.animate());
+        Scoreboard scoreboard = runner.playLiveHighlights(home, away, seed, session);
+        printer.printScoreboard(scoreboard);
     }
 
     private void playAndPrintChronicle(Team home, Team away, long seed, CommandLineArguments arguments) {

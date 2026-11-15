@@ -10,9 +10,9 @@ import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
 
-final class ReferenceChronicle {
+public final class ReferenceChronicle {
 
-    static final long SEED = 42L;
+    public static final long SEED = 42L;
 
     private static final String TEAMS_DIRECTORY_PROPERTY = "teams.dir";
     private static final String HOME_FILE = "esempio-casa.json";
@@ -21,15 +21,15 @@ final class ReferenceChronicle {
     private ReferenceChronicle() {
     }
 
-    static Path homeTeamFile() {
+    public static Path homeTeamFile() {
         return teamsDirectory().resolve(HOME_FILE);
     }
 
-    static Path awayTeamFile() {
+    public static Path awayTeamFile() {
         return teamsDirectory().resolve(AWAY_FILE);
     }
 
-    static List<MatchEvent> play(Path homeFile, Path awayFile, long seed) {
+    public static List<MatchEvent> play(Path homeFile, Path awayFile, long seed) {
         TeamFileReader reader = TeamFileReader.italian();
         Team home = reader.read(homeFile);
         Team away = reader.read(awayFile);

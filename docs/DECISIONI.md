@@ -86,6 +86,10 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
   motore (D8). Fonte: SPEC, "Riga di comando".
 - **D55. La configurazione del banco di taratura è separata da quella del motore** e sta in `match-app`. Perché: il
   banco descrive l'obiettivo, non il motore. Fonte: SPEC, "Banco di taratura"; piano, "File coinvolti".
+- **D58. La cronaca è un osservatore della partita in diretta:** riceve solo fatti già accaduti e decide da sé cosa
+  raccontare; un front-end nuovo si collega allo stesso punto, senza toccare motore e partita. Perché: tra un passo e
+  l'altro della partita c'è il posto per gli interventi futuri (sostituzioni, cambi di modulo), e la cronaca resta un
+  modulo sostituibile. Fonte: specifica «cronaca in diretta»; `LiveMatch`, `MatchObserver`, `LiveHighlights`.
 
 ### Tecnologia
 

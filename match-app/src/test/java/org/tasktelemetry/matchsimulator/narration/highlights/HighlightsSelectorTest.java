@@ -457,6 +457,21 @@ class HighlightsSelectorTest {
         assertThat(adjacentStopPairs(segments)).isZero();
     }
 
+    @Test
+    void theLookAheadIsTheLargestReachOfTheSelectorRulesAndAtLeastOne() throws IOException {
+        HighlightsConfig wideWindow = configWith(Map.of("chance.consequenceWindow", "6"), Set.of());
+        HighlightsConfig noReach = configWith(
+                Map.of("chance.maxPreparationLines", "0", "chance.consequenceWindow", "0"), Set.of());
+
+        assertThat(lookAheadOf(reader.readDefault())).isEqualTo(4);
+        assertThat(lookAheadOf(wideWindow)).isEqualTo(6);
+        assertThat(lookAheadOf(noReach)).isEqualTo(1);
+    }
+
+    private int lookAheadOf(HighlightsConfig config) {
+        return new HighlightsSelector(config, new NarratedEventFilter()).lookAhead();
+    }
+
     private long adjacentStopPairs(List<HighlightSegment> segments) {
         return IntStream.range(1, segments.size())
                 .filter(index -> segments.get(index) instanceof HighlightSegment.Stop
