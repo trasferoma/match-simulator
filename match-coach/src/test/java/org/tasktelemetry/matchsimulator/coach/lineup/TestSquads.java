@@ -19,7 +19,7 @@ final class TestSquads {
 
     static Player outfield(String name, Role role, int movement) {
         PlayerAttributes attributes = new PlayerAttributes(movement, movement, movement, movement, movement,
-                movement, movement, NEUTRAL_VALUE);
+                movement, movement, NEUTRAL_VALUE, 50);
         return new Player(name, role, attributes);
     }
 
@@ -29,13 +29,13 @@ final class TestSquads {
 
     static Player goalkeeper(String name, int goalkeeping, int movement) {
         PlayerAttributes attributes = new PlayerAttributes(movement, movement, movement, movement, movement,
-                movement, movement, goalkeeping);
+                movement, movement, goalkeeping, 50);
         return new Player(name, Role.GOALKEEPER, attributes);
     }
 
     static Player uniform(String name, Role role, int rating) {
         PlayerAttributes attributes = new PlayerAttributes(rating, rating, rating, rating, rating, rating, rating,
-                rating);
+                rating, 50);
         return new Player(name, role, attributes);
     }
 

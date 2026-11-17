@@ -214,14 +214,18 @@ class PendingInterventionTest {
         assertThat(result).isEqualTo(InterventionResult.pending());
         List<MatchEvent> added = match.events().subList(eventsBefore, match.events().size());
         int halfEndIndex = indexOfTheFirst(added, EventType.FIRST_HALF_END);
-        MatchEvent substitution = added.get(halfEndIndex + 1);
-        MatchEvent secondHalfStart = added.get(halfEndIndex + 2);
+        List<MatchEvent> afterTheHalf = added.subList(halfEndIndex + 1, added.size());
+        List<MatchEvent> withoutRecoveries = afterTheHalf.stream()
+                .filter(event -> event.type() != EventType.PLAYER_RECOVERED)
+                .toList();
+        MatchEvent substitution = withoutRecoveries.get(0);
+        MatchEvent secondHalfStart = withoutRecoveries.get(1);
         assertThat(substitution.type()).isEqualTo(EventType.SUBSTITUTION);
         assertThat(substitution.time()).isEqualTo(START_OF_THE_SECOND_HALF);
         assertThat(substitution.durationSeconds()).isZero();
         assertThat(secondHalfStart.type()).isEqualTo(EventType.SECOND_HALF_START);
         assertThat(secondHalfStart.order()).isEqualTo(substitution.order() + 1);
-        assertThat(added).hasSize(halfEndIndex + 3);
+        assertThat(withoutRecoveries).hasSize(2);
     }
 
     @Test

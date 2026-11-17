@@ -212,17 +212,7 @@ class MatchInterventionTest {
     }
 
     private void stepUntilHalfTime(Match match) {
-        while (lastEventTypeOf(match) != EventType.FIRST_HALF_END) {
-            match.step();
-        }
-    }
-
-    private EventType lastEventTypeOf(Match match) {
-        List<MatchEvent> events = match.events();
-        if (events.isEmpty()) {
-            return null;
-        }
-        return events.get(events.size() - 1).type();
+        MatchDriving.stepUntilHalfTime(match);
     }
 
     private MatchEvent lastEventOf(Match match) {

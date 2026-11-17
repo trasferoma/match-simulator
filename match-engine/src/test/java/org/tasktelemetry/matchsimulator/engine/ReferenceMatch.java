@@ -15,7 +15,8 @@ final class ReferenceMatch {
     }
 
     static Match start(long seed) {
-        return start(seed, EngineConfig.defaults());
+        EngineConfig withoutPerformanceLoss = TestConfigs.withoutPerformanceLoss(EngineConfig.defaults());
+        return start(seed, withoutPerformanceLoss);
     }
 
     static Match start(long seed, EngineConfig config) {
@@ -26,6 +27,15 @@ final class ReferenceMatch {
 
     static List<MatchEvent> play(long seed) {
         Match match = start(seed);
+        return playToTheEnd(match);
+    }
+
+    static List<MatchEvent> playWithPerformanceLoss(long seed) {
+        Match match = start(seed, EngineConfig.defaults());
+        return playToTheEnd(match);
+    }
+
+    private static List<MatchEvent> playToTheEnd(Match match) {
         while (!match.isFinished()) {
             match.step();
         }
@@ -33,7 +43,15 @@ final class ReferenceMatch {
     }
 
     static List<String> eventLines(long seed) {
-        return play(seed).stream()
+        return linesOf(play(seed));
+    }
+
+    static List<String> eventLinesWithPerformanceLoss(long seed) {
+        return linesOf(playWithPerformanceLoss(seed));
+    }
+
+    private static List<String> linesOf(List<MatchEvent> events) {
+        return events.stream()
                 .map(MatchEvent::toString)
                 .toList();
     }

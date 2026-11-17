@@ -21,6 +21,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatigueUpdate;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.PlayerMove;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.Substitution;
@@ -270,8 +271,35 @@ public final class Match {
         advanceClock(outcome.durationSeconds());
         recordActionEvent(before, outcome);
         state = outcome.next();
+        tireThePlayers(outcome);
         countGoal(before, outcome);
         sanctionFoul(before, outcome);
+    }
+
+    private void tireThePlayers(ActionOutcome outcome) {
+        for (MatchSide side : MatchSide.values()) {
+            TeamOnPitch team = teams.get(side);
+            FatigueUpdate update = resolvers.energyDrain().drain(team, side, outcome);
+            teams.put(side, update.team());
+            recordFatigueEvents(side, EventType.PLAYER_TIRED, update);
+        }
+    }
+
+    private void recoverAtHalfTime() {
+        for (MatchSide side : MatchSide.values()) {
+            TeamOnPitch team = teams.get(side);
+            FatigueUpdate update = resolvers.halfTimeRecovery().recover(team);
+            teams.put(side, update.team());
+            recordFatigueEvents(side, EventType.PLAYER_RECOVERED, update);
+        }
+    }
+
+    private void recordFatigueEvents(MatchSide side, EventType type, FatigueUpdate update) {
+        for (FatigueUpdate.BandShift shift : update.shifts()) {
+            Participants participants = Participants.of(shift.player(), side);
+            EventDetail detail = EventDetail.fatigue(shift.band());
+            appendEvent(type, side, state, participants, 0, detail);
+        }
     }
 
     private void completeCrossInFlightAtTheWhistle() {
@@ -355,8 +383,14 @@ public final class Match {
         int duration = resolvers.injury().drawInjurySeconds();
         advanceClock(duration);
         Participants participants = Participants.of(injured, side);
-        EventDetail detail = EventDetail.none();
+        EventDetail detail = playerRemovedDetail(side, injured);
         appendEvent(EventType.INJURY, side, state, participants, duration, detail);
+    }
+
+    private EventDetail playerRemovedDetail(MatchSide side, Player removed) {
+        TeamOnPitch withoutRemoved = teams.get(side).withoutPlayer(removed);
+        Deployment deploymentAfter = Deployment.of(withoutRemoved);
+        return EventDetail.playerRemoved(deploymentAfter);
     }
 
     private ActionOutcome resolveNextAction() {
@@ -534,6 +568,7 @@ public final class Match {
         }
         if (clock.period() == MatchPeriod.FIRST_HALF) {
             endPeriod(EventType.FIRST_HALF_END, MatchPeriod.HALF_TIME);
+            recoverAtHalfTime();
             return;
         }
         endPeriod(EventType.MATCH_END, MatchPeriod.FINISHED);

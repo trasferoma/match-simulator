@@ -13,6 +13,7 @@ import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
 import org.tasktelemetry.matchsimulator.coach.reading.ConfirmationDelay;
 import org.tasktelemetry.matchsimulator.coach.reading.Dismissal;
 import org.tasktelemetry.matchsimulator.coach.reading.EventWindow;
+import org.tasktelemetry.matchsimulator.coach.reading.FatigueReading;
 import org.tasktelemetry.matchsimulator.coach.reading.GameFlow;
 import org.tasktelemetry.matchsimulator.coach.reading.GameFlowReader;
 import org.tasktelemetry.matchsimulator.coach.reading.LineupReading;
@@ -45,6 +46,7 @@ public final class AutomaticCoach implements Coach {
     private final ModuleResponses moduleResponses;
     private final DismissalRules dismissalRules;
     private final SectorEmergencies sectorEmergencies;
+    private final FatigueRules fatigueRules;
     private final CautionRules cautionRules;
 
     private MatchNotes notes;
@@ -69,7 +71,8 @@ public final class AutomaticCoach implements Coach {
         DonorSectors donors = new DonorSectors(config.sectorLimits());
         SubstitutionBudget budget = new SubstitutionBudget(config.substitutions(), config.resultTiming());
         SectorReinforcement reinforcement = new SectorReinforcement(config.sectorLimits(), budget, selection);
-        this.moduleResponses = new ModuleResponses(donors, reinforcement);
+        this.fatigueRules = new FatigueRules(config.fatigueResponse(), budget, selection);
+        this.moduleResponses = new ModuleResponses(donors, reinforcement, fatigueRules);
         this.dismissalRules = new DismissalRules(donors, reinforcement, styleSteps);
         this.sectorEmergencies = new SectorEmergencies(donors, reinforcement, styleSteps);
         this.cautionRules = new CautionRules(budget, selection);
@@ -169,15 +172,18 @@ public final class AutomaticCoach implements Coach {
     }
 
     private Optional<Intervention> respondToTheRest(ResultSituation situation, TeamNow team) {
-        return respondToTheFlow(situation, team).or(() -> takePrecautions(team));
+        return respondToTheFlow(situation, team)
+                .or(() -> restoreFreshness(team))
+                .or(() -> takePrecautions(team));
     }
 
     private TeamNow ownTeamNow() {
         MatchReading reading = notes.reading();
         MatchSide side = notes.side();
         LineupReading own = reading.lineupOf(side);
+        FatigueReading fatigue = reading.fatigueOf(side);
         PlayedTime now = reading.playedTime();
-        return new TeamNow(side, own, reading.minute(), now, notes.draw());
+        return new TeamNow(side, own, fatigue, reading.minute(), now, notes.draw());
     }
 
     private Optional<Intervention> respondToOwnDismissal(TeamNow team) {
@@ -199,6 +205,13 @@ public final class AutomaticCoach implements Coach {
     private Optional<Intervention> reinforceStrugglingSectorWhileTakingRisk(DecisionMoment moment, TeamNow team) {
         int lead = notes.reading().leadOf(team.side());
         return sectorEmergencies.respondWhileTakingRisk(this::isConfirmed, moment, lead, team);
+    }
+
+    private Optional<Intervention> restoreFreshness(TeamNow team) {
+        MatchReading reading = notes.reading();
+        int lead = reading.leadOf(team.side());
+        FatigueReading opponentFatigue = reading.fatigueOf(team.side().opposite());
+        return fatigueRules.restoreFreshness(team, lead, opponentFatigue);
     }
 
     private Optional<Intervention> takePrecautions(TeamNow team) {

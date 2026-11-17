@@ -10,8 +10,10 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
@@ -24,14 +26,16 @@ public final class OffsideRule {
     private final MatchRandom random;
     private final PlayerPicker picker;
     private final OutOfPositionPenalty outOfPosition;
+    private final FatiguePenalty fatigue;
 
     public OffsideRule(OffsideConfig config, PitchLayout layout, MatchRandom random, PlayerPicker picker,
-            OutOfPositionPenalty outOfPosition) {
+            OutOfPositionPenalty outOfPosition, FatiguePenalty fatigue) {
         this.config = config;
         this.layout = layout;
         this.random = random;
         this.picker = picker;
         this.outOfPosition = outOfPosition;
+        this.fatigue = fatigue;
     }
 
     public double offsideProbability(TeamOnPitch attackers, Player receiver, TeamOnPitch defenders,
@@ -50,10 +54,17 @@ public final class OffsideRule {
         Player passer = passerOf(outcome);
         Player receiver = pickReceiver(outcome, attackers, passer);
         Player defender = pickDefender(outcome, defenders);
+        ActionOutcome withTheCheckedPlayers = involveTheCheckedPlayers(outcome, receiver, defender);
         if (!isCaughtOffside(attackers, receiver, defenders, defender)) {
-            return outcome;
+            return withTheCheckedPlayers;
         }
-        return offsideAgainst(receiver, passer, outcome);
+        return offsideAgainst(receiver, passer, withTheCheckedPlayers);
+    }
+
+    private ActionOutcome involveTheCheckedPlayers(ActionOutcome pass, Player receiver, Player defender) {
+        MatchSide attackingSide = pass.next().possession();
+        MatchSide defendingSide = attackingSide.opposite();
+        return pass.involving(receiver, attackingSide).involving(defender, defendingSide);
     }
 
     private Player passerOf(ActionOutcome pass) {
@@ -68,7 +79,8 @@ public final class OffsideRule {
         MatchSide attackingSide = pass.next().possession();
         Participants participants = Participants.of(receiver, attackingSide, passer, attackingSide);
         EventDetail detail = EventDetail.none();
-        return new ActionOutcome(EventType.OFFSIDE, participants, next, pass.durationSeconds(), detail);
+        return new ActionOutcome(EventType.OFFSIDE, participants, next, pass.durationSeconds(), detail,
+                pass.involved());
     }
 
     private boolean isAdvanceTowardsTheOpponentBox(ActionOutcome outcome) {
@@ -97,8 +109,9 @@ public final class OffsideRule {
     }
 
     private double effectivePositioningOf(TeamOnPitch team, Player player) {
-        double factor = outOfPosition.factorOf(team, player);
-        return player.attributes().positioning() * factor;
+        double positionFactor = outOfPosition.factorOf(team, player);
+        double fatigueFactor = fatigue.factorOf(team, player);
+        return player.attributes().positioning() * positionFactor * fatigueFactor;
     }
 
     private boolean isCaughtOffside(TeamOnPitch attackers, Player receiver, TeamOnPitch defenders, Player defender) {

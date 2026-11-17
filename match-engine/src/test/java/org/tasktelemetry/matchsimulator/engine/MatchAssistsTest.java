@@ -29,7 +29,7 @@ class MatchAssistsTest {
     private static final double HOMONYM_INJURIES = 0.15;
     private static final Set<EventType> LEAVING_THE_PASS_ALIVE = EnumSet.of(EventType.DRIBBLE_COMPLETED,
             EventType.BALL_CIRCULATED, EventType.INJURY, EventType.SUBSTITUTION, EventType.PLAYER_MOVED,
-            EventType.STOPPAGE_ANNOUNCED);
+            EventType.STOPPAGE_ANNOUNCED, EventType.PLAYER_TIRED, EventType.PLAYER_RECOVERED);
 
     private final Team home = TestTeams.team("Home", PlayStyle.BALANCED, 60);
     private final Team away = TestTeams.team("Away", PlayStyle.BALANCED, 60);

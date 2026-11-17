@@ -3,10 +3,16 @@ package org.tasktelemetry.matchsimulator.engine.resolution;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
 
+import java.util.ArrayList;
+import java.util.LinkedHashMap;
+import java.util.List;
+import java.util.Map;
+
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestConfigs;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
@@ -23,6 +29,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
+import org.tasktelemetry.matchsimulator.engine.state.TeamEnergy;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
@@ -41,8 +48,9 @@ class PlayerAttributeInfluenceTest {
     private final CrossResolver crossResolver = newCrossResolver();
     private final CounterAttackResolver counterAttackResolver = newCounterAttackResolver();
     private final FoulResolver foulResolver = newFoulResolver();
-    private final TeamOnPitch team = TeamOnPitch.startingWith(TestTeams.uniformTeam("T", BASE));
-    private final TeamOnPitch opponents = TeamOnPitch.startingWith(TestTeams.uniformTeam("O", BASE));
+    private final TeamOnPitch baseTeam = TeamOnPitch.startingWith(TestTeams.uniformTeam("T", BASE));
+    private final List<Player> probes = new ArrayList<>();
+    private final TeamOnPitch baseOpponents = TeamOnPitch.startingWith(TestTeams.uniformTeam("O", BASE));
     private final MatchState midfield = openPlayAt(ZoneRole.MIDFIELD);
     private final MatchState onTheAttackingThird = openPlayAt(ZoneRole.ATTACKING_THIRD);
     private final MatchState inTheBox = openPlayAt(ZoneRole.OPPONENT_BOX);
@@ -54,8 +62,8 @@ class PlayerAttributeInfluenceTest {
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(RAISED, BASE, BASE, BASE);
 
-        double base = resolver.passingDuel(midfield, team, average, opponents, interceptor).attackerWinProbability();
-        double raised = resolver.passingDuel(midfield, team, better, opponents, interceptor).attackerWinProbability();
+        double base = resolver.passingDuel(midfield, team(), average, opponents(), interceptor).attackerWinProbability();
+        double raised = resolver.passingDuel(midfield, team(), better, opponents(), interceptor).attackerWinProbability();
 
         assertThat(raised).isGreaterThan(base);
         assertThat(raised).isCloseTo(winProbability(RAISED, BASE), within(EXACT));
@@ -67,8 +75,8 @@ class PlayerAttributeInfluenceTest {
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(BASE, BASE, BASE, RAISED);
 
-        double base = resolver.passingDuel(midfield, team, passer, opponents, average).attackerWinProbability();
-        double raised = resolver.passingDuel(midfield, team, passer, opponents, better).attackerWinProbability();
+        double base = resolver.passingDuel(midfield, team(), passer, opponents(), average).attackerWinProbability();
+        double raised = resolver.passingDuel(midfield, team(), passer, opponents(), better).attackerWinProbability();
 
         assertThat(raised).isLessThan(base);
         assertThat(raised).isCloseTo(winProbability(BASE, RAISED), within(EXACT));
@@ -80,8 +88,8 @@ class PlayerAttributeInfluenceTest {
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(BASE, RAISED, BASE, BASE);
 
-        double base = resolver.dribblingDuel(midfield, team, average, opponents, tackler).attackerWinProbability();
-        double raised = resolver.dribblingDuel(midfield, team, better, opponents, tackler).attackerWinProbability();
+        double base = resolver.dribblingDuel(midfield, team(), average, opponents(), tackler).attackerWinProbability();
+        double raised = resolver.dribblingDuel(midfield, team(), better, opponents(), tackler).attackerWinProbability();
 
         assertThat(raised).isGreaterThan(base);
         assertThat(raised).isCloseTo(winProbability(RAISED, BASE), within(EXACT));
@@ -93,8 +101,8 @@ class PlayerAttributeInfluenceTest {
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(BASE, BASE, RAISED, BASE);
 
-        double base = resolver.dribblingDuel(midfield, team, dribbler, opponents, average).attackerWinProbability();
-        double raised = resolver.dribblingDuel(midfield, team, dribbler, opponents, better).attackerWinProbability();
+        double base = resolver.dribblingDuel(midfield, team(), dribbler, opponents(), average).attackerWinProbability();
+        double raised = resolver.dribblingDuel(midfield, team(), dribbler, opponents(), better).attackerWinProbability();
 
         assertThat(raised).isLessThan(base);
         assertThat(raised).isCloseTo(winProbability(BASE, RAISED), within(EXACT));
@@ -105,9 +113,9 @@ class PlayerAttributeInfluenceTest {
         Player passer = playerWith(60, 10, 10, 60);
         Player interceptor = playerWith(60, 90, 90, 40);
 
-        double passProbability = resolver.passingDuel(midfield, team, passer, opponents, interceptor)
+        double passProbability = resolver.passingDuel(midfield, team(), passer, opponents(), interceptor)
                 .attackerWinProbability();
-        double dribbleProbability = resolver.dribblingDuel(midfield, team, passer, opponents, interceptor)
+        double dribbleProbability = resolver.dribblingDuel(midfield, team(), passer, opponents(), interceptor)
                 .attackerWinProbability();
 
         assertThat(passProbability).isCloseTo(winProbability(60, 40), within(EXACT));
@@ -120,9 +128,9 @@ class PlayerAttributeInfluenceTest {
         Player average = aerialPlayer(BASE);
         Player better = aerialPlayer(RAISED);
 
-        double base = crossResolver.aerialDuel(inTheBox, team, average, opponents, defender)
+        double base = crossResolver.aerialDuel(inTheBox, team(), average, opponents(), defender)
                 .attackerWinProbability();
-        double raised = crossResolver.aerialDuel(inTheBox, team, better, opponents, defender)
+        double raised = crossResolver.aerialDuel(inTheBox, team(), better, opponents(), defender)
                 .attackerWinProbability();
 
         assertThat(raised).isGreaterThan(base);
@@ -135,9 +143,9 @@ class PlayerAttributeInfluenceTest {
         Player average = aerialPlayer(BASE);
         Player better = aerialPlayer(RAISED);
 
-        double base = crossResolver.aerialDuel(inTheBox, team, attacker, opponents, average)
+        double base = crossResolver.aerialDuel(inTheBox, team(), attacker, opponents(), average)
                 .attackerWinProbability();
-        double raised = crossResolver.aerialDuel(inTheBox, team, attacker, opponents, better)
+        double raised = crossResolver.aerialDuel(inTheBox, team(), attacker, opponents(), better)
                 .attackerWinProbability();
 
         assertThat(raised).isLessThan(base);
@@ -150,9 +158,9 @@ class PlayerAttributeInfluenceTest {
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(RAISED, BASE, BASE, BASE);
 
-        double base = crossResolver.crossDuel(onTheAttackingThird, team, average, opponents, defender)
+        double base = crossResolver.crossDuel(onTheAttackingThird, team(), average, opponents(), defender)
                 .attackerWinProbability();
-        double raised = crossResolver.crossDuel(onTheAttackingThird, team, better, opponents, defender)
+        double raised = crossResolver.crossDuel(onTheAttackingThird, team(), better, opponents(), defender)
                 .attackerWinProbability();
 
         assertThat(raised).isGreaterThan(base);
@@ -165,9 +173,9 @@ class PlayerAttributeInfluenceTest {
         Player average = playerWith(BASE, BASE, BASE, BASE);
         Player better = playerWith(BASE, BASE, BASE, RAISED);
 
-        double base = crossResolver.crossDuel(onTheAttackingThird, team, crosser, opponents, average)
+        double base = crossResolver.crossDuel(onTheAttackingThird, team(), crosser, opponents(), average)
                 .attackerWinProbability();
-        double lowered = crossResolver.crossDuel(onTheAttackingThird, team, crosser, opponents, better)
+        double lowered = crossResolver.crossDuel(onTheAttackingThird, team(), crosser, opponents(), better)
                 .attackerWinProbability();
 
         assertThat(lowered).isLessThan(base);
@@ -180,9 +188,9 @@ class PlayerAttributeInfluenceTest {
         Player average = pacePlayer(BASE);
         Player better = pacePlayer(RAISED);
 
-        double base = counterAttackResolver.paceDuel(midfield, team, average, opponents, chaser)
+        double base = counterAttackResolver.paceDuel(midfield, team(), average, opponents(), chaser)
                 .attackerWinProbability();
-        double raised = counterAttackResolver.paceDuel(midfield, team, better, opponents, chaser)
+        double raised = counterAttackResolver.paceDuel(midfield, team(), better, opponents(), chaser)
                 .attackerWinProbability();
 
         assertThat(raised).isGreaterThan(base);
@@ -195,9 +203,9 @@ class PlayerAttributeInfluenceTest {
         Player average = pacePlayer(BASE);
         Player better = pacePlayer(RAISED);
 
-        double base = counterAttackResolver.paceDuel(midfield, team, runner, opponents, average)
+        double base = counterAttackResolver.paceDuel(midfield, team(), runner, opponents(), average)
                 .attackerWinProbability();
-        double raised = counterAttackResolver.paceDuel(midfield, team, runner, opponents, better)
+        double raised = counterAttackResolver.paceDuel(midfield, team(), runner, opponents(), better)
                 .attackerWinProbability();
 
         assertThat(raised).isLessThan(base);
@@ -211,9 +219,9 @@ class PlayerAttributeInfluenceTest {
         Player clumsy = tacklingPlayer(foul.neutralTackling() - 20);
         Player skilled = tacklingPlayer(foul.neutralTackling() + 20);
 
-        double base = foulResolver.foulProbability(team, neutral);
-        double clumsyProbability = foulResolver.foulProbability(team, clumsy);
-        double skilledProbability = foulResolver.foulProbability(team, skilled);
+        double base = foulResolver.foulProbability(team(), neutral);
+        double clumsyProbability = foulResolver.foulProbability(team(), clumsy);
+        double skilledProbability = foulResolver.foulProbability(team(), skilled);
 
         assertThat(base).isCloseTo(foul.baseFoulProbability(), within(EXACT));
         assertThat(clumsyProbability).isGreaterThan(base);
@@ -226,13 +234,13 @@ class PlayerAttributeInfluenceTest {
 
     @Test
     void theFoulProbabilityReadsTacklingAndNoOtherAttribute() {
-        PlayerAttributes tacklingOnly = new PlayerAttributes(10, 10, 10, 40, 10, 10, 10, 10);
-        PlayerAttributes everythingButTackling = new PlayerAttributes(100, 100, 100, 40, 100, 100, 100, 100);
-        Player weak = TestTeams.player("Weak", Role.DEFENDER, tacklingOnly);
-        Player strong = TestTeams.player("Strong", Role.DEFENDER, everythingButTackling);
+        PlayerAttributes tacklingOnly = new PlayerAttributes(10, 10, 10, 40, 10, 10, 10, 10, 50);
+        PlayerAttributes everythingButTackling = new PlayerAttributes(100, 100, 100, 40, 100, 100, 100, 100, 50);
+        Player weak = probe("Weak", Role.DEFENDER, tacklingOnly);
+        Player strong = probe("Strong", Role.DEFENDER, everythingButTackling);
 
-        double weakProbability = foulResolver.foulProbability(team, weak);
-        double strongProbability = foulResolver.foulProbability(team, strong);
+        double weakProbability = foulResolver.foulProbability(team(), weak);
+        double strongProbability = foulResolver.foulProbability(team(), strong);
 
         assertThat(strongProbability).isCloseTo(weakProbability, within(EXACT));
     }
@@ -244,9 +252,9 @@ class PlayerAttributeInfluenceTest {
         Player better = shootingPlayer(expectedGoals.neutralShooting() + 20);
         double base = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, average, NEUTRAL);
         double raised = goalsModel.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, better, NEUTRAL);
-        double penaltyBase = goalsModel.penaltyExpectedGoals(shootingPlayer(expectedGoals.penaltyNeutralShooting()));
+        double penaltyBase = goalsModel.penaltyExpectedGoals(shootingPlayer(expectedGoals.penaltyNeutralShooting()), NEUTRAL);
         double penaltyRaised = goalsModel.penaltyExpectedGoals(shootingPlayer(
-                expectedGoals.penaltyNeutralShooting() + 20));
+                expectedGoals.penaltyNeutralShooting() + 20), NEUTRAL);
 
         assertThat(raised).isGreaterThan(base);
         assertThat(raised).isCloseTo(oddsShifted(base, expectedGoals.shootingSlope() * 20), within(EXACT));
@@ -269,6 +277,26 @@ class PlayerAttributeInfluenceTest {
         assertThat(raised).isLessThan(base);
         assertThat(raised).isCloseTo(oddsShifted(expectedGoals, -shotConfig.goalkeepingSlope() * 20),
                 within(EXACT));
+    }
+
+    private TeamOnPitch team() {
+        return withProbes(baseTeam);
+    }
+
+    private TeamOnPitch opponents() {
+        return withProbes(baseOpponents);
+    }
+
+    private TeamOnPitch withProbes(TeamOnPitch base) {
+        Map<Player, Double> energy = new LinkedHashMap<>(base.energy().energyByPlayer());
+        probes.forEach(player -> energy.put(player, TeamEnergy.FULL));
+        return base.withEnergy(new TeamEnergy(energy));
+    }
+
+    private Player probe(String name, Role role, PlayerAttributes attributes) {
+        Player player = TestTeams.player(name, role, attributes);
+        probes.add(player);
+        return player;
     }
 
     private MatchState openPlayAt(ZoneRole zoneRole) {
@@ -297,33 +325,33 @@ class PlayerAttributeInfluenceTest {
     }
 
     private Player tacklingPlayer(int tackling) {
-        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, tackling, BASE, BASE, BASE, BASE);
-        return TestTeams.player("P", Role.DEFENDER, attributes);
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, tackling, BASE, BASE, BASE, BASE, 50);
+        return probe("P", Role.DEFENDER, attributes);
     }
 
     private Player shootingPlayer(int shooting) {
         PlayerAttributes attributes = TestTeams.withShootingAndGoalkeeping(shooting, BASE);
-        return TestTeams.player("P", Role.FORWARD, attributes);
+        return probe("P", Role.FORWARD, attributes);
     }
 
     private Player keeperPlayer(int goalkeeping) {
         PlayerAttributes attributes = TestTeams.withShootingAndGoalkeeping(BASE, goalkeeping);
-        return TestTeams.player("K", Role.GOALKEEPER, attributes);
+        return probe("K", Role.GOALKEEPER, attributes);
     }
 
     private Player pacePlayer(int pace) {
-        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, pace, BASE, BASE);
-        return TestTeams.player("P", Role.MIDFIELDER, attributes);
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, pace, BASE, BASE, 50);
+        return probe("P", Role.MIDFIELDER, attributes);
     }
 
     private Player aerialPlayer(int aerial) {
-        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, BASE, aerial, BASE);
-        return TestTeams.player("P", Role.FORWARD, attributes);
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, BASE, aerial, BASE, 50);
+        return probe("P", Role.FORWARD, attributes);
     }
 
     private Player playerWith(int passing, int dribbling, int tackling, int positioning) {
         PlayerAttributes attributes = TestTeams.withDuelAttributes(passing, dribbling, tackling, positioning);
-        return TestTeams.player("P", Role.MIDFIELDER, attributes);
+        return probe("P", Role.MIDFIELDER, attributes);
     }
 
     private CrossResolver newCrossResolver() {
@@ -348,5 +376,41 @@ class PlayerAttributeInfluenceTest {
         EngineConfig config = EngineConfig.defaults();
         PitchLayout layout = PitchLayout.standard();
         return TestResolvers.foulResolver(config.foul(), layout, random);
+    }
+
+    @Test
+    void staminaDoesNotChangeTheProbabilityOfAnyDuelBecauseItActsOnlyThroughTheEnergyOfTheMatch() {
+        Player rested = playerWithStamina(100);
+        Player enduring = playerWithStamina(1);
+        Player interceptor = playerWith(BASE, BASE, BASE, BASE);
+
+        double restedPass = resolver.passingDuel(midfield, team(), rested, opponents(), interceptor)
+                .attackerWinProbability();
+        double enduringPass = resolver.passingDuel(midfield, team(), enduring, opponents(), interceptor)
+                .attackerWinProbability();
+        double restedAgainst = resolver.passingDuel(midfield, team(), interceptor, opponents(), rested)
+                .attackerWinProbability();
+        double enduringAgainst = resolver.passingDuel(midfield, team(), interceptor, opponents(), enduring)
+                .attackerWinProbability();
+
+        assertThat(restedPass).isEqualTo(enduringPass);
+        assertThat(restedAgainst).isEqualTo(enduringAgainst);
+    }
+
+    private Player playerWithStamina(int stamina) {
+        PlayerAttributes attributes = new PlayerAttributes(BASE, BASE, BASE, BASE, BASE, BASE, BASE, BASE, stamina);
+        return probe("P", Role.MIDFIELDER, attributes);
+    }
+
+    @Test
+    void aTeamWhereEveryoneIsAtTheFatigueFactorWeakensTheCrossDuelByExactlyThatFactor() {
+        Player crosser = playerWith(BASE, BASE, BASE, BASE);
+        Player defender = playerWith(BASE, BASE, BASE, BASE);
+        TeamOnPitch tiredAttackers = TestEnergy.at(TestEnergy.allAt(team(), 35.0), 35.0, crosser);
+
+        double probability = crossResolver.crossDuel(onTheAttackingThird, tiredAttackers, crosser, opponents(),
+                defender).attackerWinProbability();
+
+        assertThat(probability).isCloseTo(0.9 / 1.9, within(EXACT));
     }
 }

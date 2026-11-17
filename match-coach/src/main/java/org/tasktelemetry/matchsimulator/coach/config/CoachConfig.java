@@ -14,7 +14,8 @@ public record CoachConfig(
         FlowConfig flow,
         SectorStrainConfig sectorStrain,
         TacticalReadingConfig tacticalReading,
-        SubstitutionConfig substitutions) {
+        SubstitutionConfig substitutions,
+        FatigueResponseConfig fatigueResponse) {
 
     public CoachConfig {
         Objects.requireNonNull(assessment, "assessment configuration must not be null");
@@ -28,6 +29,7 @@ public record CoachConfig(
         Objects.requireNonNull(sectorStrain, "sector strain configuration must not be null");
         Objects.requireNonNull(tacticalReading, "tactical reading configuration must not be null");
         Objects.requireNonNull(substitutions, "substitution configuration must not be null");
+        Objects.requireNonNull(fatigueResponse, "fatigue response configuration must not be null");
         ConfigGuards.requireAtLeastOne("maximum bench size", maximumBenchSize);
     }
 
@@ -44,7 +46,8 @@ public record CoachConfig(
         SectorStrainConfig sectorStrain = SectorStrainConfig.defaults();
         TacticalReadingConfig tacticalReading = TacticalReadingConfig.defaults();
         SubstitutionConfig substitutions = SubstitutionConfig.defaults();
+        FatigueResponseConfig fatigueResponse = FatigueResponseConfig.defaults();
         return new CoachConfig(assessment, bandResponses, formations, styleScale, sectorLimits, maximumBenchSize,
-                timing, resultTiming, flow, sectorStrain, tacticalReading, substitutions);
+                timing, resultTiming, flow, sectorStrain, tacticalReading, substitutions, fatigueResponse);
     }
 }

@@ -36,12 +36,22 @@ public final class CoachedMatch {
     public static final int AWAY_RATING = 58;
 
     private static final int COACH_READING = 50;
+    private static final int DEFAULT_STAMINA = 50;
     private static final long TIE_BREAK_SEED_STEP = 1_000_003L;
 
     private final CoachConfig config = CoachConfig.defaults();
     private final MatchEngine engine = new MatchEngine(EngineConfig.defaults());
-    private final Squad homeSquad = squad("Home", HOME_RATING);
-    private final Squad awaySquad = squad("Away", AWAY_RATING);
+    private final Squad homeSquad;
+    private final Squad awaySquad;
+
+    public CoachedMatch() {
+        this(DEFAULT_STAMINA);
+    }
+
+    public CoachedMatch(int stamina) {
+        this.homeSquad = squad("Home", HOME_RATING, stamina);
+        this.awaySquad = squad("Away", AWAY_RATING, stamina);
+    }
 
     public Lineups chooseLineups() {
         LineupChoice choice = new LineupChoice(config);
@@ -121,21 +131,21 @@ public final class CoachedMatch {
         return pending;
     }
 
-    private static Squad squad(String name, int rating) {
+    private static Squad squad(String name, int rating, int stamina) {
         List<Player> players = new ArrayList<>();
-        players.addAll(group(name, Role.GOALKEEPER, 2, rating));
-        players.addAll(group(name, Role.DEFENDER, 6, rating));
-        players.addAll(group(name, Role.MIDFIELDER, 6, rating));
-        players.addAll(group(name, Role.FORWARD, 4, rating));
+        players.addAll(group(name, Role.GOALKEEPER, 2, rating, stamina));
+        players.addAll(group(name, Role.DEFENDER, 6, rating, stamina));
+        players.addAll(group(name, Role.MIDFIELDER, 6, rating, stamina));
+        players.addAll(group(name, Role.FORWARD, 4, rating, stamina));
         CoachProfile coach = new CoachProfile("Coach " + name, new CoachAttributes(COACH_READING));
         return new Squad(name, coach, players);
     }
 
-    private static List<Player> group(String squadName, Role role, int count, int rating) {
+    private static List<Player> group(String squadName, Role role, int count, int rating, int stamina) {
         List<Player> players = new ArrayList<>();
         for (int number = 1; number <= count; number++) {
             PlayerAttributes attributes = new PlayerAttributes(rating, rating, rating, rating, rating, rating,
-                    rating, rating);
+                    rating, rating, stamina);
             players.add(new Player(squadName + " " + role + " " + number, role, attributes));
         }
         return players;

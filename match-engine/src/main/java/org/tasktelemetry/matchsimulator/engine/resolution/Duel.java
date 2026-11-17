@@ -7,7 +7,7 @@ public record Duel(double attack, double defence) {
         requirePositive("defence", defence);
     }
 
-    public static Duel between(int attack, int defence) {
+    public static Duel between(double attack, double defence) {
         return new Duel(attack, defence);
     }
 

@@ -414,8 +414,7 @@ class VoluntarySubstitutionTest {
     }
 
     private boolean isPlayableWithTheBallStill(Match match) {
-        EventType last = lastEventOf(match).orElseThrow().type();
-        boolean isPlayed = !match.isFinished() && last != EventType.FIRST_HALF_END;
+        boolean isPlayed = !match.isFinished() && !MatchDriving.isAtHalfTime(match);
         return isPlayed && !match.state().hasCrossInFlight() && !match.state().isAwaitingPenalty();
     }
 
@@ -450,7 +449,8 @@ class VoluntarySubstitutionTest {
     }
 
     private List<EventType> typesOfTheLastEvents(Match match, int count) {
-        List<MatchEvent> events = match.events();
+        List<MatchEvent> events = MatchDriving.withoutEventsOf(match.events(), EventType.PLAYER_TIRED,
+                EventType.PLAYER_RECOVERED);
         return events.subList(events.size() - count, events.size()).stream()
                 .map(MatchEvent::type)
                 .toList();

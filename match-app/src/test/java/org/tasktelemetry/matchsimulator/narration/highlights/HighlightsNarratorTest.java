@@ -6,6 +6,7 @@ import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_FO
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_GOALKEEPER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.OPENING_SETUPS;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.TEAM_NAMES;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.firstHalf;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.secondHalf;
@@ -18,6 +19,8 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
+import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
@@ -48,12 +51,12 @@ class HighlightsNarratorTest {
                 NarrationEvents.participantsOf(HOME_MIDFIELDER), EventDetail.none());
         List<MatchEvent> events = fixture.list();
 
-        List<NarratedSegment> segments = narrator.narrate(frames(events), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(frames(events), events, TEAM_NAMES, OPENING_SETUPS);
 
         assertThat(segments).containsExactly(
-                new NarratedSegment.Frame("    Aquile |__>__| Lupi (0 - 0) " + pass.time().display()),
-                new NarratedSegment.Frame("    Aquile |____>| Lupi (1 - 0) " + goal.time().display()),
-                new NarratedSegment.Frame("    Aquile |__>__| Lupi (1 - 0) " + late.time().display()));
+                new NarratedSegment.Frame("    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (0 - 0) " + pass.time().display()),
+                new NarratedSegment.Frame("    Aquile 4-4-2 equ. |____>| 4-4-2 equ. Lupi (1 - 0) " + goal.time().display()),
+                new NarratedSegment.Frame("    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (1 - 0) " + late.time().display()));
         assertThat(late.time().display()).isEqualTo("90+2'");
     }
 
@@ -62,7 +65,7 @@ class HighlightsNarratorTest {
         List<MatchEvent> events = matchWithManyKindsOfEvents();
         List<String> fullLines = fullSentenceLines(events);
 
-        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES, OPENING_SETUPS);
 
         for (int index = 0; index < events.size(); index++) {
             if (events.get(index).type() != EventType.GOAL) {
@@ -80,7 +83,7 @@ class HighlightsNarratorTest {
                 NarrationEvents.participantsOf(HOME_MIDFIELDER), detail);
         List<MatchEvent> events = fixture.list();
 
-        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES, OPENING_SETUPS);
 
         List<String> lines = linesOf(segments.get(0));
         assertThat(lines).hasSize(1);
@@ -93,7 +96,7 @@ class HighlightsNarratorTest {
         List<MatchEvent> events = matchWithManyKindsOfEvents();
         List<String> fullLines = fullSentenceLines(events);
 
-        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, true), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, true), events, TEAM_NAMES, OPENING_SETUPS);
 
         List<Integer> goalsWithContext = indexesOfGoalsWithContext(events, segments);
         assertThat(goalsWithContext).hasSize(4);
@@ -109,7 +112,7 @@ class HighlightsNarratorTest {
         MatchEvent goal = fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
         List<MatchEvent> events = fixture.list();
 
-        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, true), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, true), events, TEAM_NAMES, OPENING_SETUPS);
 
         List<NarratedLine> lines = stopLines(segments, 0);
         String minute = goal.time().display();
@@ -125,7 +128,7 @@ class HighlightsNarratorTest {
         fixture.addGoal(firstHalf(1200), MatchSide.AWAY, AWAY_DEFENDER, GoalContext.CONSOLATION);
         List<MatchEvent> events = fixture.list();
 
-        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, true), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, true), events, TEAM_NAMES, OPENING_SETUPS);
 
         assertThat(stopLines(segments, 0)).hasSize(1);
         assertThat(stopLines(segments, 1)).hasSize(1);
@@ -141,7 +144,7 @@ class HighlightsNarratorTest {
         HighlightSegment withoutChance = new HighlightSegment.Stop(events.subList(0, 1), false);
         HighlightSegment withChance = new HighlightSegment.Stop(events.subList(1, 3), true);
 
-        List<NarratedSegment> segments = narrator.narrate(List.of(withoutChance, withChance), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(List.of(withoutChance, withChance), events, TEAM_NAMES, OPENING_SETUPS);
 
         assertThat(pausesOf(stopLines(segments, 0))).containsExactly(LinePause.EVENT_LINE);
         assertThat(pausesOf(stopLines(segments, 1))).containsExactly(LinePause.GOAL_LINE,
@@ -154,7 +157,7 @@ class HighlightsNarratorTest {
         fixture.addGoal(firstHalf(600), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
         List<MatchEvent> events = fixture.list();
 
-        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES, OPENING_SETUPS);
 
         assertThat(pausesOf(stopLines(segments, 0))).containsExactly(LinePause.GOAL_LINE,
                 LinePause.GOAL_CONTEXT_LINE);
@@ -168,10 +171,10 @@ class HighlightsNarratorTest {
         List<MatchEvent> events = fixture.list();
         HighlightSegment stop = new HighlightSegment.Stop(events, true);
 
-        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES, OPENING_SETUPS);
 
         NarratedSegment.Stop narratedStop = (NarratedSegment.Stop) segments.get(0);
-        assertThat(narratedStop.fieldLine()).isEqualTo("    Aquile |__>__| Lupi (0 - 0) " + pass.time().display());
+        assertThat(narratedStop.fieldLine()).isEqualTo("    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (0 - 0) " + pass.time().display());
     }
 
     @Test
@@ -183,19 +186,67 @@ class HighlightsNarratorTest {
         List<MatchEvent> events = fixture.list();
         HighlightSegment stop = new HighlightSegment.Stop(events, true);
 
-        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES);
+        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES, OPENING_SETUPS);
 
         String minute = pass.time().display();
         List<String> fieldLines = stopLines(segments, 0).stream()
                 .map(NarratedLine::fieldLine)
                 .toList();
         assertThat(fieldLines).containsExactly(
-                "    Aquile |__>__| Lupi (0 - 0) " + minute,
-                "    Aquile |__>__| Lupi (1 - 0) " + minute,
-                "    Aquile |__>__| Lupi (1 - 0) " + minute,
-                "    Aquile |__>__| Lupi (1 - 0) " + minute);
+                "    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (0 - 0) " + minute,
+                "    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (1 - 0) " + minute,
+                "    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (1 - 0) " + minute,
+                "    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (1 - 0) " + minute);
         assertThat(((NarratedSegment.Stop) segments.get(0)).fieldLine())
-                .isEqualTo("    Aquile |__>__| Lupi (0 - 0) " + minute);
+                .isEqualTo("    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (0 - 0) " + minute);
+    }
+
+    @Test
+    void aStopThatStartsWithATiredPlayerIsDrawnFromTheFirstEventThatIsNotATiredPlayer() {
+        fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.TIRED);
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.add(EventType.SHOT_OFF_TARGET, MatchSide.HOME, ZoneRole.OPPONENT_BOX,
+                NarrationEvents.participantsOf(HOME_FORWARD),
+                EventDetail.shot(NarrationEvents.shotProfile(ShotKind.FOOT, ShotQuality.HALF_CHANCE)));
+        List<MatchEvent> events = fixture.list();
+        HighlightSegment stop = new HighlightSegment.Stop(events, true);
+
+        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES, OPENING_SETUPS);
+
+        String expectedFieldLine = "    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (0 - 0) " + pass.time().display();
+        assertThat(((NarratedSegment.Stop) segments.get(0)).fieldLine()).isEqualTo(expectedFieldLine);
+        assertThat(stopLines(segments, 0)).hasSize(4)
+                .allSatisfy(line -> assertThat(line.fieldLine()).isEqualTo(expectedFieldLine));
+    }
+
+    @Test
+    void aFoulAndItsCardPrecededByATiredPlayerAreDrawnFromTheFoul() {
+        fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.TIRED);
+        MatchEvent foul = fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD),
+                EventDetail.foul(FoulSeverity.LIGHT, false));
+        fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_DEFENDER);
+        List<MatchEvent> events = fixture.list();
+        HighlightSegment stop = new HighlightSegment.Stop(events, false);
+
+        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES, OPENING_SETUPS);
+
+        String expectedFieldLine = "    Aquile 4-4-2 equ. |__>__| 4-4-2 equ. Lupi (0 - 0) " + foul.time().display();
+        assertThat(stopLines(segments, 0)).hasSize(3)
+                .allSatisfy(line -> assertThat(line.fieldLine()).isEqualTo(expectedFieldLine));
+    }
+
+    @Test
+    void aStopMadeOnlyOfATiredPlayerKeepsItsOwnFieldLine() {
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        List<MatchEvent> events = fixture.list();
+        HighlightSegment stop = new HighlightSegment.Stop(events, false);
+
+        List<NarratedSegment> segments = narrator.narrate(List.of(stop), events, TEAM_NAMES, OPENING_SETUPS);
+
+        String expectedFieldLine = "    Aquile 4-4-2 equ. |__O__| 4-4-2 equ. Lupi (0 - 0) " + tired.time().display();
+        assertThat(((NarratedSegment.Stop) segments.get(0)).fieldLine()).isEqualTo(expectedFieldLine);
     }
 
     private List<MatchEvent> matchWithManyKindsOfEvents() {
@@ -224,7 +275,7 @@ class HighlightsNarratorTest {
     }
 
     private List<String> fullSentenceLines(List<MatchEvent> events) {
-        return Narrator.italian().narrate(events, TEAM_NAMES, ChronicleMode.FULL).stream()
+        return Narrator.italian().narrate(events, TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL).stream()
                 .map(block -> block.get(SENTENCE_LINE))
                 .toList();
     }

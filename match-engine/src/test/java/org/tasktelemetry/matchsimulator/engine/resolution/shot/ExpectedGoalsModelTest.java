@@ -179,16 +179,16 @@ class ExpectedGoalsModelTest {
 
     @Test
     void aPenaltyByANeutralTakerIsTheConfiguredBase() {
-        double expectedGoals = model.penaltyExpectedGoals(shooterWith(PENALTY_NEUTRAL_SHOOTING));
+        double expectedGoals = model.penaltyExpectedGoals(shooterWith(PENALTY_NEUTRAL_SHOOTING), NEUTRAL);
 
         assertThat(expectedGoals).isCloseTo(0.79, within(EXACT));
     }
 
     @Test
     void aBetterTakerRaisesTheExpectedGoalsOfAPenaltyFromTheBase() {
-        double weak = model.penaltyExpectedGoals(shooterWith(50));
-        double neutral = model.penaltyExpectedGoals(shooterWith(70));
-        double strong = model.penaltyExpectedGoals(shooterWith(90));
+        double weak = model.penaltyExpectedGoals(shooterWith(50), NEUTRAL);
+        double neutral = model.penaltyExpectedGoals(shooterWith(70), NEUTRAL);
+        double strong = model.penaltyExpectedGoals(shooterWith(90), NEUTRAL);
 
         assertThat(weak).isLessThan(neutral);
         assertThat(neutral).isLessThan(strong);
@@ -198,7 +198,7 @@ class ExpectedGoalsModelTest {
     @ParameterizedTest
     @ValueSource(ints = {1, 100})
     void aPenaltyStaysInsideTheOpenUnitIntervalAtTheEdgesOfTheScale(int shooting) {
-        double expectedGoals = model.penaltyExpectedGoals(shooterWith(shooting));
+        double expectedGoals = model.penaltyExpectedGoals(shooterWith(shooting), NEUTRAL);
 
         assertThat(expectedGoals).isStrictlyBetween(0.0, 1.0);
     }

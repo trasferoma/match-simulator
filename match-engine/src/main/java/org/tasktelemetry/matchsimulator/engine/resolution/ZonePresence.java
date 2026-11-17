@@ -4,13 +4,12 @@ import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
-import java.util.function.ToIntFunction;
+import java.util.function.ToDoubleFunction;
 
 import org.tasktelemetry.matchsimulator.engine.config.ZonePresenceConfig;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
-import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public final class ZonePresence {
@@ -66,12 +65,12 @@ public final class ZonePresence {
         return StrictMath.pow(config.advantageFactorPerMan(), advantage);
     }
 
-    public double averageAttribute(TeamOnPitch team, ZoneRole zoneRole, ToIntFunction<PlayerAttributes> attribute) {
+    public double averageAttribute(TeamOnPitch team, ZoneRole zoneRole, ToDoubleFunction<Player> valueOf) {
         double weightedSum = 0.0;
         double totalPresence = 0.0;
         for (Player player : team.players()) {
             double presence = presenceOf(team, player, zoneRole);
-            weightedSum += presence * attribute.applyAsInt(player.attributes());
+            weightedSum += presence * valueOf.applyAsDouble(player);
             totalPresence += presence;
         }
         if (totalPresence == 0.0) {

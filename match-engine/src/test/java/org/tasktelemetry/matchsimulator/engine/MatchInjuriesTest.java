@@ -7,16 +7,19 @@ import java.util.EnumMap;
 import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.InjuryConfig;
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
+import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
@@ -75,6 +78,31 @@ class MatchInjuriesTest {
             assertThat(injury.time().seconds() - injury.durationSeconds()).isLessThan(REGULATION_SECONDS);
             assertThat(injury.time().period()).isIn(MatchPeriod.FIRST_HALF, MatchPeriod.SECOND_HALF);
         });
+    }
+
+    @Test
+    void theFirstInjuryOfASideCarriesTheDeploymentWithoutTheInjuredPlayer() {
+        EngineConfig config = withInjuries(FREQUENT_INJURIES, MAXIMUM_SUBSTITUTIONS);
+        int checked = 0;
+
+        for (List<MatchEvent> events : playMany(config, home, away, MATCHES)) {
+            for (MatchSide side : MatchSide.values()) {
+                Optional<MatchEvent> injury = events.stream().filter(event -> event.side() == side)
+                        .filter(event -> event.type() == EventType.INJURY || event.type() == EventType.SUBSTITUTION)
+                        .findFirst()
+                        .filter(this::isInjury);
+                if (injury.isEmpty()) {
+                    continue;
+                }
+                Team team = side == MatchSide.HOME ? home : away;
+                Player injured = injury.get().participants().primary().orElseThrow();
+                TeamOnPitch withoutInjured = TeamOnPitch.startingWith(team).withoutPlayer(injured);
+                assertThat(injury.get().detail())
+                        .isEqualTo(EventDetail.playerRemoved(Deployment.of(withoutInjured)));
+                checked++;
+            }
+        }
+        assertThat(checked).isPositive();
     }
 
     @Test
@@ -428,7 +456,7 @@ class MatchInjuriesTest {
         Player midfielder = playerNamed(starters, name + "-S-MIDFIELDER-1");
         Player specialist = TestTeams.player(midfielder.name(), Role.MIDFIELDER,
                 new PlayerAttributes(STARTER_RATING, STARTER_RATING, STARTER_RATING, STARTER_RATING, STARTER_RATING,
-                        STARTER_RATING, STARTER_RATING, 95));
+                        STARTER_RATING, STARTER_RATING, 95, 50));
         starters.set(starters.indexOf(midfielder), specialist);
         int reserves = reserveGoalkeeper ? 1 : 0;
         List<Player> bench = new ArrayList<>(TestTeams.squad(name, "B", attributes, reserves, 2, 2, 2));

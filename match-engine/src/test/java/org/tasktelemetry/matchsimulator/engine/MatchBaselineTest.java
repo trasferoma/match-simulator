@@ -29,7 +29,7 @@ class MatchBaselineTest {
 
     @ParameterizedTest
     @ValueSource(longs = {1, 2, 3, 4, 5, 42, 78})
-    void withoutInterventionsTheMatchEqualsTheBaselineIgnoringOrderMovesAndTheDetailOfTheSubstitutions(long seed)
+    void withoutInterventionsTheMatchEqualsTheBaselineIgnoringOrderMovesAndTheLineupDetails(long seed)
             throws IOException {
         List<List<String>> baseline = comparableFieldsOf(baselineLines(seed));
         List<List<String>> current = comparableFieldsOf(linesOf(ReferenceMatch.play(seed)));
@@ -60,7 +60,9 @@ class MatchBaselineTest {
         return lines.stream()
                 .map(this::splitIntoFields)
                 .filter(fields -> !fields.get(TYPE_FIELD).equals(EventType.PLAYER_MOVED.name()))
-                .map(this::withoutOrderAndSubstitutionDetail)
+                .filter(fields -> !fields.get(TYPE_FIELD).equals(EventType.PLAYER_TIRED.name()))
+                .filter(fields -> !fields.get(TYPE_FIELD).equals(EventType.PLAYER_RECOVERED.name()))
+                .map(this::withoutOrderAndLineupDetail)
                 .toList();
     }
 
@@ -70,9 +72,10 @@ class MatchBaselineTest {
         return fields;
     }
 
-    private List<String> withoutOrderAndSubstitutionDetail(List<String> fields) {
-        boolean isSubstitution = fields.get(TYPE_FIELD).equals(EventType.SUBSTITUTION.name());
-        int lastField = isSubstitution ? DETAIL_FIELD : FIELDS_PER_EVENT;
+    private List<String> withoutOrderAndLineupDetail(List<String> fields) {
+        EventType type = EventType.valueOf(fields.get(TYPE_FIELD));
+        boolean changesTheLineup = type == EventType.SUBSTITUTION || type == EventType.INJURY || type.isDismissal();
+        int lastField = changesTheLineup ? DETAIL_FIELD : FIELDS_PER_EVENT;
         return fields.subList(ORDER_FIELD + 1, lastField);
     }
 

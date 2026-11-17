@@ -164,7 +164,7 @@ class TeamTest {
 
     @Test
     void rejectsAPlayerWithABlankName() {
-        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50);
+        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50);
 
         assertThatThrownBy(() -> new Player("  ", Role.FORWARD, attributes))
                 .isInstanceOf(IllegalArgumentException.class)

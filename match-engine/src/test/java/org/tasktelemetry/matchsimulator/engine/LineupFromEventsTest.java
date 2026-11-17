@@ -135,7 +135,7 @@ class LineupFromEventsTest {
     }
 
     private boolean isAtHalfTime(Match match) {
-        return MatchDriving.lastEventOf(match).map(MatchEvent::type).orElse(null) == EventType.FIRST_HALF_END;
+        return MatchDriving.isAtHalfTime(match);
     }
 
     private void substituteSomeone(Match match, MatchSide side, int rotation) {

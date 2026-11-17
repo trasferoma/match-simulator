@@ -33,13 +33,13 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D12 riproducibilità: casualità e ordine | `EngineIsolationTest`: nessuna sorgente di casualità fuori da `MatchRandom`, nessuna struttura a ordine non garantito | 2 | fatto |
 | D12 riproducibilità: stessa partita | `MatchReproducibilityTest`; `CrossJvmReproducibilityTest` in `match-engine` sugli eventi e in `match-app` sul testo della cronaca | 3 | fatto |
 | D13 nessun numero sparso | `TuningConstantsTest` sui sorgenti di `match-engine` | 2 | fatto |
-| D14 tattiche: un punto, una direzione, neutro = 1 | `PlayStyleModifiersTest` su tutti gli stili | 2 | fatto |
+| D14 tattiche: un punto, una direzione, neutro = 1 | `PlayStyleModifiersTest` su tutti gli stili, compreso il costo di energia | 2 | fatto |
 | D16 dipendenze esterne solo se concordate | `EngineIsolationTest`: il pom di `match-engine` non ha dipendenze fuori dallo scope test (non controlla quelle ereditate dal pom padre) | 2 | fatto |
 | D19 squadre di forza diversa | `LeagueGeneratorTest`; `LeagueStrengthTest` (tag `calibration`) | 3 | fatto |
 | D20 parametri di orientamento mai a zero | `ContourEventsPresenceTest` (tag `calibration`): ogni evento di contorno compare nel campionato del banco | 3 | fatto |
 | D22 attribuzione StatsBomb | `CalibrationReportTest`: il report contiene «Data: StatsBomb» | 3 | fatto |
 | D24 fasce come probabilità | `CrossResolverTest` | 3 | fatto |
-| D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi | 2 | fatto |
+| D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi; `StaminaInfluenceTest` per la stamina | 2 | fatto |
 | D32 tre moduli | struttura Maven: `pom.xml` radice con i moduli `match-engine`, `match-coach` e `match-app` | 1 | fatto |
 | D59 chi decide e chi esegue separati | modulo `match-coach` che dipende a runtime solo da `match-engine` e che il motore non vede; `CoachIsolationTest`: import solo da `java.*`, dal motore e dai package dell'allenatore, nessuna casualità | 1 e 2 | fatto |
 | D60 decisioni simultanee | `CoachSimultaneityTest` (scambiando l'ordine dei decisori la partita non cambia, anche con una richiesta in attesa); `LiveMatchCoachesTest` sull'ordine fisso del ciclo vero | 3 | fatto |

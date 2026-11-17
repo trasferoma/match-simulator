@@ -10,6 +10,8 @@ public enum ChangeReason {
     REINFORCE_STRUGGLING_SECTOR(false),
     REBALANCE_AFTER_DISMISSAL(false),
     AVOID_SECOND_YELLOW(false),
+    REPLACE_TIRED_PLAYER(false),
+    ANSWER_FRESH_ATTACKERS(false),
     INJURY(true),
     RESERVE_GOALKEEPER(true),
     EMPTIED_SECTOR(true),

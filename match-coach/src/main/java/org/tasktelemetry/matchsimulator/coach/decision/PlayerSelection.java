@@ -4,7 +4,9 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Optional;
 
+import org.tasktelemetry.matchsimulator.coach.reading.FatigueReading;
 import org.tasktelemetry.matchsimulator.coach.reading.LineupReading;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 
@@ -25,7 +27,8 @@ final class PlayerSelection {
         if (players.isEmpty()) {
             return Optional.empty();
         }
-        List<Player> lowestAverage = thoseWithLowestMovementAverage(players);
+        List<Player> mostTired = thoseInTheWorstFatigueBand(players, team);
+        List<Player> lowestAverage = thoseWithLowestMovementAverage(mostTired);
         Player drawn = drawOneOf(lowestAverage, team);
         return Optional.of(drawn);
     }
@@ -52,6 +55,17 @@ final class PlayerSelection {
         Comparator<Player> earlierInTheRosterWins = Comparator.comparingInt(lineup::rosterPositionOf).reversed();
         Comparator<Player> strength = byRating.thenComparing(earlierInTheRosterWins);
         return players.stream().max(strength);
+    }
+
+    private List<Player> thoseInTheWorstFatigueBand(List<Player> players, TeamNow team) {
+        FatigueReading fatigue = team.fatigue();
+        FatigueBand worst = players.stream()
+                .map(fatigue::bandOf)
+                .max(Comparator.naturalOrder())
+                .orElseThrow();
+        return players.stream()
+                .filter(player -> fatigue.bandOf(player) == worst)
+                .toList();
     }
 
     private List<Player> thoseWithLowestMovementAverage(List<Player> players) {

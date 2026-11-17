@@ -13,7 +13,7 @@ import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> reassigned, List<Player> cautioned,
-        int substitutionsMade, List<Player> withdrawn, PlayStyle style) {
+        int substitutionsMade, List<Player> withdrawn, PlayStyle style, TeamEnergy energy) {
 
     public TeamOnPitch {
         Objects.requireNonNull(team, "team must not be null");
@@ -22,6 +22,7 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         Objects.requireNonNull(cautioned, "cautioned players must not be null");
         Objects.requireNonNull(withdrawn, "withdrawn players must not be null");
         Objects.requireNonNull(style, "current style must not be null");
+        Objects.requireNonNull(energy, "team energy must not be null");
         if (substitutionsMade < 0) {
             throw new IllegalArgumentException("substitutions made must not be negative, was " + substitutionsMade);
         }
@@ -37,7 +38,8 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
 
     public TeamOnPitch(Team team, List<Player> players, Map<Player, Role> reassigned, List<Player> cautioned,
             int substitutionsMade) {
-        this(team, players, reassigned, cautioned, substitutionsMade, List.of(), team.style());
+        this(team, players, reassigned, cautioned, substitutionsMade, List.of(), team.style(),
+                TeamEnergy.fullFor(players));
     }
 
     public static TeamOnPitch startingWith(Team team) {
@@ -82,26 +84,32 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         remainingRoles.remove(player);
         List<Player> remainingCautioned = cautioned.stream().filter(other -> !other.equals(player)).toList();
         List<Player> nowWithdrawn = withdrawnWith(player);
+        TeamEnergy remainingEnergy = energy.without(player);
         return new TeamOnPitch(team, remaining, remainingRoles, remainingCautioned, substitutionsMade,
-                nowWithdrawn, style);
+                nowWithdrawn, style, remainingEnergy);
     }
 
     public TeamOnPitch withRole(Player player, Role role) {
         requireOnPitch(player);
         Map<Player, Role> roles = new LinkedHashMap<>(reassigned);
         roles.put(player, role);
-        return new TeamOnPitch(team, players, roles, cautioned, substitutionsMade, withdrawn, style);
+        return new TeamOnPitch(team, players, roles, cautioned, substitutionsMade, withdrawn, style, energy);
     }
 
     public TeamOnPitch withStyle(PlayStyle newStyle) {
-        return new TeamOnPitch(team, players, reassigned, cautioned, substitutionsMade, withdrawn, newStyle);
+        return new TeamOnPitch(team, players, reassigned, cautioned, substitutionsMade, withdrawn, newStyle, energy);
+    }
+
+    public TeamOnPitch withEnergy(TeamEnergy newEnergy) {
+        return new TeamOnPitch(team, players, reassigned, cautioned, substitutionsMade, withdrawn, style,
+                newEnergy);
     }
 
     public TeamOnPitch withCautioned(Player player) {
         requireOnPitch(player);
         List<Player> nowCautioned = new ArrayList<>(cautioned);
         nowCautioned.add(player);
-        return new TeamOnPitch(team, players, reassigned, nowCautioned, substitutionsMade, withdrawn, style);
+        return new TeamOnPitch(team, players, reassigned, nowCautioned, substitutionsMade, withdrawn, style, energy);
     }
 
     public TeamOnPitch withSubstitution(Player leaving, Player entering, Role enteringAs) {
@@ -113,7 +121,9 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         roles.put(entering, enteringAs);
         List<Player> remainingCautioned = cautioned.stream().filter(other -> !other.equals(leaving)).toList();
         List<Player> nowWithdrawn = withdrawnWith(leaving);
-        return new TeamOnPitch(team, lineup, roles, remainingCautioned, substitutionsMade + 1, nowWithdrawn, style);
+        TeamEnergy energyAfterChange = energy.withSubstitution(leaving, entering);
+        return new TeamOnPitch(team, lineup, roles, remainingCautioned, substitutionsMade + 1, nowWithdrawn, style,
+                energyAfterChange);
     }
 
     private List<Player> withdrawnWith(Player leaving) {

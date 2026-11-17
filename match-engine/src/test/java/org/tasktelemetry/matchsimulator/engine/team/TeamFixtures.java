@@ -5,7 +5,7 @@ import java.util.List;
 
 final class TeamFixtures {
 
-    private static final PlayerAttributes DEFAULT_ATTRIBUTES = new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50);
+    private static final PlayerAttributes DEFAULT_ATTRIBUTES = new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50);
 
     private TeamFixtures() {
     }

@@ -15,6 +15,7 @@ import org.tasktelemetry.matchsimulator.engine.team.Team;
 public final class MatchReader {
 
     private final LineupReader lineupReader;
+    private final FatigueReader fatigueReader = new FatigueReader();
 
     public MatchReader(StylePrudenceScale styleScale) {
         this.lineupReader = new LineupReader(styleScale);
@@ -29,13 +30,17 @@ public final class MatchReader {
         ScoreReading goalless = ScoreReading.goalless();
         MatchTime kickOff = new MatchTime(MatchPeriod.FIRST_HALF, 0);
         List<Dismissal> nobodyDismissed = List.of();
-        return new MatchReading(goalless, kickOff, lineups, nobodyDismissed);
+        Map<MatchSide, FatigueReading> fatigue = new EnumMap<>(MatchSide.class);
+        fatigue.put(MatchSide.HOME, FatigueReading.none());
+        fatigue.put(MatchSide.AWAY, FatigueReading.none());
+        return new MatchReading(goalless, kickOff, lineups, nobodyDismissed, fatigue);
     }
 
     public MatchReading advance(MatchReading before, List<MatchEvent> newEvents) {
         ScoreReading score = before.score();
         MatchTime time = before.time();
         Map<MatchSide, LineupReading> lineups = new EnumMap<>(before.lineups());
+        Map<MatchSide, FatigueReading> fatigue = new EnumMap<>(before.fatigue());
         List<Dismissal> dismissals = new ArrayList<>();
         for (MatchEvent event : newEvents) {
             score = score.after(event);
@@ -47,7 +52,9 @@ public final class MatchReader {
             }
             LineupReading lineupAfter = lineupReader.advance(lineupBefore, event);
             lineups.put(event.side(), lineupAfter);
+            FatigueReading fatigueAfter = fatigueReader.advance(fatigue.get(event.side()), event);
+            fatigue.put(event.side(), fatigueAfter);
         }
-        return new MatchReading(score, time, lineups, dismissals);
+        return new MatchReading(score, time, lineups, dismissals, fatigue);
     }
 }

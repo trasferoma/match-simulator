@@ -6,6 +6,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -13,7 +14,9 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
@@ -25,13 +28,15 @@ public final class FoulResolver {
     private final PitchLayout layout;
     private final MatchRandom random;
     private final OutOfPositionPenalty outOfPosition;
+    private final FatiguePenalty fatigue;
 
     public FoulResolver(FoulConfig config, PitchLayout layout, MatchRandom random,
-            OutOfPositionPenalty outOfPosition) {
+            OutOfPositionPenalty outOfPosition, FatiguePenalty fatigue) {
         this.config = config;
         this.layout = layout;
         this.random = random;
         this.outOfPosition = outOfPosition;
+        this.fatigue = fatigue;
     }
 
     public double foulProbability(TeamOnPitch foulingTeam, Player defender) {
@@ -63,12 +68,12 @@ public final class FoulResolver {
         double yellow = config.yellowProbability().get(severity);
         double draw = random.nextDouble();
         if (draw < red) {
-            ActionOutcome redCard = showCard(EventType.RED_CARD, fouler, foulingSide, foul);
+            ActionOutcome redCard = showCard(EventType.RED_CARD, foulingTeam, fouler, foulingSide, foul);
             return Optional.of(redCard);
         }
         if (draw < red + yellow) {
             EventType yellowType = yellowTypeFor(foulingTeam, fouler);
-            ActionOutcome yellowCard = showCard(yellowType, fouler, foulingSide, foul);
+            ActionOutcome yellowCard = showCard(yellowType, foulingTeam, fouler, foulingSide, foul);
             return Optional.of(yellowCard);
         }
         return Optional.empty();
@@ -89,8 +94,9 @@ public final class FoulResolver {
     }
 
     private double effectiveTacklingOf(TeamOnPitch team, Player player) {
-        double factor = outOfPosition.factorOf(team, player);
-        return player.attributes().tackling() * factor;
+        double positionFactor = outOfPosition.factorOf(team, player);
+        double fatigueFactor = fatigue.factorOf(team, player);
+        return player.attributes().tackling() * positionFactor * fatigueFactor;
     }
 
     private ActionOutcome concedeFoul(MatchState state, Player fouler, Player fouled) {
@@ -102,13 +108,25 @@ public final class FoulResolver {
         MatchSide foulingSide = state.possession().opposite();
         Participants participants = Participants.of(fouler, foulingSide, fouled, state.possession());
         EventDetail detail = EventDetail.foul(severity, penalty);
-        return new ActionOutcome(EventType.FOUL, participants, next, duration, detail);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(fouled, state.possession(), fouler);
+        return new ActionOutcome(EventType.FOUL, participants, next, duration, detail, involved);
     }
 
-    private ActionOutcome showCard(EventType card, Player carded, MatchSide cardedSide, ActionOutcome foul) {
+    private ActionOutcome showCard(EventType card, TeamOnPitch cardedTeam, Player carded, MatchSide cardedSide,
+            ActionOutcome foul) {
         Participants participants = Participants.of(carded, cardedSide);
-        EventDetail detail = EventDetail.none();
-        return new ActionOutcome(card, participants, foul.next(), 0, detail);
+        EventDetail detail = cardDetail(card, cardedTeam, carded);
+        InvolvedPlayers nobody = InvolvedPlayers.none();
+        return new ActionOutcome(card, participants, foul.next(), 0, detail, nobody);
+    }
+
+    private EventDetail cardDetail(EventType card, TeamOnPitch cardedTeam, Player carded) {
+        if (!card.isDismissal()) {
+            return EventDetail.none();
+        }
+        TeamOnPitch withoutCarded = cardedTeam.withoutPlayer(carded);
+        Deployment deploymentAfter = Deployment.of(withoutCarded);
+        return EventDetail.playerRemoved(deploymentAfter);
     }
 
     private EventType yellowTypeFor(TeamOnPitch foulingTeam, Player fouler) {

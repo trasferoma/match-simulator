@@ -89,8 +89,8 @@ class LineupRepairTest {
         List<Player> starters = new ArrayList<>();
         starters.add(player("GK", Role.GOALKEEPER, 65));
         starters.addAll(outfield("D", Role.DEFENDER, 4, 60));
-        starters.add(new Player("MA", Role.MIDFIELDER, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 90)));
-        starters.add(new Player("MB", Role.MIDFIELDER, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 90)));
+        starters.add(new Player("MA", Role.MIDFIELDER, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 90, 50)));
+        starters.add(new Player("MB", Role.MIDFIELDER, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 90, 50)));
         starters.add(player("MC", Role.MIDFIELDER, 52));
         starters.add(player("MD", Role.MIDFIELDER, 53));
         starters.addAll(outfield("F", Role.FORWARD, 2, 70));
@@ -316,7 +316,7 @@ class LineupRepairTest {
     void afterTheInjuryOfTheGoalkeeperTheGoalComesBeforeTheSectorWhoseLastPlayerGoesInGoal() {
         List<Player> starters = new ArrayList<>();
         starters.add(player("GK", Role.GOALKEEPER, 65));
-        starters.add(new Player("D1", Role.DEFENDER, new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 95)));
+        starters.add(new Player("D1", Role.DEFENDER, new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 95, 50)));
         starters.addAll(outfield("M", Role.MIDFIELDER, 4, 50));
         starters.addAll(outfield("F", Role.FORWARD, 5, 70));
         Team team = new Team("T", PlayStyle.BALANCED, starters, List.of());
@@ -377,7 +377,7 @@ class LineupRepairTest {
     void afterTheInjuryOfTheGoalkeeperTheMovesAreReportedInTheOrderOfTheRepair() {
         List<Player> starters = new ArrayList<>();
         starters.add(player("GK", Role.GOALKEEPER, 65));
-        starters.add(new Player("D1", Role.DEFENDER, new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 95)));
+        starters.add(new Player("D1", Role.DEFENDER, new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 95, 50)));
         starters.addAll(outfield("M", Role.MIDFIELDER, 4, 50));
         starters.addAll(outfield("F", Role.FORWARD, 5, 70));
         Team team = new Team("T", PlayStyle.BALANCED, starters, List.of());
@@ -446,7 +446,7 @@ class LineupRepairTest {
         List<Player> starters = new ArrayList<>();
         starters.add(player("GK", Role.GOALKEEPER, 65));
         starters.addAll(outfield("D", Role.DEFENDER, 4, 60));
-        starters.add(new Player("M1", Role.MIDFIELDER, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 95)));
+        starters.add(new Player("M1", Role.MIDFIELDER, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 95, 50)));
         starters.addAll(outfield("M", Role.MIDFIELDER, 3, 51).stream().map(this::renumber).toList());
         starters.addAll(outfield("F", Role.FORWARD, 2, 70));
         return new Team("T", PlayStyle.BALANCED, starters, List.of(player("BD", Role.DEFENDER, 55)));
@@ -467,7 +467,7 @@ class LineupRepairTest {
 
     private Player player(String name, Role role, int rating) {
         PlayerAttributes attributes = new PlayerAttributes(rating, rating, rating, rating, rating, rating, rating,
-                rating);
+                rating, 50);
         return new Player(name, role, attributes);
     }
 }

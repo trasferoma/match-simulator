@@ -1,6 +1,7 @@
 package org.tasktelemetry.matchsimulator.narration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_DEFENDER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
@@ -9,10 +10,17 @@ import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.secondH
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
+import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
+import org.tasktelemetry.matchsimulator.engine.event.Participants;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
+import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 class NarrationContextTest {
 
@@ -118,8 +126,60 @@ class NarrationContextTest {
         assertThat(context.previousOf(tackle)).contains(pass);
     }
 
+    @Test
+    void theSetupsAreTheOpeningOnesUntilAnEventChangesThem() {
+        MatchEvent kickOff = fixture.add(EventType.KICK_OFF, MatchSide.HOME, HOME_FORWARD);
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        NarrationContext context = contextOfTheMatch();
+
+        assertThat(context.setupsAfter(kickOff)).isEqualTo(NarrationEvents.OPENING_SETUPS);
+        assertThat(context.setupsAfter(pass)).isEqualTo(NarrationEvents.OPENING_SETUPS);
+    }
+
+    @Test
+    void aStyleChangeChangesOnlyTheStyleOfItsSideFromThatEventOn() {
+        MatchEvent styleChange = fixture.add(EventType.STYLE_CHANGED, MatchSide.AWAY, ZoneRole.MIDFIELD,
+                Participants.nobody(),
+                EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.DEFENSIVE, ChangeReason.PROTECT_LEAD));
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        NarrationContext context = contextOfTheMatch();
+
+        MatchSetups expected = NarrationEvents.OPENING_SETUPS.withStyle(MatchSide.AWAY, PlayStyle.DEFENSIVE);
+        assertThat(context.setupsAfter(styleChange)).isEqualTo(expected);
+        assertThat(context.setupsAfter(pass)).isEqualTo(expected);
+    }
+
+    @Test
+    void aLineupChangeTakesTheDeploymentAfterTheChangeForItsSide() {
+        Deployment before = new Deployment(4, 4, 2);
+        Deployment after = new Deployment(3, 5, 2);
+        MatchEvent move = fixture.add(EventType.PLAYER_MOVED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(HOME_MIDFIELDER),
+                EventDetail.lineupChange(Role.MIDFIELDER, ChangeReason.CHASE_GAME, before, after));
+        NarrationContext context = contextOfTheMatch();
+
+        MatchSetups expected = NarrationEvents.OPENING_SETUPS.withDeployment(MatchSide.HOME, after);
+        assertThat(context.setupsAfter(move)).isEqualTo(expected);
+    }
+
+    @Test
+    void anExpulsionAndAnInjuryTakeTheDeploymentCarriedByTheEvent() {
+        Deployment afterExpulsion = new Deployment(3, 4, 2);
+        Deployment afterInjury = new Deployment(3, 4, 1);
+        MatchEvent expulsion = fixture.add(EventType.RED_CARD, MatchSide.AWAY, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(AWAY_DEFENDER), EventDetail.playerRemoved(afterExpulsion));
+        MatchEvent injury = fixture.add(EventType.INJURY, MatchSide.AWAY, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(AWAY_FORWARD), EventDetail.playerRemoved(afterInjury));
+        NarrationContext context = contextOfTheMatch();
+
+        MatchSetups afterTheExpulsion = NarrationEvents.OPENING_SETUPS.withDeployment(MatchSide.AWAY, afterExpulsion);
+        assertThat(context.setupsAfter(expulsion)).isEqualTo(afterTheExpulsion);
+        assertThat(context.setupsAfter(injury))
+                .isEqualTo(afterTheExpulsion.withDeployment(MatchSide.AWAY, afterInjury));
+    }
+
     private NarrationContext contextOfTheMatch() {
-        return new NarrationContext(fixture.list(), NarrationEvents.TEAM_NAMES);
+        return new NarrationContext(fixture.list(), NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
     }
 
     @Test

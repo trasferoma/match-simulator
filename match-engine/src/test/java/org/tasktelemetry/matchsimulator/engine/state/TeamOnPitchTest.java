@@ -253,4 +253,59 @@ class TeamOnPitchTest {
         assertThatThrownBy(() -> new TeamOnPitch(team, team.starters(), Map.of(), List.of(), -1))
                 .isInstanceOf(IllegalArgumentException.class);
     }
+
+    @Test
+    void everyStarterBeginsWithFullEnergy() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+
+        assertThat(onPitch.energy().energyByPlayer().keySet()).containsExactlyElementsOf(team.starters());
+        assertThat(onPitch.energy().energyByPlayer().values()).containsOnly(100.0);
+    }
+
+    @Test
+    void whoEntersHasFullEnergyAndWhoLeavesIsForgotten() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player leaving = onPitch.playersIn(Role.MIDFIELDER).get(0);
+        Player entering = team.bench().stream().filter(player -> player.role() == Role.MIDFIELDER).findFirst()
+                .orElseThrow();
+        TeamOnPitch tired = onPitch.withEnergy(onPitch.energy().withEnergy(leaving, 20.0));
+
+        TeamOnPitch changed = tired.withSubstitution(leaving, entering, Role.MIDFIELDER);
+
+        assertThat(changed.energy().energyOf(entering)).isEqualTo(100.0);
+        assertThat(changed.energy().energyByPlayer()).doesNotContainKey(leaving);
+    }
+
+    @Test
+    void whoIsSentOffLosesTheEnergyAndWhoChangesSectorKeepsIt() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player dismissed = onPitch.playersIn(Role.DEFENDER).get(0);
+        Player moved = onPitch.playersIn(Role.DEFENDER).get(1);
+        TeamOnPitch tired = onPitch.withEnergy(onPitch.energy().withEnergy(moved, 33.0));
+
+        TeamOnPitch afterMove = tired.withRole(moved, Role.MIDFIELDER);
+        TeamOnPitch afterDismissal = afterMove.withoutPlayer(dismissed);
+
+        assertThat(afterMove.energy().energyOf(moved)).isEqualTo(33.0);
+        assertThat(afterDismissal.energy().energyByPlayer()).doesNotContainKey(dismissed);
+        assertThat(afterDismissal.energy().energyOf(moved)).isEqualTo(33.0);
+    }
+
+    @Test
+    void theEnergyIsKeptWhenTheStyleChangesAndWhenAPlayerIsCautioned() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player player = onPitch.players().get(4);
+        TeamOnPitch tired = onPitch.withEnergy(onPitch.energy().withEnergy(player, 55.0));
+
+        assertThat(tired.withStyle(PlayStyle.ATTACKING).energy().energyOf(player)).isEqualTo(55.0);
+        assertThat(tired.withCautioned(player).energy().energyOf(player)).isEqualTo(55.0);
+    }
+
+    @Test
+    void aMissingEnergyIsRejected() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+
+        assertThatThrownBy(() -> new TeamOnPitch(team, onPitch.players(), Map.of(), List.of(), 0, List.of(),
+                PlayStyle.BALANCED, null)).isInstanceOf(NullPointerException.class);
+    }
 }

@@ -17,17 +17,17 @@ public final class TestTeams {
     }
 
     public static PlayerAttributes uniform(int rating) {
-        return new PlayerAttributes(rating, rating, rating, rating, rating, rating, rating, rating);
+        return new PlayerAttributes(rating, rating, rating, rating, rating, rating, rating, rating, 50);
     }
 
     public static PlayerAttributes withDuelAttributes(int passing, int dribbling, int tackling, int positioning) {
         return new PlayerAttributes(passing, dribbling, NEUTRAL_RATING, tackling, positioning, NEUTRAL_RATING,
-                NEUTRAL_RATING, NEUTRAL_RATING);
+                NEUTRAL_RATING, NEUTRAL_RATING, 50);
     }
 
     public static PlayerAttributes withShootingAndGoalkeeping(int shooting, int goalkeeping) {
         return new PlayerAttributes(NEUTRAL_RATING, NEUTRAL_RATING, shooting, NEUTRAL_RATING, NEUTRAL_RATING,
-                NEUTRAL_RATING, NEUTRAL_RATING, goalkeeping);
+                NEUTRAL_RATING, NEUTRAL_RATING, goalkeeping, 50);
     }
 
     public static Player player(String name, Role role, PlayerAttributes attributes) {

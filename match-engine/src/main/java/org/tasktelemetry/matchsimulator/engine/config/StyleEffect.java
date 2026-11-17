@@ -6,7 +6,8 @@ public record StyleEffect(
         double defence,
         double counterAttackStart,
         double counterAttackAdvance,
-        double crossPropensity) {
+        double crossPropensity,
+        double energyCost) {
 
     private static final double NEUTRAL = 1.0;
 
@@ -17,37 +18,46 @@ public record StyleEffect(
         requirePositiveAndFinite("counter-attack start multiplier", counterAttackStart);
         requirePositiveAndFinite("counter-attack advance multiplier", counterAttackAdvance);
         requirePositiveAndFinite("cross propensity multiplier", crossPropensity);
+        requirePositiveAndFinite("energy cost multiplier", energyCost);
     }
 
     public static StyleEffect neutral() {
-        return new StyleEffect(NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL);
+        return new StyleEffect(NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL, NEUTRAL);
     }
 
     public StyleEffect withAttack(double multiplier) {
         return new StyleEffect(multiplier, midfield, defence, counterAttackStart, counterAttackAdvance,
-                crossPropensity);
+                crossPropensity, energyCost);
     }
 
     public StyleEffect withMidfield(double multiplier) {
         return new StyleEffect(attack, multiplier, defence, counterAttackStart, counterAttackAdvance,
-                crossPropensity);
+                crossPropensity, energyCost);
     }
 
     public StyleEffect withDefence(double multiplier) {
         return new StyleEffect(attack, midfield, multiplier, counterAttackStart, counterAttackAdvance,
-                crossPropensity);
+                crossPropensity, energyCost);
     }
 
     public StyleEffect withCounterAttackStart(double multiplier) {
-        return new StyleEffect(attack, midfield, defence, multiplier, counterAttackAdvance, crossPropensity);
+        return new StyleEffect(attack, midfield, defence, multiplier, counterAttackAdvance, crossPropensity,
+                energyCost);
     }
 
     public StyleEffect withCounterAttackAdvance(double multiplier) {
-        return new StyleEffect(attack, midfield, defence, counterAttackStart, multiplier, crossPropensity);
+        return new StyleEffect(attack, midfield, defence, counterAttackStart, multiplier, crossPropensity,
+                energyCost);
     }
 
     public StyleEffect withCrossPropensity(double multiplier) {
-        return new StyleEffect(attack, midfield, defence, counterAttackStart, counterAttackAdvance, multiplier);
+        return new StyleEffect(attack, midfield, defence, counterAttackStart, counterAttackAdvance, multiplier,
+                energyCost);
+    }
+
+    public StyleEffect withEnergyCost(double multiplier) {
+        return new StyleEffect(attack, midfield, defence, counterAttackStart, counterAttackAdvance,
+                crossPropensity, multiplier);
     }
 
     private static void requirePositiveAndFinite(String name, double value) {

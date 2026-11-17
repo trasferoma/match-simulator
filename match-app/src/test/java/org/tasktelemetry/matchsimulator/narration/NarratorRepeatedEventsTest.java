@@ -1,8 +1,10 @@
 package org.tasktelemetry.matchsimulator.narration;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_DEFENDER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.OPENING_SETUPS;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.TEAM_NAMES;
 
 import java.util.List;
@@ -14,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
@@ -24,11 +27,12 @@ class NarratorRepeatedEventsTest {
 
     private static final int VARIANTS = 3;
     private static final int SENTENCE_LINE = 1;
-    private static final Pattern VARIANT_NUMBER = Pattern.compile("(?:pass|tackle|kick)(\\d)");
+    private static final Pattern VARIANT_NUMBER = Pattern.compile("(?:pass|tackle|kick|tired)(\\d)");
     private static final PhraseCatalog THREE_VARIANTS = new PhraseCatalog(Map.of(
             "PASS_COMPLETED", List.of("pass0 {player}", "pass1 {player}", "pass2 {player}"),
             "TACKLE", List.of("tackle0 {player}", "tackle1 {player}", "tackle2 {player}"),
-            "KICK_OFF", List.of("kick0", "kick1", "kick2")));
+            "KICK_OFF", List.of("kick0", "kick1", "kick2"),
+            "PLAYER_TIRED.TIRED", List.of("tired0 {player}", "tired1 {player}", "tired2 {player}")));
     private static final PhraseCatalog ONE_VARIANT = new PhraseCatalog(Map.of(
             "PASS_COMPLETED", List.of("only {player}")));
 
@@ -47,6 +51,21 @@ class NarratorRepeatedEventsTest {
 
         assertThat(indexes).containsExactly(firstIndex, (firstIndex + 1) % VARIANTS, (firstIndex + 2) % VARIANTS,
                 firstIndex);
+    }
+
+    @Test
+    void aTiredPlayerBetweenTwoEqualEventsOfTheSamePlayerDoesNotBreakTheRepetition() {
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.TIRED);
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.addTired(MatchSide.HOME, HOME_FORWARD, FatigueBand.TIRED);
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+
+        List<Integer> indexes = variantNumbersOf(fixture.list(), THREE_VARIANTS);
+
+        int firstPass = indexes.get(0);
+        assertThat(indexes.get(2)).isEqualTo((firstPass + 1) % VARIANTS);
+        assertThat(indexes.get(4)).isEqualTo((firstPass + 2) % VARIANTS);
     }
 
     @Test
@@ -130,8 +149,8 @@ class NarratorRepeatedEventsTest {
 
     private List<String> sentencesOf(List<MatchEvent> events, PhraseCatalog catalog) {
         Narrator narrator = new Narrator(catalog, picker, new NarratedEventFilter(), new PhraseKeys(),
-                new PhraseFiller(UserMessages.italian()), new PitchDrawing());
-        List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
+                new PhraseFiller(UserMessages.italian()), new PitchDrawing(UserMessages.italian()));
+        List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
         return blocks.stream()
                 .map(block -> block.get(SENTENCE_LINE))
                 .toList();

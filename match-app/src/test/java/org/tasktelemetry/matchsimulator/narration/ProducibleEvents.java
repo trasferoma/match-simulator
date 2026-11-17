@@ -16,6 +16,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -41,7 +42,7 @@ final class ProducibleEvents {
     private static final Set<EventType> WITH_SPECIFIC_DETAIL = EnumSet.of(EventType.STOPPAGE_ANNOUNCED,
             EventType.MATCH_SUSPENDED, EventType.FOUL, EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED, EventType.STYLE_CHANGED, EventType.SUBSTITUTION,
-            EventType.PLAYER_MOVED);
+            EventType.PLAYER_MOVED, EventType.PLAYER_TIRED, EventType.PLAYER_RECOVERED);
 
     private final NarrationEvents fixture = new NarrationEvents();
 
@@ -52,7 +53,7 @@ final class ProducibleEvents {
     private List<MatchEvent> build() {
         Stream<MatchEvent> flow = Stream.concat(withoutPlayers(), withPrimaryOnly());
         Stream<MatchEvent> pairs = Stream.concat(withBothPlayers(), specificDetails());
-        Stream<MatchEvent> interventions = interventions();
+        Stream<MatchEvent> interventions = Stream.concat(interventions(), fatigueEvents());
         return Stream.concat(Stream.concat(flow, pairs), interventions).toList();
     }
 
@@ -71,6 +72,19 @@ final class ProducibleEvents {
         return InterventionReasons.types().stream()
                 .flatMap(type -> InterventionReasons.validFor(type).stream()
                         .map(reason -> intervention(type, reason)));
+    }
+
+    private Stream<MatchEvent> fatigueEvents() {
+        Stream<MatchEvent> tired = Stream.of(FatigueBand.TIRED, FatigueBand.EXHAUSTED)
+                .map(band -> fatigue(EventType.PLAYER_TIRED, band));
+        Stream<MatchEvent> recovered = Stream.of(FatigueBand.FRESH, FatigueBand.TIRED)
+                .map(band -> fatigue(EventType.PLAYER_RECOVERED, band));
+        return Stream.concat(tired, recovered);
+    }
+
+    private MatchEvent fatigue(EventType type, FatigueBand band) {
+        Participants participants = NarrationEvents.participantsOf(HOME_MIDFIELDER);
+        return eventWithDetail(type, participants, EventDetail.fatigue(band));
     }
 
     private MatchEvent intervention(EventType type, ChangeReason reason) {

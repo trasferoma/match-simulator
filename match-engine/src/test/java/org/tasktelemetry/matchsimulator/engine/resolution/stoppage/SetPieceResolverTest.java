@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution.stoppage;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -414,5 +415,59 @@ private List<Integer> durations(SetPieceResolver resolver, MatchState state, int
         CrossResolver crossResolver = TestResolvers.crossResolver(engineConfig, layout, random, shotResolver);
         PlayerPicker picker = TestResolvers.playerPicker(engineConfig, random);
         return new SetPieceResolver(config, layout, random, picker, crossResolver, shotResolver);
+    }
+
+    @Test
+    void aSetPieceWithoutAShotInvolvesOnlyItsTaker() {
+        Zone ownBox = layout.ownBoxZone(MatchSide.AWAY);
+        MatchState offsideFreeKick = MatchState.forSetPiece(MatchSide.AWAY, ownBox, SetPieceKind.OFFSIDE_FREE_KICK);
+        List<MatchState> states = List.of(
+                MatchState.forSetPiece(MatchSide.AWAY, ownBox, SetPieceKind.GOAL_KICK),
+                cornerFor(MatchSide.AWAY), freeKickAt(ZoneRole.MIDFIELD), offsideFreeKick);
+
+        for (MatchState state : states) {
+            assertThat(resolveMany(state, 100)).allSatisfy(outcome -> {
+                assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(
+                        outcome.participants().primary().orElseThrow());
+                assertThat(involvedOn(outcome, MatchSide.HOME)).isEmpty();
+            });
+        }
+    }
+
+    @Test
+    void theKickOffAfterAGoalInvolvesNoOne() {
+        MatchState state = MatchState.forSetPiece(MatchSide.AWAY, layout.kickOffZone(), SetPieceKind.KICK_OFF);
+
+        ActionOutcome outcome = resolver(SEED).resolve(state, SCORE, away, home);
+
+        assertThat(outcome.involved().involvements()).isEmpty();
+    }
+
+    @Test
+    void aDirectFreeKickInvolvesTheShooterAndTheGoalkeeperAndKeepsThemWhenWaiting() {
+        SetPieceResolver direct = resolverWith(withDirectShare(1.0));
+
+        List<ActionOutcome> outcomes = resolveMany(direct, freeKickAt(ZoneRole.ATTACKING_THIRD), 200);
+
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(SHOT_TYPES).contains(outcome.type());
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(
+                    outcome.participants().primary().orElseThrow());
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(home.goalkeeper());
+        });
+    }
+
+    @Test
+    void aPenaltyInvolvesTheTakerAndTheGoalkeeper() {
+        Zone box = layout.ownBoxZone(MatchSide.HOME);
+        MatchState penalty = MatchState.forSetPiece(MatchSide.AWAY, box, SetPieceKind.PENALTY);
+
+        List<ActionOutcome> outcomes = resolveMany(penalty, 100);
+
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(
+                    outcome.participants().primary().orElseThrow());
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(home.goalkeeper());
+        });
     }
 }

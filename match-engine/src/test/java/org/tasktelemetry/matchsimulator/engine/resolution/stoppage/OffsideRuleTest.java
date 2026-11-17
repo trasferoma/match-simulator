@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution.stoppage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -16,6 +17,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.OffsideConfig;
@@ -26,8 +28,10 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
@@ -55,7 +59,7 @@ class OffsideRuleTest {
         Player receiver = forwardWithPositioning(SAME_POSITIONING);
         Player defender = defenderWithPositioning(SAME_POSITIONING);
 
-        double probability = ruleWith(config, SEED).offsideProbability(homeTeam, receiver, defenders, defender);
+        double probability = ruleWith(config, SEED).offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defender), defender);
 
         assertThat(probability).isCloseTo(config.baseProbability(), within(1e-9));
     }
@@ -68,7 +72,7 @@ class OffsideRuleTest {
         double shiftedOdds = odds * StrictMath.exp(config.positioningSlope() * 20);
         double expected = shiftedOdds / (1.0 + shiftedOdds);
 
-        double probability = ruleWith(config, SEED).offsideProbability(homeTeam, receiver, defenders, defender);
+        double probability = ruleWith(config, SEED).offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defender), defender);
 
         assertThat(probability).isCloseTo(expected, within(1e-9));
     }
@@ -81,10 +85,9 @@ class OffsideRuleTest {
         int weakened = weakenedByTheOutOfPositionMultiplier(receiver.attributes().positioning());
         TeamOnPitch receiverInMidfield = homeTeam.withRole(receiver, Role.MIDFIELDER);
 
-        double outOfPosition = rule.offsideProbability(receiverInMidfield, receiver, defenders, defender);
-        double inPosition = rule.offsideProbability(homeTeam, receiver, defenders, defender);
-        double weakenedReceiver = rule.offsideProbability(homeTeam, forwardWithPositioning(weakened), defenders,
-                defender);
+        double outOfPosition = rule.offsideProbability(TestEnergy.withPlayerOnPitch(receiverInMidfield, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defender), defender);
+        double inPosition = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defender), defender);
+        double weakenedReceiver = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, forwardWithPositioning(weakened)), forwardWithPositioning(weakened), TestEnergy.withPlayerOnPitch(defenders, defender), defender);
 
         assertThat(outOfPosition).isGreaterThan(inPosition);
         assertThat(outOfPosition).isCloseTo(weakenedReceiver, within(1e-9));
@@ -98,10 +101,9 @@ class OffsideRuleTest {
         int weakened = weakenedByTheOutOfPositionMultiplier(defender.attributes().positioning());
         TeamOnPitch defenderInMidfield = defenders.withRole(defender, Role.MIDFIELDER);
 
-        double outOfPosition = rule.offsideProbability(homeTeam, receiver, defenderInMidfield, defender);
-        double inPosition = rule.offsideProbability(homeTeam, receiver, defenders, defender);
-        double weakenedDefender = rule.offsideProbability(homeTeam, receiver, defenders,
-                defenderWithPositioning(weakened));
+        double outOfPosition = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenderInMidfield, defender), defender);
+        double inPosition = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defender), defender);
+        double weakenedDefender = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defenderWithPositioning(weakened)), defenderWithPositioning(weakened));
 
         assertThat(outOfPosition).isLessThan(inPosition);
         assertThat(outOfPosition).isCloseTo(weakenedDefender, within(1e-9));
@@ -115,7 +117,7 @@ class OffsideRuleTest {
         TeamOnPitch receiverInMidfield = homeTeam.withRole(receiver, Role.MIDFIELDER);
         TeamOnPitch defenderInMidfield = defenders.withRole(defender, Role.MIDFIELDER);
 
-        double probability = rule.offsideProbability(receiverInMidfield, receiver, defenderInMidfield, defender);
+        double probability = rule.offsideProbability(TestEnergy.withPlayerOnPitch(receiverInMidfield, receiver), receiver, TestEnergy.withPlayerOnPitch(defenderInMidfield, defender), defender);
 
         assertThat(probability).isCloseTo(config.baseProbability(), within(1e-9));
     }
@@ -124,10 +126,8 @@ class OffsideRuleTest {
     void theProbabilityDependsOnlyOnTheDifferenceOfThePositioning() {
         OffsideRule rule = ruleWith(config, SEED);
 
-        double lowPair = rule.offsideProbability(homeTeam, forwardWithPositioning(30), defenders,
-                defenderWithPositioning(50));
-        double highPair = rule.offsideProbability(homeTeam, forwardWithPositioning(70), defenders,
-                defenderWithPositioning(90));
+        double lowPair = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, forwardWithPositioning(30)), forwardWithPositioning(30), TestEnergy.withPlayerOnPitch(defenders, defenderWithPositioning(50)), defenderWithPositioning(50));
+        double highPair = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, forwardWithPositioning(70)), forwardWithPositioning(70), TestEnergy.withPlayerOnPitch(defenders, defenderWithPositioning(90)), defenderWithPositioning(90));
 
         assertThat(lowPair).isCloseTo(highPair, within(1e-9));
     }
@@ -137,12 +137,10 @@ class OffsideRuleTest {
         OffsideRule rule = ruleWith(config, SEED);
         Player receiver = forwardWithPositioning(SAME_POSITIONING);
         Player defender = defenderWithPositioning(SAME_POSITIONING);
-        double base = rule.offsideProbability(homeTeam, receiver, defenders, defender);
+        double base = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defender), defender);
 
-        double sharperDefender = rule.offsideProbability(homeTeam, receiver, defenders,
-                defenderWithPositioning(SAME_POSITIONING + 10));
-        double sharperReceiver = rule.offsideProbability(homeTeam,
-                forwardWithPositioning(SAME_POSITIONING + 10), defenders, defender);
+        double sharperDefender = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, defenderWithPositioning(SAME_POSITIONING + 10)), defenderWithPositioning(SAME_POSITIONING + 10));
+        double sharperReceiver = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, forwardWithPositioning(SAME_POSITIONING + 10)), forwardWithPositioning(SAME_POSITIONING + 10), TestEnergy.withPlayerOnPitch(defenders, defender), defender);
 
         assertThat(sharperDefender).isGreaterThan(base);
         assertThat(sharperReceiver).isLessThan(base);
@@ -156,8 +154,8 @@ class OffsideRuleTest {
         Player weakestDefender = defenderWithPositioning(PlayerAttributes.MIN_VALUE);
         Player strongestDefender = defenderWithPositioning(PlayerAttributes.MAX_VALUE);
 
-        double againstTheWeakest = rule.offsideProbability(homeTeam, receiver, defenders, weakestDefender);
-        double againstTheStrongest = rule.offsideProbability(homeTeam, receiver, defenders, strongestDefender);
+        double againstTheWeakest = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, weakestDefender), weakestDefender);
+        double againstTheStrongest = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, receiver), receiver, TestEnergy.withPlayerOnPitch(defenders, strongestDefender), strongestDefender);
 
         assertThat(againstTheWeakest).isStrictlyBetween(0.0, 1.0);
         assertThat(againstTheStrongest).isStrictlyBetween(0.0, 1.0);
@@ -170,7 +168,7 @@ class OffsideRuleTest {
         OffsideRule rule = ruleWith(config, SEED);
         Player receiver = attackers.playersIn(Role.FORWARD).getFirst();
         Player defender = backline.playersIn(Role.DEFENDER).getFirst();
-        double expected = rule.offsideProbability(attackers, receiver, backline, defender);
+        double expected = rule.offsideProbability(TestEnergy.withPlayerOnPitch(attackers, receiver), receiver, TestEnergy.withPlayerOnPitch(backline, defender), defender);
 
         double share = offsideShare(rule, attackers, backline, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
 
@@ -179,16 +177,14 @@ class OffsideRuleTest {
 
     @Test
     void theShareOfOffsidesDependsOnThePositioningOfTheReceiverAndNotOnHisOtherAttributes() {
-        PlayerAttributes sharpPositioningButWeakElsewhere = new PlayerAttributes(10, 10, 10, 10, 90, 10, 10, 10);
-        PlayerAttributes poorPositioningButStrongElsewhere = new PlayerAttributes(90, 90, 90, 90, 10, 90, 90, 90);
+        PlayerAttributes sharpPositioningButWeakElsewhere = new PlayerAttributes(10, 10, 10, 10, 90, 10, 10, 10, 50);
+        PlayerAttributes poorPositioningButStrongElsewhere = new PlayerAttributes(90, 90, 90, 90, 10, 90, 90, 90, 50);
         TeamOnPitch sharp = attackersWithOutfield(sharpPositioningButWeakElsewhere);
         TeamOnPitch poor = attackersWithOutfield(poorPositioningButStrongElsewhere);
         OffsideRule rule = ruleWith(config, SEED);
         Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
-        double sharpExpected = rule.offsideProbability(sharp, sharp.playersIn(Role.FORWARD).getFirst(), defenders,
-                defender);
-        double poorExpected = rule.offsideProbability(poor, poor.playersIn(Role.FORWARD).getFirst(), defenders,
-                defender);
+        double sharpExpected = rule.offsideProbability(TestEnergy.withPlayerOnPitch(sharp, sharp.playersIn(Role.FORWARD).getFirst()), sharp.playersIn(Role.FORWARD).getFirst(), TestEnergy.withPlayerOnPitch(defenders, defender), defender);
+        double poorExpected = rule.offsideProbability(TestEnergy.withPlayerOnPitch(poor, poor.playersIn(Role.FORWARD).getFirst()), poor.playersIn(Role.FORWARD).getFirst(), TestEnergy.withPlayerOnPitch(defenders, defender), defender);
 
         double sharpShare = offsideShare(rule, sharp, defenders, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         double poorShare = offsideShare(rule, poor, defenders, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
@@ -200,17 +196,15 @@ class OffsideRuleTest {
 
     @Test
     void theShareOfOffsidesDependsOnThePositioningOfTheDefenderAndNotOnHisOtherAttributes() {
-        PlayerAttributes sharpPositioningButWeakElsewhere = new PlayerAttributes(10, 10, 10, 10, 90, 10, 10, 10);
-        PlayerAttributes poorPositioningButStrongElsewhere = new PlayerAttributes(90, 90, 90, 90, 10, 90, 90, 90);
+        PlayerAttributes sharpPositioningButWeakElsewhere = new PlayerAttributes(10, 10, 10, 10, 90, 10, 10, 10, 50);
+        PlayerAttributes poorPositioningButStrongElsewhere = new PlayerAttributes(90, 90, 90, 90, 10, 90, 90, 90, 50);
         TeamOnPitch attackers = attackersWithOutfield(ordinary);
         TeamOnPitch sharp = defendersWith(sharpPositioningButWeakElsewhere);
         TeamOnPitch poor = defendersWith(poorPositioningButStrongElsewhere);
         OffsideRule rule = ruleWith(config, SEED);
         Player receiver = attackers.playersIn(Role.FORWARD).getFirst();
-        double sharpExpected = rule.offsideProbability(attackers, receiver, sharp,
-                sharp.playersIn(Role.DEFENDER).getFirst());
-        double poorExpected = rule.offsideProbability(attackers, receiver, poor,
-                poor.playersIn(Role.DEFENDER).getFirst());
+        double sharpExpected = rule.offsideProbability(TestEnergy.withPlayerOnPitch(attackers, receiver), receiver, TestEnergy.withPlayerOnPitch(sharp, sharp.playersIn(Role.DEFENDER).getFirst()), sharp.playersIn(Role.DEFENDER).getFirst());
+        double poorExpected = rule.offsideProbability(TestEnergy.withPlayerOnPitch(attackers, receiver), receiver, TestEnergy.withPlayerOnPitch(poor, poor.playersIn(Role.DEFENDER).getFirst()), poor.playersIn(Role.DEFENDER).getFirst());
 
         double sharpShare = offsideShare(rule, attackers, sharp, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         double poorShare = offsideShare(rule, attackers, poor, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
@@ -252,7 +246,8 @@ class OffsideRuleTest {
         Player player = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Zone arrival = zoneWithRole(MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         MatchState next = MatchState.openPlay(MatchSide.HOME, arrival);
-        ActionOutcome outcome = ActionOutcome.byPlayer(type, player, MatchSide.HOME, next, PASS_SECONDS);
+        ActionOutcome outcome = ActionOutcome.byPlayer(type, player, MatchSide.HOME, next, PASS_SECONDS,
+                InvolvedPlayers.none());
 
         ActionOutcome checked = rule.callOffsideIfCaught(outcome, attackers, defenders);
 
@@ -330,7 +325,26 @@ class OffsideRuleTest {
 
         ActionOutcome outcome = rule.callOffsideIfCaught(pass, attackers, defenders);
 
-        assertThat(outcome).isSameAs(pass);
+        assertThat(outcome).usingRecursiveComparison().ignoringFields("involved").isEqualTo(pass);
+    }
+
+    @Test
+    void aPassWhichIsNotOffsideInvolvesAlsoTheReceiverAndTheDefenderOfTheCheck() {
+        OffsideConfig almostNever = new OffsideConfig(0.000001, 0.0);
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
+        OffsideRule rule = ruleWith(almostNever, SEED);
+        ActionOutcome pass = passArrivingIn(MatchSide.HOME, ZoneRole.ATTACKING_THIRD, attackers);
+
+        ActionOutcome outcome = rule.callOffsideIfCaught(pass, attackers, defenders);
+
+        List<InvolvedPlayers.Involvement> involvements = outcome.involved().involvements();
+        Player passer = pass.participants().primary().orElseThrow();
+        assertThat(involvements).hasSize(3);
+        assertThat(involvements.get(0)).isEqualTo(new InvolvedPlayers.Involvement(passer, MatchSide.HOME));
+        assertThat(involvements.get(1).side()).isEqualTo(MatchSide.HOME);
+        assertThat(involvements.get(2).side()).isEqualTo(MatchSide.AWAY);
+        assertThat(attackers.players()).contains(involvements.get(1).player());
+        assertThat(defenders.players()).contains(involvements.get(2).player());
     }
 
     @Test
@@ -351,7 +365,7 @@ class OffsideRuleTest {
         Zone arrival = zoneWithRole(MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
         MatchState next = MatchState.openPlay(MatchSide.HOME, arrival);
         ActionOutcome anonymousPass = new ActionOutcome(EventType.PASS_COMPLETED, Participants.nobody(), next,
-                PASS_SECONDS, EventDetail.none());
+                PASS_SECONDS, EventDetail.none(), InvolvedPlayers.none());
 
         assertThatThrownBy(() -> rule.callOffsideIfCaught(anonymousPass, attackers, defenders))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -377,14 +391,16 @@ class OffsideRuleTest {
     private ActionOutcome passFrom(Player passer, MatchSide side, ZoneRole arrivalRole) {
         Zone arrival = zoneWithRole(side, arrivalRole);
         MatchState next = MatchState.openPlay(side, arrival);
-        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, side, next, PASS_SECONDS);
+        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, side, next, PASS_SECONDS,
+                InvolvedPlayers.of(passer, side));
     }
 
     private ActionOutcome passArrivingIn(MatchSide side, ZoneRole arrivalRole, TeamOnPitch attackers) {
         Player passer = attackers.playersIn(Role.MIDFIELDER).getFirst();
         Zone arrival = zoneWithRole(side, arrivalRole);
         MatchState next = MatchState.openPlay(side, arrival);
-        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, side, next, PASS_SECONDS);
+        return ActionOutcome.byPlayer(EventType.PASS_COMPLETED, passer, side, next, PASS_SECONDS,
+                InvolvedPlayers.of(passer, side));
     }
 
     private Zone zoneWithRole(MatchSide side, ZoneRole role) {
@@ -396,7 +412,8 @@ class OffsideRuleTest {
 
     private TeamOnPitch attackersWithOutfield(int positioning, PlayerAttributes others) {
         PlayerAttributes outfield = new PlayerAttributes(others.passing(), others.dribbling(), others.shooting(),
-                others.tackling(), positioning, others.pace(), others.aerial(), others.goalkeeping());
+                others.tackling(), positioning, others.pace(), others.aerial(), others.goalkeeping(),
+                others.stamina());
         return attackersWithOutfield(outfield);
     }
 
@@ -441,6 +458,57 @@ class OffsideRuleTest {
         MatchRandom random = new MatchRandom(seed);
         PlayerPicker picker = TestResolvers.playerPicker(EngineConfig.defaults(), random);
         OutOfPositionPenalty outOfPosition = TestResolvers.outOfPositionPenalty(EngineConfig.defaults());
-        return new OffsideRule(offsideConfig, layout, random, picker, outOfPosition);
+        FatiguePenalty fatigue = TestResolvers.fatiguePenalty(EngineConfig.defaults());
+        return new OffsideRule(offsideConfig, layout, random, picker, outOfPosition, fatigue);
+    }
+
+    @Test
+    void anOffsideKeepsThePlayersOfThePassAndInvolvesAlsoTheReceiverAndTheDefenderOfTheCheck() {
+        TeamOnPitch attackers = attackersWithOutfield(ordinary);
+        OffsideRule rule = ruleWith(offsideAlmostCertain(), SEED);
+        ActionOutcome pass = passArrivingIn(MatchSide.HOME, ZoneRole.ATTACKING_THIRD, attackers);
+        Player passer = pass.participants().primary().orElseThrow();
+
+        ActionOutcome offside = rule.callOffsideIfCaught(pass, attackers, defenders);
+
+        Player receiver = offside.participants().primary().orElseThrow();
+        assertThat(offside.type()).isEqualTo(EventType.OFFSIDE);
+        assertThat(involvedOn(offside, MatchSide.HOME)).containsExactly(passer, receiver);
+        assertThat(involvedOn(offside, MatchSide.AWAY)).hasSize(1)
+                .allSatisfy(defender -> assertThat(defenders.players()).contains(defender));
+    }
+
+    @Test
+    void aTiredReceiverIsCaughtAsIfHisPositioningWereLoweredByTheFatigueFactor() {
+        OffsideRule rule = ruleWith(config, SEED);
+        Player receiver = homeTeam.playersIn(Role.FORWARD).getFirst();
+        Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
+        TeamOnPitch tiredAttackers = TestEnergy.at(homeTeam, 35.0, receiver);
+        Player lowered = forwardWithPositioning(45);
+
+        double tired = rule.offsideProbability(tiredAttackers, receiver, defenders, defender);
+        double equivalent = rule.offsideProbability(TestEnergy.withPlayerOnPitch(homeTeam, lowered), lowered,
+                defenders, defender);
+        double rested = rule.offsideProbability(homeTeam, receiver, defenders, defender);
+
+        assertThat(tired).isGreaterThan(rested);
+        assertThat(tired).isCloseTo(equivalent, within(1e-9));
+    }
+
+    @Test
+    void aTiredDefenderLowersTheProbabilityAsIfHisPositioningWereLoweredByTheFatigueFactor() {
+        OffsideRule rule = ruleWith(config, SEED);
+        Player receiver = homeTeam.playersIn(Role.FORWARD).getFirst();
+        Player defender = defenders.playersIn(Role.DEFENDER).getFirst();
+        TeamOnPitch tiredDefenders = TestEnergy.at(defenders, 35.0, defender);
+        Player lowered = defenderWithPositioning(45);
+
+        double tired = rule.offsideProbability(homeTeam, receiver, tiredDefenders, defender);
+        double equivalent = rule.offsideProbability(homeTeam, receiver,
+                TestEnergy.withPlayerOnPitch(defenders, lowered), lowered);
+        double rested = rule.offsideProbability(homeTeam, receiver, defenders, defender);
+
+        assertThat(tired).isLessThan(rested);
+        assertThat(tired).isCloseTo(equivalent, within(1e-9));
     }
 }

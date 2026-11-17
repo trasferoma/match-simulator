@@ -17,6 +17,7 @@ import org.tasktelemetry.matchsimulator.narration.NarratedEventFilter;
 public final class HighlightsSelector {
 
     private static final int DISTANCE_OF_A_FOLLOW_UP_PAIR = 1;
+    private static final int NOTHING_DECIDED = -1;
 
     private final HighlightsConfig config;
     private final NarratedEventFilter filter;
@@ -29,6 +30,15 @@ public final class HighlightsSelector {
     public int lookAhead() {
         int farthestChanceReach = Math.max(config.maxPreparationLines(), config.consequenceWindow());
         return Math.max(farthestChanceReach, DISTANCE_OF_A_FOLLOW_UP_PAIR);
+    }
+
+    public int findLastDecidedPosition(List<MatchEvent> events) {
+        int eventsToWaitFor = lookAhead();
+        return filter.indicesBeforeIgnoringPlayerState(events, events.size())
+                .skip(eventsToWaitFor)
+                .map(position -> position - 1)
+                .findFirst()
+                .orElse(NOTHING_DECIDED);
     }
 
     public List<HighlightSegment> select(List<MatchEvent> events) {
@@ -69,7 +79,7 @@ public final class HighlightsSelector {
         if (isPenaltyKick(shot)) {
             OptionalInt foulIndex = findPenaltyFoulBefore(events, shotIndex);
             if (foulIndex.isPresent()) {
-                return findPenaltyPreparingIndices(foulIndex.getAsInt(), shotIndex);
+                return findPenaltyPreparingIndices(events, foulIndex.getAsInt(), shotIndex);
             }
         }
         return findOpenPlayPreparingIndices(events, shotIndex, toldIndices);
@@ -84,9 +94,12 @@ public final class HighlightsSelector {
                 .toList();
     }
 
-    private List<Integer> findPenaltyPreparingIndices(int foulIndex, int shotIndex) {
-        int earliestAllowedIndex = shotIndex - config.maxPreparationLines();
-        int firstIndex = Math.max(foulIndex, earliestAllowedIndex);
+    private List<Integer> findPenaltyPreparingIndices(List<MatchEvent> events, int foulIndex, int shotIndex) {
+        int firstIndex = filter.indicesBeforeIgnoringPlayerState(events, shotIndex)
+                .limit(config.maxPreparationLines())
+                .takeWhile(index -> index >= foulIndex)
+                .min()
+                .orElse(shotIndex);
         return IntStream.range(firstIndex, shotIndex).boxed().toList();
     }
 
@@ -110,36 +123,33 @@ public final class HighlightsSelector {
     }
 
     private Set<Integer> findIndicesOfOneLineEvent(List<MatchEvent> events, int index) {
-        boolean completesPair = completesFoulAndCard(events, index) || completesInjuryAndSubstitution(events, index);
-        if (completesPair) {
-            int previousIndex = index - 1;
-            return Set.of(previousIndex, index);
+        OptionalInt previousIndex = filter.findPreviousIndexIgnoringPlayerState(events, index);
+        if (previousIndex.isPresent() && completesPair(events, previousIndex.getAsInt(), index)) {
+            return indicesBetween(previousIndex.getAsInt(), index);
         }
         return Set.of(index);
     }
 
-    private boolean completesFoulAndCard(List<MatchEvent> events, int cardIndex) {
-        MatchEvent card = events.get(cardIndex);
-        if (!card.type().isCard() || cardIndex == 0) {
-            return false;
-        }
-        int foulIndex = cardIndex - 1;
-        MatchEvent foul = events.get(foulIndex);
-        boolean isFoul = foul.type() == EventType.FOUL;
-        boolean isForTheFouler = filter.isFollowedByCardForTheSamePlayer(events, foulIndex);
-        return isFoul && isForTheFouler;
+    private boolean completesPair(List<MatchEvent> events, int previousIndex, int index) {
+        return completesFoulAndCard(events, previousIndex, index)
+                || completesInjuryAndSubstitution(events, previousIndex, index);
     }
 
-    private boolean completesInjuryAndSubstitution(List<MatchEvent> events, int substitutionIndex) {
+    private boolean completesFoulAndCard(List<MatchEvent> events, int foulIndex, int cardIndex) {
+        MatchEvent card = events.get(cardIndex);
+        MatchEvent foul = events.get(foulIndex);
+        boolean isCard = card.type().isCard();
+        boolean isFoul = foul.type() == EventType.FOUL;
+        return isCard && isFoul && filter.isFollowedByCardForTheSamePlayer(events, foulIndex);
+    }
+
+    private boolean completesInjuryAndSubstitution(List<MatchEvent> events, int injuryIndex, int substitutionIndex) {
         MatchEvent substitution = events.get(substitutionIndex);
-        if (substitution.type() != EventType.SUBSTITUTION || substitutionIndex == 0) {
-            return false;
-        }
-        int injuryIndex = substitutionIndex - 1;
         MatchEvent injury = events.get(injuryIndex);
+        boolean isSubstitution = substitution.type() == EventType.SUBSTITUTION;
         boolean isInjury = injury.type() == EventType.INJURY;
         boolean isTheInjuredLeaving = injury.participants().primary().equals(substitution.participants().primary());
-        return isInjury && isTheInjuredLeaving && haveTheSamePrimarySide(injury, substitution);
+        return isSubstitution && isInjury && isTheInjuredLeaving && haveTheSamePrimarySide(injury, substitution);
     }
 
     private boolean haveTheSamePrimarySide(MatchEvent first, MatchEvent second) {
@@ -160,9 +170,9 @@ public final class HighlightsSelector {
 
     private OptionalInt findChanceLinkedTo(List<MatchEvent> events, int consequenceIndex) {
         MatchEvent consequence = events.get(consequenceIndex);
-        return IntStream.rangeClosed(1, config.consequenceWindow())
-                .map(distance -> consequenceIndex - distance)
-                .takeWhile(index -> index >= 0 && isPartOfTheSameAttack(events.get(index), consequence))
+        return filter.indicesBeforeIgnoringPlayerState(events, consequenceIndex)
+                .limit(config.consequenceWindow())
+                .takeWhile(index -> isPartOfTheSameAttack(events.get(index), consequence))
                 .filter(index -> isChance(events.get(index)))
                 .findFirst();
     }

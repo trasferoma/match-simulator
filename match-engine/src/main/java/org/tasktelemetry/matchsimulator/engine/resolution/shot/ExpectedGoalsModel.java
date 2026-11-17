@@ -9,8 +9,6 @@ import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class ExpectedGoalsModel {
 
-    private static final double NEUTRAL_MULTIPLIER = 1.0;
-
     private final ShotConfig config;
 
     public ExpectedGoalsModel(ShotConfig config) {
@@ -30,9 +28,9 @@ public final class ExpectedGoalsModel {
         return shiftOdds(boundedChance, shootingShift);
     }
 
-    public double penaltyExpectedGoals(Player taker) {
+    public double penaltyExpectedGoals(Player taker, double shootingMultiplier) {
         ExpectedGoalsConfig expectedGoals = config.expectedGoals();
-        double shootingShift = shootingShift(taker, NEUTRAL_MULTIPLIER, expectedGoals.penaltyNeutralShooting(),
+        double shootingShift = shootingShift(taker, shootingMultiplier, expectedGoals.penaltyNeutralShooting(),
                 expectedGoals.penaltyShootingSlope());
         return shiftOdds(expectedGoals.penaltyBase(), shootingShift);
     }

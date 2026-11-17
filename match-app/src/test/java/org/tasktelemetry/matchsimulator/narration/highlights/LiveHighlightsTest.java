@@ -19,6 +19,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
@@ -28,6 +29,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.live.LiveMatch;
 import org.tasktelemetry.matchsimulator.live.MatchObserver;
 import org.tasktelemetry.matchsimulator.live.PreparedMatch;
+import org.tasktelemetry.matchsimulator.narration.MatchSetups;
 import org.tasktelemetry.matchsimulator.narration.NarratedEventFilter;
 import org.tasktelemetry.matchsimulator.narration.NarrationEvents;
 import org.tasktelemetry.matchsimulator.narration.ReferenceChronicle;
@@ -48,7 +50,7 @@ class LiveHighlightsTest {
     void theExampleSequenceDeliversEachSegmentWhenItIsDecided() {
         addExampleSequence();
         List<MatchEvent> events = fixture.list();
-        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES);
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
 
         deliverOneAtATime(live, events);
 
@@ -57,7 +59,7 @@ class LiveHighlightsTest {
 
         live.matchFinished();
 
-        List<NarratedSegment> expected = narratedAtTheEnd(events, NarrationEvents.TEAM_NAMES);
+        List<NarratedSegment> expected = narratedAtTheEnd(events, NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
         assertThat(expected).hasSize(13);
         assertThat(listener.segments()).isEqualTo(expected);
         assertThat(listener.calls()).last().isEqualTo(FINISHED);
@@ -69,7 +71,7 @@ class LiveHighlightsTest {
         addExampleSequence();
         List<MatchEvent> events = fixture.list();
         List<HighlightSegment> finalSegments = selector.select(events);
-        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES);
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
 
         for (int happenedCount = 1; happenedCount <= events.size(); happenedCount++) {
             listener.setEventsHappened(happenedCount);
@@ -87,7 +89,7 @@ class LiveHighlightsTest {
         addHomeCorner();
         addAwayPasses(8);
         List<MatchEvent> events = fixture.list();
-        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES);
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
 
         deliverOneAtATime(live, events);
 
@@ -95,7 +97,23 @@ class LiveHighlightsTest {
         assertThat(wholeStop.lines()).hasSize(6);
         assertThat(listener.eventCounts().get(0)).isEqualTo(11);
         assertThat(listener.segments().stream().filter(NarratedSegment.Stop.class::isInstance)).hasSize(1);
-        assertThat(wholeStop).isEqualTo(narratedAtTheEnd(events, NarrationEvents.TEAM_NAMES).get(0));
+        assertThat(wholeStop).isEqualTo(narratedAtTheEnd(events, NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS).get(0));
+    }
+
+    @Test
+    void theRecoveriesInTheMiddleDoNotCountInTheWaitForTheDecision() {
+        fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
+        for (int index = 0; index < 5; index++) {
+            fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+            fixture.addRecovered(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.FRESH);
+        }
+        List<MatchEvent> events = fixture.list();
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
+
+        deliverOneAtATime(live, events);
+
+        int eventsWhenTheSixthEventThatIsNotARecoveryHappened = 10;
+        assertThat(listener.eventCounts().get(0)).isEqualTo(eventsWhenTheSixthEventThatIsNotARecoveryHappened);
     }
 
     @ParameterizedTest
@@ -103,11 +121,11 @@ class LiveHighlightsTest {
     void theLiveChronicleEqualsTheEndOfMatchChronicle(long seed) {
         PreparedMatch prepared = prepareReferenceMatch();
         TeamNames teamNames = prepared.names();
-        LiveHighlights live = newLiveHighlights(teamNames);
+        LiveHighlights live = newLiveHighlights(teamNames, prepared.openingSetups());
 
         List<MatchEvent> events = newLiveMatch().play(prepared, seed, live);
 
-        assertThat(listener.segments()).isEqualTo(narratedAtTheEnd(events, teamNames));
+        assertThat(listener.segments()).isEqualTo(narratedAtTheEnd(events, teamNames, prepared.openingSetups()));
         assertThat(listener.calls()).last().isEqualTo(FINISHED);
     }
 
@@ -115,7 +133,7 @@ class LiveHighlightsTest {
     void withSeed42TheKickOffStopArrivesInTheFirstDeliveryReachingSixEvents() {
         PreparedMatch prepared = prepareReferenceMatch();
         TeamNames teamNames = prepared.names();
-        ObserverSpy spy = new ObserverSpy(newLiveHighlights(teamNames), listener);
+        ObserverSpy spy = new ObserverSpy(newLiveHighlights(teamNames, prepared.openingSetups()), listener);
 
         List<MatchEvent> events = newLiveMatch().play(prepared, ReferenceChronicle.SEED, spy);
 
@@ -128,7 +146,7 @@ class LiveHighlightsTest {
                 .orElseThrow();
         assertThat(spy.segmentCounts().subList(0, firstDeliveryWithSixEvents)).containsOnly(0);
         assertThat(spy.segmentCounts().get(firstDeliveryWithSixEvents)).isPositive();
-        assertThat(listener.segments().get(0)).isEqualTo(narratedAtTheEnd(events, teamNames).get(0));
+        assertThat(listener.segments().get(0)).isEqualTo(narratedAtTheEnd(events, teamNames, prepared.openingSetups()).get(0));
         assertThat(listener.calls().indexOf(SEGMENT)).isLessThan(listener.calls().indexOf(FINISHED));
     }
 
@@ -187,13 +205,14 @@ class LiveHighlightsTest {
         return decidedCount;
     }
 
-    private List<NarratedSegment> narratedAtTheEnd(List<MatchEvent> events, TeamNames teamNames) {
+    private List<NarratedSegment> narratedAtTheEnd(List<MatchEvent> events, TeamNames teamNames,
+            MatchSetups openingSetups) {
         List<HighlightSegment> selected = selector.select(events);
-        return narrator.narrate(selected, events, teamNames);
+        return narrator.narrate(selected, events, teamNames, openingSetups);
     }
 
-    private LiveHighlights newLiveHighlights(TeamNames teamNames) {
-        return new LiveHighlights(selector, narrator, teamNames, listener);
+    private LiveHighlights newLiveHighlights(TeamNames teamNames, MatchSetups openingSetups) {
+        return new LiveHighlights(selector, narrator, teamNames, openingSetups, listener);
     }
 
     private LiveMatch newLiveMatch() {

@@ -15,6 +15,8 @@ final class InterventionReasons {
             ChangeReason.RESERVE_GOALKEEPER);
     private static final Set<ChangeReason> FORCED_FOR_MOVE = EnumSet.of(ChangeReason.EMPTIED_SECTOR,
             ChangeReason.MAKESHIFT_GOALKEEPER);
+    private static final Set<ChangeReason> ONLY_FOR_SUBSTITUTION = EnumSet.of(ChangeReason.REPLACE_TIRED_PLAYER,
+            ChangeReason.ANSWER_FRESH_ATTACKERS);
     private static final Set<ChangeReason> GOALKEEPER_REASONS = EnumSet.of(ChangeReason.RESERVE_GOALKEEPER,
             ChangeReason.MAKESHIFT_GOALKEEPER);
 
@@ -28,7 +30,7 @@ final class InterventionReasons {
     static Set<ChangeReason> validFor(EventType type) {
         return switch (type) {
             case STYLE_CHANGED -> voluntary();
-            case SUBSTITUTION -> voluntaryAnd(FORCED_FOR_SUBSTITUTION);
+            case SUBSTITUTION -> forSubstitution();
             case PLAYER_MOVED -> voluntaryAnd(FORCED_FOR_MOVE);
             default -> throw new IllegalArgumentException(type + " is not an intervention");
         };
@@ -42,9 +44,16 @@ final class InterventionReasons {
         return GOALKEEPER_REASONS.contains(reason);
     }
 
+    private static Set<ChangeReason> forSubstitution() {
+        Set<ChangeReason> reasons = voluntaryAnd(FORCED_FOR_SUBSTITUTION);
+        reasons.addAll(ONLY_FOR_SUBSTITUTION);
+        return reasons;
+    }
+
     private static Set<ChangeReason> voluntary() {
         return Stream.of(ChangeReason.values())
                 .filter(reason -> !reason.isForced())
+                .filter(reason -> !ONLY_FOR_SUBSTITUTION.contains(reason))
                 .collect(Collectors.toCollection(() -> EnumSet.noneOf(ChangeReason.class)));
     }
 

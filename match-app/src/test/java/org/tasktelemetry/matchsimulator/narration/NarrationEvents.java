@@ -6,8 +6,10 @@ import java.util.Set;
 
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
@@ -19,6 +21,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 
@@ -35,13 +38,16 @@ public final class NarrationEvents {
     private static final Set<Player> AWAY_PLAYERS = Set.of(AWAY_FORWARD, AWAY_DEFENDER, AWAY_GOALKEEPER);
 
     public static final TeamNames TEAM_NAMES = new TeamNames("Aquile", "Lupi", "Marini", "Fabbri");
+    public static final MatchSetups OPENING_SETUPS = new MatchSetups(
+            new TeamSetup(new Deployment(4, 4, 2), PlayStyle.BALANCED),
+            new TeamSetup(new Deployment(4, 4, 2), PlayStyle.BALANCED));
 
     private static final int SECONDS_BETWEEN_EVENTS = 20;
 
     private final List<MatchEvent> events = new ArrayList<>();
 
     public static Player player(String name, Role role) {
-        return new Player(name, role, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50));
+        return new Player(name, role, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50));
     }
 
     public static Participants participantsOf(Player primary) {
@@ -96,6 +102,18 @@ public final class NarrationEvents {
                 participants, SECONDS_BETWEEN_EVENTS, detail);
         events.add(event);
         return event;
+    }
+
+    public MatchEvent addTired(MatchSide side, Player player, FatigueBand band) {
+        Participants participants = participantsOf(player);
+        EventDetail detail = EventDetail.fatigue(band);
+        return add(EventType.PLAYER_TIRED, side, ZoneRole.MIDFIELD, participants, detail);
+    }
+
+    public MatchEvent addRecovered(MatchSide side, Player player, FatigueBand band) {
+        Participants participants = participantsOf(player);
+        EventDetail detail = EventDetail.fatigue(band);
+        return add(EventType.PLAYER_RECOVERED, side, ZoneRole.MIDFIELD, participants, detail);
     }
 
     public MatchEvent addGoal(MatchTime time, MatchSide side, Player scorer, GoalContext context) {

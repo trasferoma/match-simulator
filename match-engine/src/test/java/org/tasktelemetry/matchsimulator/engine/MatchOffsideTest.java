@@ -153,7 +153,8 @@ class MatchOffsideTest {
     private boolean isPeriodEnd(MatchEvent event) {
         return event.type() == EventType.FIRST_HALF_END || event.type() == EventType.MATCH_END
                 || event.type() == EventType.STOPPAGE_ANNOUNCED || event.type() == EventType.INJURY
-                || event.type() == EventType.SUBSTITUTION;
+                || event.type() == EventType.SUBSTITUTION || event.type() == EventType.PLAYER_TIRED
+                || event.type() == EventType.PLAYER_RECOVERED;
     }
 
     private List<MatchEvent> play(long seed) {

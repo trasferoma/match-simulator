@@ -6,6 +6,7 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.Optional;
 
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
@@ -21,12 +22,14 @@ public final class NarrationContext {
     private final List<MatchEvent> events;
     private final TeamNames teamNames;
     private final Map<Integer, Score> scoreAfterEvent;
+    private final Map<Integer, MatchSetups> setupsAfterEvent;
     private final Map<Integer, MatchEvent> previousEventByOrder;
 
-    public NarrationContext(List<MatchEvent> events, TeamNames teamNames) {
+    public NarrationContext(List<MatchEvent> events, TeamNames teamNames, MatchSetups openingSetups) {
         this.events = List.copyOf(events);
         this.teamNames = teamNames;
         this.scoreAfterEvent = accumulateScoreAfterEachEvent(this.events);
+        this.setupsAfterEvent = accumulateSetupsAfterEachEvent(this.events, openingSetups);
         this.previousEventByOrder = indexPreviousEvents(this.events);
     }
 
@@ -37,6 +40,11 @@ public final class NarrationContext {
     public Score scoreAfter(MatchEvent event) {
         Score score = scoreAfterEvent.get(event.order());
         return Objects.requireNonNull(score, "the event must belong to the match: " + event);
+    }
+
+    public MatchSetups setupsAfter(MatchEvent event) {
+        MatchSetups setups = setupsAfterEvent.get(event.order());
+        return Objects.requireNonNull(setups, "the event must belong to the match: " + event);
     }
 
     public Optional<MatchEvent> previousOf(MatchEvent event) {
@@ -94,12 +102,35 @@ public final class NarrationContext {
         return Map.copyOf(scores);
     }
 
+    private static Map<Integer, MatchSetups> accumulateSetupsAfterEachEvent(List<MatchEvent> events,
+            MatchSetups openingSetups) {
+        Map<Integer, MatchSetups> setupsByOrder = new HashMap<>();
+        MatchSetups setups = openingSetups;
+        for (MatchEvent event : events) {
+            setups = changeSetupsAfter(event, setups);
+            setupsByOrder.put(event.order(), setups);
+        }
+        return Map.copyOf(setupsByOrder);
+    }
+
+    private static MatchSetups changeSetupsAfter(MatchEvent event, MatchSetups setups) {
+        MatchSide side = event.side();
+        return switch (event.detail()) {
+            case EventDetail.StyleChange change -> setups.withStyle(side, change.to());
+            case EventDetail.LineupChange change -> setups.withDeployment(side, change.after());
+            case EventDetail.PlayerRemoved removal -> setups.withDeployment(side, removal.deploymentAfter());
+            default -> setups;
+        };
+    }
+
     private static Map<Integer, MatchEvent> indexPreviousEvents(List<MatchEvent> events) {
         Map<Integer, MatchEvent> previousByOrder = new HashMap<>();
-        for (int position = 1; position < events.size(); position++) {
-            MatchEvent previous = events.get(position - 1);
-            MatchEvent event = events.get(position);
-            previousByOrder.put(event.order(), previous);
+        MatchEvent previous = null;
+        for (MatchEvent event : events) {
+            if (previous != null) {
+                previousByOrder.put(event.order(), previous);
+            }
+            previous = event.type().describesPlayerState() ? previous : event;
         }
         return Map.copyOf(previousByOrder);
     }

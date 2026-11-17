@@ -47,7 +47,7 @@ final class TacticalMatchPreparation {
                 onlyThisFormation, coachConfig.styleScale(), coachConfig.sectorLimits(),
                 coachConfig.maximumBenchSize(), coachConfig.timing(), coachConfig.resultTiming(),
                 coachConfig.flow(), coachConfig.sectorStrain(), coachConfig.tacticalReading(),
-                coachConfig.substitutions());
+                coachConfig.substitutions(), coachConfig.fatigueResponse());
         return new LineupChoice(fixedConfig);
     }
 

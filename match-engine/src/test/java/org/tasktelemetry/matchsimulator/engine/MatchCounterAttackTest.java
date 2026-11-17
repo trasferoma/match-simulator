@@ -23,7 +23,7 @@ class MatchCounterAttackTest {
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> NOT_ACTION_TYPES = EnumSet.of(EventType.KICK_OFF, EventType.STOPPAGE_ANNOUNCED,
             EventType.FIRST_HALF_END, EventType.SECOND_HALF_START, EventType.MATCH_END, EventType.INJURY,
-            EventType.SUBSTITUTION);
+            EventType.SUBSTITUTION, EventType.PLAYER_TIRED, EventType.PLAYER_RECOVERED);
 
     private final EngineConfig config = EngineConfig.defaults();
     private final Team home = TestTeams.team("Home", PlayStyle.COUNTER_ATTACK, 60);

@@ -19,6 +19,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -145,6 +146,61 @@ class NarratedEventFilterTest {
         List<MatchEvent> selected = filter.select(fixture.list(), ChronicleMode.DEFAULT);
 
         assertThat(selected).containsExactly(circulation, shot);
+    }
+
+    @Test
+    void aTiredPlayerIsNarratedInTheDefaultChronicleWhileTheRecoveryIsNotAndBothAreInTheFullOne() {
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        MatchEvent recovered = fixture.addRecovered(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.FRESH);
+
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(tired);
+        assertThat(filter.select(fixture.list(), ChronicleMode.FULL)).containsExactly(tired, recovered);
+    }
+
+    @Test
+    void theEventsBeforeAShotKeepTheirPlaceWhenATiredPlayerOfTheOtherSideIsInTheMiddle() {
+        MatchEvent tooFar = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_DEFENDER);
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        MatchEvent tired = fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.TIRED);
+        MatchEvent dribble = fixture.add(EventType.DRIBBLE_COMPLETED, MatchSide.HOME, HOME_FORWARD);
+        MatchEvent recovered = fixture.addRecovered(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.FRESH);
+        MatchEvent shot = shotEvent(EventType.SHOT_OFF_TARGET, MatchSide.HOME, HOME_FORWARD);
+
+        List<MatchEvent> selected = filter.select(fixture.list(), ChronicleMode.DEFAULT);
+
+        assertThat(selected).containsExactly(pass, tired, dribble, shot);
+        assertThat(selected).doesNotContain(tooFar, recovered);
+    }
+
+    @Test
+    void aFoulFollowedByACardForTheSamePlayerAfterATiredPlayerStaysAFoulWithConsequences() {
+        MatchEvent foul = lightFoulBy(AWAY_DEFENDER);
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.EXHAUSTED);
+        MatchEvent card = fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_DEFENDER);
+
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(foul, tired, card);
+    }
+
+    @Test
+    void aFoulFollowedByACardForAnotherPlayerAfterATiredPlayerIsStillNotNarrated() {
+        lightFoulBy(AWAY_DEFENDER);
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        MatchEvent card = fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_FORWARD);
+
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(tired, card);
+    }
+
+    @Test
+    void aFoulFollowedOnlyByATiredPlayerIsNotNarrated() {
+        lightFoulBy(AWAY_DEFENDER);
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(tired);
+    }
+
+    private MatchEvent lightFoulBy(Player fouler) {
+        return fixture.add(EventType.FOUL, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(fouler, HOME_FORWARD), EventDetail.foul(FoulSeverity.LIGHT, false));
     }
 
     private void buildMatchWithOneEventForEveryRuleAndOneForEveryExclusion() {

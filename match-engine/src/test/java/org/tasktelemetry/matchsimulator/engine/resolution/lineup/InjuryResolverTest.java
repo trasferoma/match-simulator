@@ -445,7 +445,7 @@ class InjuryResolverTest {
 
     private Player goalkeepingSpecialist(String name, Role role, int goalkeeping) {
         PlayerAttributes attributes = new PlayerAttributes(STARTER_RATING, STARTER_RATING, STARTER_RATING,
-                STARTER_RATING, STARTER_RATING, STARTER_RATING, STARTER_RATING, goalkeeping);
+                STARTER_RATING, STARTER_RATING, STARTER_RATING, STARTER_RATING, goalkeeping, 50);
         return TestTeams.player(name, role, attributes);
     }
 

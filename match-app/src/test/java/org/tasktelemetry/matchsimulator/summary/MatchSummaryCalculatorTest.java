@@ -492,6 +492,6 @@ void aGoalWithoutAScorerIsRejected() {
     }
 
     private static Player player(String name, Role role) {
-        return new Player(name, role, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50));
+        return new Player(name, role, new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50));
     }
 }

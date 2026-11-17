@@ -61,8 +61,8 @@ class TeamRuleViolationTest {
 
     @Test
     void anAttributeOutOfScaleNamesTheRuleWithAttributeBoundsAndValue() {
-        assertViolation(() -> new PlayerAttributes(50, 50, 50, 50, 50, 101, 50, 50), TeamRule.ATTRIBUTE_OUT_OF_SCALE,
-                "pace", PlayerAttributes.MIN_VALUE, PlayerAttributes.MAX_VALUE, 101);
+        assertViolation(() -> new PlayerAttributes(50, 50, 50, 50, 50, 101, 50, 50, 50),
+                TeamRule.ATTRIBUTE_OUT_OF_SCALE, "pace", PlayerAttributes.MIN_VALUE, PlayerAttributes.MAX_VALUE, 101);
     }
 
     private void assertViolation(Runnable action, TeamRule rule, Object... arguments) {

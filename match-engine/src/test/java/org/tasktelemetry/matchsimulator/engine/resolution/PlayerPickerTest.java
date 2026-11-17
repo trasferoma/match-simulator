@@ -16,9 +16,12 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
+import org.tasktelemetry.matchsimulator.engine.config.FatigueConfig;
 import org.tasktelemetry.matchsimulator.engine.config.ZonePresenceConfig;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
@@ -32,6 +35,7 @@ class PlayerPickerTest {
     private static final double ONE_POINT = 0.01;
 
     private final ZonePresence presence = new ZonePresence(ZonePresenceConfig.defaults());
+    private final FatiguePenalty fatigue = new FatiguePenalty(FatigueConfig.defaults());
 
     @ParameterizedTest
     @EnumSource(ZoneRole.class)
@@ -166,7 +170,7 @@ class PlayerPickerTest {
         TeamOnPitch team = TeamOnPitch.startingWith(TestTeams.uniformTeam("Home", 60));
         MatchRandom pickerRandom = new MatchRandom(SEED);
         MatchRandom reference = new MatchRandom(SEED);
-        PlayerPicker picker = new PlayerPicker(pickerRandom, presence);
+        PlayerPicker picker = new PlayerPicker(pickerRandom, presence, fatigue);
         int picks = 50;
 
         pickMany(picker, team, ZoneRole.MIDFIELD, picks);
@@ -180,7 +184,7 @@ class PlayerPickerTest {
     }
 
     private PlayerPicker pickerWith(ZonePresenceConfig config, long seed) {
-        return new PlayerPicker(new MatchRandom(seed), new ZonePresence(config));
+        return new PlayerPicker(new MatchRandom(seed), new ZonePresence(config), fatigue);
     }
 
     private List<Player> pickMany(PlayerPicker picker, TeamOnPitch team, ZoneRole zoneRole, int count) {
@@ -238,5 +242,37 @@ class PlayerPickerTest {
             }
         }
         return reduced;
+    }
+
+    @Test
+    void theCrosserIsPickedWithAWeightEqualToTheEffectivePassingOfEachCandidate() {
+        TeamOnPitch fresh = TeamOnPitch.startingWith(TestTeams.uniformTeam("Home", 60));
+        Player tired = fresh.players().get(1);
+        Player rested = fresh.players().get(2);
+        TeamOnPitch team = TestEnergy.at(fresh, 35.0, tired);
+        PlayerPicker picker = pickerWith(SEED);
+        List<Player> candidates = List.of(tired, rested);
+
+        long tiredPicks = IntStream.range(0, TRIALS)
+                .filter(index -> picker.pickByPassing(team, candidates).equals(tired))
+                .count();
+
+        double expectedShare = 54.0 / (54.0 + 60.0);
+        assertThat((double) tiredPicks / TRIALS).isCloseTo(expectedShare, within(ONE_POINT));
+    }
+
+    @Test
+    void thePicksByPresenceDoNotDependOnTheEnergyOfThePlayers() {
+        TeamOnPitch fresh = TeamOnPitch.startingWith(TestTeams.uniformTeam("Home", 60));
+        TeamOnPitch exhausted = TestEnergy.allAt(fresh, 0.0);
+        Player excluded = fresh.players().get(5);
+
+        List<Player> pickedFresh = pickMany(pickerWith(SEED), fresh, ZoneRole.MIDFIELD, 500);
+        List<Player> pickedExhausted = pickMany(pickerWith(SEED), exhausted, ZoneRole.MIDFIELD, 500);
+        Player otherFresh = pickerWith(SEED).pickOtherThan(fresh, ZoneRole.MIDFIELD, excluded);
+        Player otherExhausted = pickerWith(SEED).pickOtherThan(exhausted, ZoneRole.MIDFIELD, excluded);
+
+        assertThat(pickedExhausted).containsExactlyElementsOf(pickedFresh);
+        assertThat(otherExhausted).isEqualTo(otherFresh);
     }
 }

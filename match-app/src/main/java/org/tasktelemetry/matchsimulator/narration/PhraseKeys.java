@@ -39,12 +39,14 @@ public final class PhraseKeys {
             case EventDetail.NoDetail noDetail -> NO_SEGMENT;
             case EventDetail.StoppageAnnounced announced -> NO_SEGMENT;
             case EventDetail.Suspension suspension -> NO_SEGMENT;
+            case EventDetail.PlayerRemoved removal -> NO_SEGMENT;
             case EventDetail.StyleChange styleChange -> segment(styleChange.reason().name());
             case EventDetail.LineupChange lineupChange -> segment(lineupChange.reason().name());
             case EventDetail.Shot shot -> shotSegmentOf(shot.profile());
             case EventDetail.Save save -> saveSegmentOf(save);
             case EventDetail.Goal goal -> goalSegmentOf(goal.profile());
             case EventDetail.Foul foul -> foulSegmentsOf(foul);
+            case EventDetail.Fatigue fatigue -> segment(fatigue.band().name());
         };
     }
 

@@ -104,9 +104,19 @@ class CoachConfigTest {
         assertThatThrownBy(() -> new CoachConfig(defaults.assessment(), defaults.bandResponses(),
                 defaults.formations(), defaults.styleScale(), defaults.sectorLimits(), 9, defaults.timing(),
                 defaults.resultTiming(), defaults.flow(), defaults.sectorStrain(), defaults.tacticalReading(),
-                null))
+                null, defaults.fatigueResponse()))
                 .isInstanceOf(NullPointerException.class)
                 .hasMessage("substitution configuration must not be null");
+    }
+
+    @Test
+    void rejectsAMissingFatigueResponseGroup() {
+        assertThatThrownBy(() -> new CoachConfig(defaults.assessment(), defaults.bandResponses(),
+                defaults.formations(), defaults.styleScale(), defaults.sectorLimits(), 9, defaults.timing(),
+                defaults.resultTiming(), defaults.flow(), defaults.sectorStrain(), defaults.tacticalReading(),
+                defaults.substitutions(), null))
+                .isInstanceOf(NullPointerException.class)
+                .hasMessage("fatigue response configuration must not be null");
     }
 
     @Test
@@ -178,7 +188,8 @@ class CoachConfigTest {
             TimingConfig timing, ResultTimingConfig resultTiming, FlowConfig flow,
             SectorStrainConfig sectorStrain, TacticalReadingConfig tacticalReading) {
         return new CoachConfig(assessment, bandResponses, formations, styleScale, sectorLimits, 9, timing,
-                resultTiming, flow, sectorStrain, tacticalReading, SubstitutionConfig.defaults());
+                resultTiming, flow, sectorStrain, tacticalReading, SubstitutionConfig.defaults(),
+                FatigueResponseConfig.defaults());
     }
 
     @ParameterizedTest
@@ -187,7 +198,7 @@ class CoachConfigTest {
         assertThatThrownBy(() -> new CoachConfig(defaults.assessment(), defaults.bandResponses(),
                 defaults.formations(), defaults.styleScale(), defaults.sectorLimits(), size, defaults.timing(),
                 defaults.resultTiming(), defaults.flow(), defaults.sectorStrain(), defaults.tacticalReading(),
-                defaults.substitutions()))
+                defaults.substitutions(), defaults.fatigueResponse()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessage("maximum bench size must be at least 1, was " + size);
     }

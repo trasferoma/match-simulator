@@ -46,6 +46,14 @@ public sealed interface EventDetail {
         return new LineupChange(sector, reason, before, after);
     }
 
+    static EventDetail playerRemoved(Deployment deploymentAfter) {
+        return new PlayerRemoved(deploymentAfter);
+    }
+
+    static EventDetail fatigue(FatigueBand band) {
+        return new Fatigue(band);
+    }
+
     record NoDetail() implements EventDetail {
     }
 
@@ -121,6 +129,20 @@ public sealed interface EventDetail {
 
         public boolean changesDeployment() {
             return !before.equals(after);
+        }
+    }
+
+    record PlayerRemoved(Deployment deploymentAfter) implements EventDetail {
+
+        public PlayerRemoved {
+            Objects.requireNonNull(deploymentAfter, "deployment after the removal must not be null");
+        }
+    }
+
+    record Fatigue(FatigueBand band) implements EventDetail {
+
+        public Fatigue {
+            Objects.requireNonNull(band, "fatigue band must not be null");
         }
     }
 }

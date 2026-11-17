@@ -180,8 +180,8 @@ class ZonePresenceTest {
     void theAverageIsWeightedOnThePresenceWithoutTheGoalkeeperNorPlayersWithZeroPresence() {
         TeamOnPitch team = teamWithPassingBySector(100, 40, 60, 80);
 
-        double inOwnBox = presence.averageAttribute(team, ZoneRole.OWN_BOX, PlayerAttributes::passing);
-        double inMidfield = presence.averageAttribute(team, ZoneRole.MIDFIELD, PlayerAttributes::passing);
+        double inOwnBox = presence.averageAttribute(team, ZoneRole.OWN_BOX, player -> player.attributes().passing());
+        double inMidfield = presence.averageAttribute(team, ZoneRole.MIDFIELD, player -> player.attributes().passing());
 
         assertThat(inOwnBox).isCloseTo((4 * 1.0 * 40 + 4 * 0.3 * 60) / (4 * 1.0 + 4 * 0.3), within(EXACT));
         assertThat(inMidfield).isCloseTo((4 * 0.3 * 40 + 4 * 1.0 * 60 + 2 * 0.4 * 80) / 6.0, within(EXACT));
@@ -191,7 +191,7 @@ class ZonePresenceTest {
     void theAverageOfAUniformTeamIsTheUniformValue() {
         TeamOnPitch team = fourFourTwo("Home");
 
-        double average = presence.averageAttribute(team, ZoneRole.DEFENCE, PlayerAttributes::tackling);
+        double average = presence.averageAttribute(team, ZoneRole.DEFENCE, player -> player.attributes().tackling());
 
         assertThat(average).isCloseTo(50.0, within(EXACT));
     }
@@ -201,7 +201,7 @@ class ZonePresenceTest {
         TeamOnPitch onlyKeeperAndForwards = keeperAndForwardsOnly();
 
         assertThatThrownBy(() -> presence.averageAttribute(onlyKeeperAndForwards, ZoneRole.OWN_BOX,
-                PlayerAttributes::passing))
+                player -> player.attributes().passing()))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("OWN_BOX");
     }

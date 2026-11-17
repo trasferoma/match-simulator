@@ -8,6 +8,7 @@ import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_GO
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_BENCH;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.OPENING_SETUPS;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.TEAM_NAMES;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.firstHalf;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.secondHalf;
@@ -60,8 +61,8 @@ class NarratorTest {
     void theSameEventsAlwaysGiveTheSameText() {
         List<MatchEvent> events = ProducibleEvents.all();
 
-        List<List<String>> first = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
-        List<List<String>> second = Narrator.italian().narrate(events, TEAM_NAMES, ChronicleMode.FULL);
+        List<List<String>> first = narrator.narrate(events, TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
+        List<List<String>> second = Narrator.italian().narrate(events, TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
 
         assertThat(first).isNotEmpty();
         assertThat(second).containsExactlyElementsOf(first);
@@ -91,12 +92,12 @@ class NarratorTest {
     void everyNarratedEventHasTheDrawingOfThePitchOnALineAboveItsSentence() {
         List<MatchEvent> events = ProducibleEvents.all();
 
-        List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
+        List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
 
         assertThat(blocks).hasSameSizeAs(events);
         assertThat(blocks).allSatisfy(block -> {
             assertThat(block).hasSize(LINES_PER_EVENT);
-            assertThat(block.get(PITCH_LINE)).matches("    Aquile \\|[_<>O]{5}\\| Lupi \\(\\d+ - \\d+\\)");
+            assertThat(block.get(PITCH_LINE)).matches("    Aquile \\d-\\d-\\d \\S+ \\|[_<>O]{5}\\| \\d-\\d-\\d \\S+ Lupi \\(\\d+ - \\d+\\)");
             assertThat(block.get(SENTENCE_LINE)).matches(LINE_START);
         });
     }
@@ -105,7 +106,7 @@ class NarratorTest {
     void theNarratorGivesOneBlockPerEventAndNoBlankLineBetweenThem() {
         List<MatchEvent> events = ProducibleEvents.all();
 
-        List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
+        List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
 
         assertThat(blocks).allSatisfy(block -> assertThat(block).allSatisfy(line -> assertThat(line).isNotBlank()));
     }
@@ -131,9 +132,9 @@ class NarratorTest {
                 ZoneRole.MIDFIELD, recovered, PlayPhase.BUILD_UP, NarrationEvents.participantsOf(AWAY_DEFENDER), 20,
                 EventDetail.none());
 
-        List<String> lines = narrator.narrate(List.of(interception), TEAM_NAMES, ChronicleMode.FULL).get(0);
+        List<String> lines = narrator.narrate(List.of(interception), TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL).get(0);
 
-        assertThat(lines.get(0)).isEqualTo("    Aquile |___<_| Lupi (0 - 0)");
+        assertThat(lines.get(0)).isEqualTo("    Aquile 4-4-2 equ. |___<_| 4-4-2 equ. Lupi (0 - 0)");
     }
 
     @Test
@@ -163,10 +164,28 @@ class NarratorTest {
         fixture.addGoal(firstHalf(900), MatchSide.AWAY, AWAY_FORWARD, GoalContext.EQUALISER);
         fixture.addGoal(firstHalf(1200), MatchSide.HOME, HOME_FORWARD, GoalContext.TAKES_THE_LEAD);
 
-        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
 
         List<String> scores = blocks.stream().map(block -> block.get(PITCH_LINE).replaceAll(".*\\|", "")).toList();
-        assertThat(scores).containsExactly(" Lupi (0 - 0)", " Lupi (1 - 0)", " Lupi (1 - 1)", " Lupi (2 - 1)");
+        assertThat(scores).containsExactly(" 4-4-2 equ. Lupi (0 - 0)", " 4-4-2 equ. Lupi (1 - 0)",
+                " 4-4-2 equ. Lupi (1 - 1)", " 4-4-2 equ. Lupi (2 - 1)");
+    }
+
+    @Test
+    void theFieldLineShowsTheModuleAndTheStyleInForceAfterTheEvent() {
+        Deployment afterExpulsion = new Deployment(3, 4, 2);
+        fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+        fixture.add(EventType.RED_CARD, MatchSide.AWAY, ZoneRole.MIDFIELD, NarrationEvents.participantsOf(AWAY_DEFENDER),
+                EventDetail.playerRemoved(afterExpulsion));
+        fixture.add(EventType.STYLE_CHANGED, MatchSide.AWAY, ZoneRole.MIDFIELD, Participants.nobody(),
+                EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.DEFENSIVE, ChangeReason.REBALANCE_AFTER_DISMISSAL));
+
+        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL);
+
+        List<String> fieldLines = blocks.stream().map(block -> block.get(PITCH_LINE)).toList();
+        assertThat(fieldLines.get(0)).endsWith("4-4-2 equ. Lupi (0 - 0)");
+        assertThat(fieldLines.get(1)).endsWith("3-4-2 equ. Lupi (0 - 0)");
+        assertThat(fieldLines.get(2)).endsWith("3-4-2 dif. Lupi (0 - 0)");
     }
 
     @Test
@@ -175,7 +194,7 @@ class NarratorTest {
         fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
         fixture.addGoal(firstHalf(1200), MatchSide.AWAY, AWAY_FORWARD, GoalContext.EQUALISER);
 
-        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.DEFAULT);
+        List<List<String>> blocks = narrator.narrate(fixture.list(), TEAM_NAMES, OPENING_SETUPS, ChronicleMode.DEFAULT);
 
         List<String> narratedFields = blocks.stream().map(block -> block.get(PITCH_LINE)).toList();
         assertThat(narratedFields).hasSizeLessThan(fixture.list().size());
@@ -189,9 +208,9 @@ class NarratorTest {
         MatchEvent foul = new MatchEvent(1, firstHalf(20), EventType.FOUL, MatchSide.HOME, ZoneRole.DEFENCE,
                 freeKick, PlayPhase.BUILD_UP, participants, 20, EventDetail.foul(FoulSeverity.LIGHT, false));
 
-        List<String> lines = narrator.narrate(List.of(foul), TEAM_NAMES, ChronicleMode.FULL).get(0);
+        List<String> lines = narrator.narrate(List.of(foul), TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL).get(0);
 
-        assertThat(lines.get(0)).isEqualTo("    Aquile |_<___| Lupi (0 - 0)");
+        assertThat(lines.get(0)).isEqualTo("    Aquile 4-4-2 equ. |_<___| 4-4-2 equ. Lupi (0 - 0)");
         assertThat(lines.get(1)).contains("Bianchi (Aquile)").contains("Neri (Lupi)");
     }
 
@@ -336,10 +355,10 @@ class NarratorTest {
     @Test
     void anEventWithoutAPhraseIsReportedWithItsKey() {
         Narrator withoutPhrases = new Narrator(new PhraseCatalog(Map.of("OTHER", List.of("x"))),
-                new PhraseVariantPicker(), new NarratedEventFilter(), new PhraseKeys(), new PhraseFiller(UserMessages.italian()), new PitchDrawing());
+                new PhraseVariantPicker(), new NarratedEventFilter(), new PhraseKeys(), new PhraseFiller(UserMessages.italian()), new PitchDrawing(UserMessages.italian()));
         fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
 
-        assertThatThrownBy(() -> withoutPhrases.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL))
+        assertThatThrownBy(() -> withoutPhrases.narrate(fixture.list(), TEAM_NAMES, OPENING_SETUPS, ChronicleMode.FULL))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("KICK_OFF");
     }
@@ -479,7 +498,7 @@ class NarratorTest {
     }
 
     private List<String> narrateSentences(List<MatchEvent> events, TeamNames teamNames, ChronicleMode mode) {
-        List<List<String>> blocks = narrator.narrate(events, teamNames, mode);
+        List<List<String>> blocks = narrator.narrate(events, teamNames, OPENING_SETUPS, mode);
         return blocks.stream()
                 .map(block -> block.get(SENTENCE_LINE))
                 .toList();

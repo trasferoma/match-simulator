@@ -35,9 +35,16 @@ final class MatchDriving {
     }
 
     static void stepUntilHalfTime(Match match) {
-        while (lastEventOf(match).map(MatchEvent::type).orElse(null) != EventType.FIRST_HALF_END) {
+        while (!isAtHalfTime(match)) {
             match.step();
         }
+    }
+
+    static boolean isAtHalfTime(Match match) {
+        List<MatchEvent> events = match.events();
+        boolean firstHalfEnded = events.stream().anyMatch(event -> event.type() == EventType.FIRST_HALF_END);
+        boolean secondHalfStarted = events.stream().anyMatch(event -> event.type() == EventType.SECOND_HALF_START);
+        return firstHalfEnded && !secondHalfStarted;
     }
 
     static Optional<MatchEvent> lastEventOf(Match match) {

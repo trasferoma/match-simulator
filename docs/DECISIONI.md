@@ -53,7 +53,9 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
   squadra ha in una zona cambia la forza nei duelli, e chi gioca il pallone si sceglie per presenza, non per
   qualità.** Perché: il modulo deve avere un effetto tattico, e un reparto corto fatto di soli giocatori forti non
   deve convenire. Fonte: `spec-reparti-per-zona.md`, Obiettivo e «Decisioni prese» (decisione dell'utente del
-  2026-11-12).
+  2026-11-12). Le condizioni del giocatore (fuori ruolo, stanchezza) cambiano il suo attributo effettivo, non la
+  probabilità di essere scelto per presenza. Fonte: `stamina-giocatori/spec-stamina-giocatori.md`, «Decisioni
+  prese» 1.
 
 ### Architettura
 

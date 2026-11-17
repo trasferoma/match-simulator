@@ -13,15 +13,17 @@ import org.junit.jupiter.params.provider.ValueSource;
 class PlayerAttributesTest {
 
     private static final List<String> ATTRIBUTE_NAMES = List.of(
-            "passing", "dribbling", "shooting", "tackling", "positioning", "pace", "aerial", "goalkeeping");
+            "passing", "dribbling", "shooting", "tackling", "positioning", "pace", "aerial", "goalkeeping", "stamina");
 
     @Test
     void acceptsValuesAtBothEndsOfTheScale() {
-        PlayerAttributes lowest = new PlayerAttributes(1, 1, 1, 1, 1, 1, 1, 1);
-        PlayerAttributes highest = new PlayerAttributes(100, 100, 100, 100, 100, 100, 100, 100);
+        PlayerAttributes lowest = new PlayerAttributes(1, 1, 1, 1, 1, 1, 1, 1, 1);
+        PlayerAttributes highest = new PlayerAttributes(100, 100, 100, 100, 100, 100, 100, 100, 100);
 
         assertThat(lowest.passing()).isEqualTo(1);
         assertThat(highest.goalkeeping()).isEqualTo(100);
+        assertThat(lowest.stamina()).isEqualTo(1);
+        assertThat(highest.stamina()).isEqualTo(100);
     }
 
     @ParameterizedTest
@@ -36,17 +38,25 @@ class PlayerAttributesTest {
 
     @Test
     void movementAverageIsTheMeanOfTheSevenMovementAttributes() {
-        PlayerAttributes attributes = new PlayerAttributes(60, 70, 80, 50, 40, 30, 20, 99);
+        PlayerAttributes attributes = new PlayerAttributes(60, 70, 80, 50, 40, 30, 20, 99, 50);
 
         assertThat(attributes.movementAverage()).isEqualTo(50.0);
     }
 
     @Test
     void movementAverageIgnoresGoalkeeping() {
-        PlayerAttributes weakKeeper = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 1);
-        PlayerAttributes strongKeeper = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 100);
+        PlayerAttributes weakKeeper = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 1, 50);
+        PlayerAttributes strongKeeper = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 100, 50);
 
         assertThat(weakKeeper.movementAverage()).isEqualTo(strongKeeper.movementAverage());
+    }
+
+    @Test
+    void movementAverageIgnoresStamina() {
+        PlayerAttributes tired = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 60, 1);
+        PlayerAttributes tireless = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 60, 100);
+
+        assertThat(tired.movementAverage()).isEqualTo(tireless.movementAverage());
     }
 
     private PlayerAttributes attributesWith(String attribute, int value) {
@@ -54,6 +64,6 @@ class PlayerAttributesTest {
         Arrays.fill(values, 50);
         values[ATTRIBUTE_NAMES.indexOf(attribute)] = value;
         return new PlayerAttributes(values[0], values[1], values[2], values[3],
-                values[4], values[5], values[6], values[7]);
+                values[4], values[5], values[6], values[7], values[8]);
     }
 }

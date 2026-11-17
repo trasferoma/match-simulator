@@ -12,24 +12,29 @@ import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public record MatchReading(ScoreReading score, MatchTime time, Map<MatchSide, LineupReading> lineups,
-        List<Dismissal> dismissals) {
+        List<Dismissal> dismissals, Map<MatchSide, FatigueReading> fatigue) {
 
     public MatchReading {
         Objects.requireNonNull(score, "score must not be null");
         Objects.requireNonNull(time, "time must not be null");
         Objects.requireNonNull(lineups, "lineups must not be null");
         Objects.requireNonNull(dismissals, "dismissals must not be null");
+        Objects.requireNonNull(fatigue, "fatigue must not be null");
         Map<MatchSide, LineupReading> copy = new EnumMap<>(MatchSide.class);
         copy.putAll(lineups);
         requireBothSides(copy);
         lineups = Collections.unmodifiableMap(copy);
         dismissals = List.copyOf(dismissals);
+        Map<MatchSide, FatigueReading> fatigueCopy = new EnumMap<>(MatchSide.class);
+        fatigueCopy.putAll(fatigue);
+        requireBothSides(fatigueCopy);
+        fatigue = Collections.unmodifiableMap(fatigueCopy);
     }
 
     public MatchReading withRosterOrder(MatchSide side, List<Player> order) {
         Map<MatchSide, LineupReading> updated = new EnumMap<>(lineups);
         updated.put(side, lineupOf(side).withRosterOrder(order));
-        return new MatchReading(score, time, updated, dismissals);
+        return new MatchReading(score, time, updated, dismissals, fatigue);
     }
 
     public Optional<Dismissal> dismissalOf(MatchSide side) {
@@ -54,6 +59,10 @@ public record MatchReading(ScoreReading score, MatchTime time, Map<MatchSide, Li
         return lineups.get(side);
     }
 
+    public FatigueReading fatigueOf(MatchSide side) {
+        return fatigue.get(side);
+    }
+
     public Posture postureOf(MatchSide side) {
         LineupReading lineup = lineupOf(side);
         return lineup.posture();
@@ -66,10 +75,10 @@ public record MatchReading(ScoreReading score, MatchTime time, Map<MatchSide, Li
         return own.playersOnPitch() < opponent.playersOnPitch();
     }
 
-    private static void requireBothSides(Map<MatchSide, LineupReading> lineups) {
+    private static void requireBothSides(Map<MatchSide, ?> bySide) {
         for (MatchSide side : MatchSide.values()) {
-            if (!lineups.containsKey(side)) {
-                throw new IllegalArgumentException("the reading needs the lineup of " + side);
+            if (!bySide.containsKey(side)) {
+                throw new IllegalArgumentException("the reading needs both sides, missing " + side);
             }
         }
     }

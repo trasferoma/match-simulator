@@ -47,7 +47,7 @@ public final class ReferenceChronicle {
 
     static List<String> lines(Path homeFile, Path awayFile, long seed, ChronicleMode mode) {
         List<MatchEvent> events = play(homeFile, awayFile, seed);
-        List<List<String>> blocks = Narrator.italian().narrate(events, NarrationEvents.TEAM_NAMES, mode);
+        List<List<String>> blocks = Narrator.italian().narrate(events, NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS, mode);
         return blocks.stream()
                 .flatMap(List::stream)
                 .toList();

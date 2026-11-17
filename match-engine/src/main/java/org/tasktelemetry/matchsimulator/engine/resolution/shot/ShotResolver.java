@@ -18,6 +18,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
@@ -26,8 +27,6 @@ import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class ShotResolver {
-
-    private static final double NEUTRAL = 1.0;
 
     private final ShotConfig config;
     private final PitchLayout layout;
@@ -59,9 +58,10 @@ public final class ShotResolver {
     }
 
     public Player penaltyTakerOf(TeamOnPitch attackers) {
-        Comparator<Player> byShooting = Comparator.comparingInt(player -> player.attributes().shooting());
+        Comparator<Player> byEffectiveShooting = Comparator
+                .comparingDouble(player -> matchups.effectiveShootingOf(attackers, player));
         return attackers.players().stream()
-                .max(byShooting)
+                .max(byEffectiveShooting)
                 .orElseThrow();
     }
 
@@ -82,11 +82,13 @@ public final class ShotResolver {
 
     private Attempt preparePenalty(TeamOnPitch attackers, TeamOnPitch defenders) {
         Player taker = penaltyTakerOf(attackers);
-        double expectedGoals = model.penaltyExpectedGoals(taker);
+        double shootingMultiplier = matchups.penaltyShootingMultiplier(attackers, taker);
+        double expectedGoals = model.penaltyExpectedGoals(taker, shootingMultiplier);
         ShotQuality danger = qualityScale.dangerOf(expectedGoals);
         ShotProfile profile = ShotProfile.ofPenalty(expectedGoals, danger);
         Player goalkeeper = defenders.goalkeeper();
-        double goalProbability = model.goalProbability(expectedGoals, goalkeeper, NEUTRAL);
+        double goalkeepingMultiplier = matchups.penaltyGoalkeepingMultiplier(defenders);
+        double goalProbability = model.goalProbability(expectedGoals, goalkeeper, goalkeepingMultiplier);
         MissShares misses = MissShares.ofPenalty(config);
         DurationRange missDuration = config.penaltyDuration();
         return new Attempt(profile, taker, goalkeeper, goalProbability, misses, missDuration);
@@ -121,7 +123,8 @@ public final class ShotResolver {
         MatchState next = MatchState.forSetPiece(concedingSide, kickOffZone, SetPieceKind.KICK_OFF);
         int duration = drawDuration(config.goalWithRestartDuration());
         Participants participants = scorerWithAssistant(state, attempt);
-        return new ActionOutcome(EventType.GOAL, participants, next, duration, detail);
+        InvolvedPlayers involved = shooterAndGoalkeeper(state, attempt);
+        return new ActionOutcome(EventType.GOAL, participants, next, duration, detail, involved);
     }
 
     private ActionOutcome saveShot(MatchState state, Attempt attempt) {
@@ -133,7 +136,8 @@ public final class ShotResolver {
         MatchSide defendingSide = attackingSide.opposite();
         Participants participants = Participants.of(attempt.shooter(), attackingSide, attempt.goalkeeper(),
                 defendingSide);
-        return new ActionOutcome(EventType.SHOT_SAVED, participants, next, duration, detail);
+        InvolvedPlayers involved = shooterAndGoalkeeper(state, attempt);
+        return new ActionOutcome(EventType.SHOT_SAVED, participants, next, duration, detail, involved);
     }
 
     private ActionOutcome missTarget(MatchState state, Attempt attempt) {
@@ -143,7 +147,8 @@ public final class ShotResolver {
         MatchState next = MatchState.forSetPiece(goalKickSide, goalKickSideBox, SetPieceKind.GOAL_KICK);
         int duration = drawDuration(attempt.missDuration());
         Participants participants = shooterWithCrosser(state, attempt);
-        return new ActionOutcome(EventType.SHOT_OFF_TARGET, participants, next, duration, detail);
+        InvolvedPlayers involved = shooterAndGoalkeeper(state, attempt);
+        return new ActionOutcome(EventType.SHOT_OFF_TARGET, participants, next, duration, detail, involved);
     }
 
     private ActionOutcome blockShot(MatchState state, Attempt attempt) {
@@ -151,7 +156,8 @@ public final class ShotResolver {
         MatchState next = stateAfterBlock(state);
         int duration = drawDuration(attempt.missDuration());
         Participants participants = shooterWithCrosser(state, attempt);
-        return new ActionOutcome(EventType.SHOT_BLOCKED, participants, next, duration, detail);
+        InvolvedPlayers involved = shooterAndGoalkeeper(state, attempt);
+        return new ActionOutcome(EventType.SHOT_BLOCKED, participants, next, duration, detail, involved);
     }
 
     private MatchState stateAfterSave(MatchState state) {
@@ -205,6 +211,13 @@ public final class ShotResolver {
             return Participants.of(attempt.shooter(), state.possession(), state.crosser(), state.possession());
         }
         return Participants.of(attempt.shooter(), state.possession());
+    }
+
+    private InvolvedPlayers shooterAndGoalkeeper(MatchState state, Attempt attempt) {
+        MatchSide attackingSide = state.possession();
+        MatchSide defendingSide = attackingSide.opposite();
+        InvolvedPlayers shooterOnly = InvolvedPlayers.of(attempt.shooter(), attackingSide);
+        return shooterOnly.with(attempt.goalkeeper(), defendingSide);
     }
 
     private int drawDuration(DurationRange range) {

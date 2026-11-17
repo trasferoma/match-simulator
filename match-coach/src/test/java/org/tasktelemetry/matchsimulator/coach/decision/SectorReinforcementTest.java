@@ -11,6 +11,7 @@ import org.tasktelemetry.matchsimulator.coach.ScenarioEvents;
 import org.tasktelemetry.matchsimulator.coach.reading.PlayedTime;
 import org.tasktelemetry.matchsimulator.coach.ScenarioTeams;
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
+import org.tasktelemetry.matchsimulator.coach.reading.FatigueReading;
 import org.tasktelemetry.matchsimulator.coach.reading.LineupReader;
 import org.tasktelemetry.matchsimulator.coach.reading.LineupReading;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
@@ -188,8 +189,8 @@ class SectorReinforcementTest {
     }
 
     private TeamNow teamNowOf(LineupReading lineup, int minute) {
-        return new TeamNow(HOME, lineup, minute, PlayedTime.at(ScenarioEvents.timeAt(minute, 0)),
-                ScenarioTeams.ALWAYS_THE_FIRST);
+        return new TeamNow(HOME, lineup, FatigueReading.none(), minute,
+                PlayedTime.at(ScenarioEvents.timeAt(minute, 0)), ScenarioTeams.ALWAYS_THE_FIRST);
     }
 
     private TeamNow teamNow(Team team, int minute) {

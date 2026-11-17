@@ -4,6 +4,7 @@ import java.util.Objects;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 
+import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 import org.tasktelemetry.matchsimulator.summary.TeamStatistics;
@@ -24,6 +25,10 @@ public record PlayedMatch(String homeName, String awayName, MatchSummary summary
 
     public int fieldGoalsFromMinute(int minute) {
         return (int) summary.goals().stream().filter(goal -> goal.time().minute() >= minute).count();
+    }
+
+    public int fieldGoalsInFirstHalf() {
+        return (int) summary.goals().stream().filter(goal -> goal.time().period() == MatchPeriod.FIRST_HALF).count();
     }
 
     public Score score() {

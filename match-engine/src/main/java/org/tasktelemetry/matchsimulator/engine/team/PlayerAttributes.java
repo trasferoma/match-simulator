@@ -10,7 +10,8 @@ public record PlayerAttributes(
         int positioning,
         int pace,
         int aerial,
-        int goalkeeping) {
+        int goalkeeping,
+        int stamina) {
 
     public static final int MIN_VALUE = 1;
     public static final int MAX_VALUE = 100;
@@ -24,6 +25,7 @@ public record PlayerAttributes(
         requireInScale("pace", pace);
         requireInScale("aerial", aerial);
         requireInScale("goalkeeping", goalkeeping);
+        requireInScale("stamina", stamina);
     }
 
     public double movementAverage() {

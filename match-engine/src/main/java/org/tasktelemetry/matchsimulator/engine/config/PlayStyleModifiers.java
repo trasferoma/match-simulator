@@ -16,10 +16,11 @@ public record PlayStyleModifiers(Map<PlayStyle, StyleEffect> effectByStyle) {
 
     public static PlayStyleModifiers defaults() {
         StyleEffect neutral = StyleEffect.neutral();
-        StyleEffect attacking = neutral.withAttack(1.10).withDefence(0.92).withCrossPropensity(1.15);
+        StyleEffect attacking = neutral.withAttack(1.10).withDefence(0.92).withCrossPropensity(1.15)
+                .withEnergyCost(1.15);
         StyleEffect defensive = neutral.withDefence(1.10).withAttack(0.90);
         StyleEffect possession = neutral.withMidfield(1.10).withCounterAttackStart(0.70)
-                .withCrossPropensity(0.85);
+                .withCrossPropensity(0.85).withEnergyCost(1.10);
         StyleEffect counterAttack = neutral.withCounterAttackStart(1.40).withCounterAttackAdvance(1.10)
                 .withMidfield(0.92);
         Map<PlayStyle, StyleEffect> effects = new EnumMap<>(PlayStyle.class);

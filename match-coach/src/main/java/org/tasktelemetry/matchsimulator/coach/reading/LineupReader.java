@@ -17,6 +17,7 @@ import org.tasktelemetry.matchsimulator.engine.team.Team;
 public final class LineupReader {
 
     private final StylePrudenceScale styleScale;
+    private final EventPlayers eventPlayers = new EventPlayers();
 
     public LineupReader(StylePrudenceScale styleScale) {
         this.styleScale = styleScale;
@@ -56,25 +57,25 @@ public final class LineupReader {
     }
 
     private LineupReading removeFromPitch(LineupReading before, MatchEvent event) {
-        Player player = primaryOf(event);
+        Player player = eventPlayers.primaryOf(event);
         return before.withoutPlayer(player);
     }
 
     private LineupReading caution(LineupReading before, MatchEvent event) {
-        Player player = primaryOf(event);
+        Player player = eventPlayers.primaryOf(event);
         return before.withCautioned(player);
     }
 
     public Dismissal dismissalAt(LineupReading before, MatchEvent event) {
-        Player player = primaryOf(event);
+        Player player = eventPlayers.primaryOf(event);
         Role sector = before.sectorOf(player);
         return new Dismissal(event.side(), player, sector);
     }
 
     private LineupReading substitute(LineupReading before, MatchEvent event) {
-        Player leaving = primaryOf(event);
-        Player entering = secondaryOf(event);
-        Role enteringSector = lineupChangeOf(event).sector();
+        Player leaving = eventPlayers.primaryOf(event);
+        Player entering = eventPlayers.secondaryOf(event);
+        Role enteringSector = eventPlayers.lineupChangeOf(event).sector();
         LineupReading withoutLeaving = before.withoutPlayer(leaving);
         LineupReading withEntering = withoutLeaving.withPlayerIn(entering, enteringSector);
         LineupReading replaced = withEntering.withSubstitutionOf(entering);
@@ -87,8 +88,8 @@ public final class LineupReader {
     }
 
     private LineupReading move(LineupReading before, MatchEvent event) {
-        Player player = primaryOf(event);
-        Role newSector = lineupChangeOf(event).sector();
+        Player player = eventPlayers.primaryOf(event);
+        Role newSector = eventPlayers.lineupChangeOf(event).sector();
         LineupReading moved = before.withPlayerIn(player, newSector);
         if (!event.isVoluntaryIntervention()) {
             return moved;
@@ -127,23 +128,6 @@ public final class LineupReader {
             case DEFENDER -> -1;
             case MIDFIELDER, GOALKEEPER -> 0;
         };
-    }
-
-    private Player primaryOf(MatchEvent event) {
-        return event.participants().primary()
-                .orElseThrow(() -> new IllegalStateException(event.type() + " event without a primary player"));
-    }
-
-    private Player secondaryOf(MatchEvent event) {
-        return event.participants().secondary()
-                .orElseThrow(() -> new IllegalStateException(event.type() + " event without a secondary player"));
-    }
-
-    private EventDetail.LineupChange lineupChangeOf(MatchEvent event) {
-        if (event.detail() instanceof EventDetail.LineupChange change) {
-            return change;
-        }
-        throw new IllegalStateException(event.type() + " event without the detail of a lineup change");
     }
 
     private EventDetail.StyleChange styleChangeOf(MatchEvent event) {

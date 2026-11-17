@@ -5,6 +5,7 @@ import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 public final class PitchDrawing {
 
@@ -19,10 +20,27 @@ public final class PitchDrawing {
     private static final int ZONE_COUNT = ZoneRole.values().length;
     private static final int LAST_COLUMN = ZONE_COUNT - 1;
 
-    public String draw(MatchEvent event, TeamNames teamNames, Score score) {
+    private final UserMessages messages;
+
+    public PitchDrawing(UserMessages messages) {
+        this.messages = messages;
+    }
+
+    public String draw(MatchEvent event, TeamNames teamNames, Score score, MatchSetups setups) {
         String field = drawField(event);
         String scoreText = SCORE_FORMAT.formatted(score.home(), score.away());
-        return INDENT + teamNames.home() + WORD_SEPARATOR + field + WORD_SEPARATOR + teamNames.away() + scoreText;
+        String homeSetup = describeSetup(setups.home());
+        String awaySetup = describeSetup(setups.away());
+        String home = teamNames.home() + WORD_SEPARATOR + homeSetup;
+        String away = awaySetup + WORD_SEPARATOR + teamNames.away();
+        return INDENT + home + WORD_SEPARATOR + field + WORD_SEPARATOR + away + scoreText;
+    }
+
+    private String describeSetup(TeamSetup setup) {
+        String formation = setup.deployment().label();
+        StyleAbbreviation abbreviation = StyleAbbreviation.of(setup.style());
+        String style = messages.text(abbreviation);
+        return formation + WORD_SEPARATOR + style;
     }
 
     private String drawField(MatchEvent event) {

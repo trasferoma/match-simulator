@@ -33,7 +33,8 @@ class MatchStoppageTest {
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> CONSEQUENCES = EnumSet.of(EventType.YELLOW_CARD, EventType.SECOND_YELLOW_CARD,
-            EventType.RED_CARD, EventType.SUBSTITUTION, EventType.STOPPAGE_ANNOUNCED);
+            EventType.RED_CARD, EventType.SUBSTITUTION, EventType.STOPPAGE_ANNOUNCED, EventType.PLAYER_TIRED,
+            EventType.PLAYER_RECOVERED);
     private static final Set<EventType> PERIOD_ENDS = EnumSet.of(EventType.FIRST_HALF_END, EventType.MATCH_END);
     private static final Set<EventType> CROSS_DELIVERIES = EnumSet.of(EventType.CROSS_COMPLETED,
             EventType.CORNER_KICK, EventType.FREE_KICK_CROSS);
@@ -96,7 +97,7 @@ class MatchStoppageTest {
                 assertThat(before.stream().filter(event -> event.type() != EventType.KICK_OFF)
                         .filter(event -> event.time().seconds() >= REGULATION_SECONDS)
                         .filter(event -> event.type() != EventType.INJURY && event.type() != EventType.SUBSTITUTION
-                                && !event.type().isCard())
+                                && event.type() != EventType.PLAYER_TIRED && !event.type().isCard())
                         .count()).isLessThanOrEqualTo(1);
             }
         }

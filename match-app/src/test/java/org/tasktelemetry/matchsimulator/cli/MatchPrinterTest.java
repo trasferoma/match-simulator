@@ -28,7 +28,7 @@ import org.tasktelemetry.matchsimulator.summary.TeamStatistics;
 class MatchPrinterTest {
 
     private static final int SECONDS_PER_MINUTE = 60;
-    private static final PlayerAttributes ATTRIBUTES = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 60);
+    private static final PlayerAttributes ATTRIBUTES = new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 60, 50);
     private static final Player SCORER = new Player("Nicolò Pàstina", Role.FORWARD, ATTRIBUTES);
 
     private final ByteArrayOutputStream bytes = new ByteArrayOutputStream();

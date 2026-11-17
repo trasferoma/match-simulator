@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution.shot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.ArrayList;
 import java.util.EnumMap;
@@ -107,7 +108,8 @@ class CrossResolverTest {
     void theFrequencyOfCompletedCrossesFollowsThePassingAgainstThePositioningNotTheAerialOfTheCrosser(int passing,
             int aerial, int positioning) {
         TeamOnPitch crossers = teamWith("Crossers", playerAttributes(passing, aerial));
-        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(50, 50, 50, 50, positioning, 50, 50, 50));
+        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, 50, positioning, 50, 50, 50, 50);
+        TeamOnPitch defenders = teamWith("Defenders", attributes);
         MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
         CrossResolver resolver = resolverWith(config);
         double expected = (double) passing / (passing + positioning);
@@ -279,7 +281,7 @@ class CrossResolverTest {
     void aCornerCrossIsFirstADuelOfTheCrosserAgainstTheDefenderAndOnlyThenAnAerialDuel() {
         Zone box = layout.ownBoxZone(MatchSide.AWAY);
         TeamOnPitch strongPassers = teamWith("Strong", playerAttributes(90, 50));
-        TeamOnPitch strongDefenders = teamWith("Closers", new PlayerAttributes(50, 50, 50, 50, 90, 50, 50, 50));
+        TeamOnPitch strongDefenders = teamWith("Closers", new PlayerAttributes(50, 50, 50, 50, 90, 50, 50, 50, 50));
         Player taker = strongPassers.playersIn(Role.MIDFIELDER).get(0);
         MatchState corner = MatchState.forSetPiece(MatchSide.HOME, box, SetPieceKind.CORNER);
         MatchState fromCorner = corner.withCrossInFlightFrom(taker);
@@ -317,8 +319,8 @@ class CrossResolverTest {
 
     @Test
     void theAerialDuelIsWonByTheAttackerWithTheProbabilityOfTheirAerialAgainstTheAerialOfTheDefender() {
-        TeamOnPitch attackers = teamWith("Attackers", new PlayerAttributes(30, 30, 50, 30, 30, 50, 80, 50));
-        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(90, 90, 50, 90, 90, 50, 40, 50));
+        TeamOnPitch attackers = teamWith("Attackers", new PlayerAttributes(30, 30, 50, 30, 30, 50, 80, 50, 50));
+        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(90, 90, 50, 90, 90, 50, 40, 50, 50));
         MatchState inFlight = crossInFlight(MatchSide.HOME, attackers);
         CrossResolver resolver = resolverWith(config);
 
@@ -473,7 +475,7 @@ class CrossResolverTest {
     @Test
     void withBalancedStylesAndNoHomeAdvantageTheCrossAndTheAerialDuelAreThoseOfTheAttributes() {
         TeamOnPitch attackers = teamWith("Attackers", playerAttributes(70, 70));
-        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50));
+        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50));
         CrossResolver resolver = resolverWith(config);
         MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
         MatchState inFlight = crossInFlight(MatchSide.HOME, attackers);
@@ -493,7 +495,7 @@ class CrossResolverTest {
 
     @Test
     void aCrosserOutOfPositionCrossesWithTheOutOfPositionMultiplier() {
-        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50));
+        TeamOnPitch defenders = teamWith("Defenders", new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50));
         TeamOnPitch attackers = teamWith("Attackers", playerAttributes(80, 50));
         Player crosser = attackers.playersIn(Role.MIDFIELDER).getFirst();
         TeamOnPitch crosserMisplaced = attackers.withRole(crosser, Role.DEFENDER);
@@ -597,11 +599,11 @@ class CrossResolverTest {
     }
 
     private PlayerAttributes playerAttributes(int passing, int aerial) {
-        return new PlayerAttributes(passing, 50, 50, 50, 50, 50, aerial, 50);
+        return new PlayerAttributes(passing, 50, 50, 50, 50, 50, aerial, 50, 50);
     }
 
     private PlayerAttributes defenderAttributes(int positioning, int tackling) {
-        return new PlayerAttributes(50, 50, 50, tackling, positioning, 50, 50, 50);
+        return new PlayerAttributes(50, 50, 50, tackling, positioning, 50, 50, 50, 50);
     }
 
     private CrossResolver resolverWith(CrossConfig crossConfig) {
@@ -614,10 +616,99 @@ class CrossResolverTest {
                 engineConfig.noTeammateDribbleThreshold(),
                 engineConfig.stoppage(), engineConfig.shot(), engineConfig.setPiece(), crossConfig,
                 engineConfig.counterAttack(), engineConfig.playStyles(), engineConfig.foul(), engineConfig.offside(), engineConfig.injury(),
-                engineConfig.lineup(), engineConfig.zonePresence(),
+                engineConfig.lineup(), engineConfig.zonePresence(), engineConfig.fatigue(),
                 engineConfig.homeAdvantage());
         MatchRandom random = new MatchRandom(seed);
         ShotResolver shotResolver = TestResolvers.shotResolver(custom, layout, random);
         return TestResolvers.crossResolver(custom, layout, random, shotResolver);
+    }
+
+    @Test
+    void aCompletedOrFailedCrossInvolvesTheCrosserAndTheDefenderWhoDuelsWithHim() {
+        MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
+
+        List<ActionOutcome> outcomes = resolveCrosses(resolverWith(config), state, TRIALS);
+
+        assertThat(outcomes).extracting(ActionOutcome::type).contains(EventType.CROSS_COMPLETED,
+                EventType.CROSS_FAILED, EventType.CROSS_DEFLECTED_TO_CORNER);
+        assertThat(outcomes).filteredOn(outcome -> outcome.type() != EventType.CROSS_DEFLECTED_TO_CORNER)
+                .allSatisfy(outcome -> {
+                    assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(
+                            outcome.participants().primary().orElseThrow());
+                    assertThat(involvedOn(outcome, MatchSide.AWAY)).hasSize(1)
+                            .allSatisfy(defender -> assertThat(away.players()).contains(defender));
+                });
+    }
+
+    @Test
+    void aCrossDeflectedToACornerInvolvesTheCrosserNamedAsSecondaryAndTheDefenderNamedAsPrimary() {
+        MatchState state = openPlayOnTheAttackingThird(MatchSide.HOME);
+
+        List<ActionOutcome> deflected = resolveCrosses(resolverWith(config), state, TRIALS).stream()
+                .filter(outcome -> outcome.type() == EventType.CROSS_DEFLECTED_TO_CORNER)
+                .toList();
+
+        assertThat(deflected).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(
+                    outcome.participants().secondary().orElseThrow());
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(
+                    outcome.participants().primary().orElseThrow());
+        });
+    }
+
+    @Test
+    void aClearanceAfterTheAerialDuelInOpenPlayInvolvesTheHeaderAndTheDefenderButNotTheCrosserOnlyNamed() {
+        MatchState inFlight = crossInFlight(MatchSide.HOME, home);
+
+        List<ActionOutcome> clearances = clearances(inFlight, TRIALS);
+
+        assertThat(clearances).isNotEmpty().allSatisfy(outcome -> {
+            Player crosser = outcome.participants().secondary().orElseThrow();
+            assertThat(crosser).isEqualTo(inFlight.crosser());
+            assertThat(involvedOn(outcome, MatchSide.HOME)).hasSize(1).doesNotContain(crosser);
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(
+                    outcome.participants().primary().orElseThrow());
+        });
+    }
+
+    @Test
+    void aShotAfterTheAerialDuelInOpenPlayInvolvesTheHeaderTheDefenderAndTheGoalkeeperButNotTheCrosser() {
+        MatchState inFlight = crossInFlight(MatchSide.HOME, home);
+        CrossResolver resolver = resolverWith(config);
+
+        List<ActionOutcome> shots = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolveCrossInFlight(inFlight, Score.goalless(), home, away))
+                .filter(outcome -> SHOT_TYPES.contains(outcome.type()))
+                .toList();
+
+        assertThat(shots).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(
+                    outcome.participants().primary().orElseThrow());
+            assertThat(involvedOn(outcome, MatchSide.HOME)).doesNotContain(inFlight.crosser());
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).contains(away.goalkeeper()).hasSizeBetween(1, 2);
+        });
+        assertThat(shots).anyMatch(outcome -> involvedOn(outcome, MatchSide.AWAY).size() == 2);
+    }
+
+    @Test
+    void theTakerOfASetPieceCrossIsInvolvedBecauseHePlaysTheDuelOfTheCrossEvenIfTheStateGivesHim() {
+        Zone box = layout.ownBoxZone(MatchSide.AWAY);
+        Player taker = home.playersIn(Role.MIDFIELDER).get(0);
+        MatchState fromCorner = MatchState.forSetPiece(MatchSide.HOME, box, SetPieceKind.CORNER)
+                .withCrossInFlightFrom(taker);
+        CrossResolver resolver = resolverWith(config);
+
+        List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.resolveCrossInFlight(fromCorner, Score.goalless(), home, away))
+                .toList();
+
+        assertThat(outcomes).extracting(ActionOutcome::type).contains(EventType.CLEARANCE,
+                EventType.CROSS_FAILED);
+        assertThat(outcomes).allSatisfy(outcome ->
+                assertThat(involvedOn(outcome, MatchSide.HOME)).contains(taker));
+        assertThat(outcomes).filteredOn(outcome -> outcome.type() == EventType.CLEARANCE)
+                .allSatisfy(outcome -> assertThat(involvedOn(outcome, MatchSide.HOME)).hasSize(2));
+        assertThat(outcomes).filteredOn(outcome -> outcome.type() == EventType.CROSS_FAILED)
+                .allSatisfy(outcome -> assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(taker));
     }
 }

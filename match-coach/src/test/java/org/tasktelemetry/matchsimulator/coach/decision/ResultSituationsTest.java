@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.coach.config.AssessmentBand;
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
 import org.tasktelemetry.matchsimulator.coach.reading.GameFlow;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.intervention.Intervention;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
@@ -441,6 +442,41 @@ class ResultSituationsTest {
         run.playUntil(90);
 
         assertThat(run.decisions()).isEmpty();
+    }
+
+    @Test
+    void behindInTheFinalWithAllTheForwardsAllowedAlreadyOnThePitchAndTheStyleAtTheExtremeATiredForwardIsReplacedByAFreshOne() {
+        Team own = ScenarioTeams.formation("Home", PlayStyle.ATTACKING, 4, 2, 4);
+        Player tiredForward = ScenarioTeams.starter(own, Role.FORWARD, 2);
+        CoachRun run = CoachRun.of(own, AssessmentBand.EVEN, away);
+        run.playUntil(30);
+        run.deliver(run.events().goal(MatchSide.AWAY, 31, 0));
+        run.playUntil(79);
+
+        run.deliver(run.events().tired(HOME, tiredForward, FatigueBand.TIRED, 80, 0));
+
+        assertThat(run.decisions()).singleElement().satisfies(decision -> {
+            assertThat(decision.minute()).isEqualTo(80);
+            assertThat(decision.intervention()).isEqualTo(new Intervention.VoluntarySubstitution(HOME, tiredForward,
+                    ScenarioTeams.benchPlayer(own, Role.FORWARD, 1), ChangeReason.CHASE_GAME));
+        });
+    }
+
+    @Test
+    void behindInTheFinalWithAllTheForwardsAllowedAlreadyOnThePitchATiredMidfielderIsNotAnAnswerToTheDeficit() {
+        Team own = ScenarioTeams.formation("Home", PlayStyle.ATTACKING, 4, 2, 4);
+        Player tiredMidfielder = ScenarioTeams.starter(own, Role.MIDFIELDER, 1);
+        CoachRun run = CoachRun.of(own, AssessmentBand.EVEN, away);
+        run.playUntil(30);
+        run.deliver(run.events().goal(MatchSide.AWAY, 31, 0));
+        run.playUntil(79);
+
+        run.deliver(run.events().tired(HOME, tiredMidfielder, FatigueBand.TIRED, 80, 0));
+
+        assertThat(run.decisions()).singleElement().satisfies(decision ->
+                assertThat(decision.intervention()).isEqualTo(new Intervention.VoluntarySubstitution(HOME,
+                        tiredMidfielder, ScenarioTeams.benchPlayer(own, Role.MIDFIELDER, 1),
+                        ChangeReason.REPLACE_TIRED_PLAYER)));
     }
 
     private Intervention decisionWhenBehindByOneAt80(Team own) {

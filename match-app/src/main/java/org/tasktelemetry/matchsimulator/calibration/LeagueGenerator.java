@@ -31,6 +31,7 @@ public final class LeagueGenerator {
     public LeagueGenerator(BenchConfig config, RoleProfiles profiles) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.profiles = Objects.requireNonNull(profiles, "role profiles must not be null");
+        requireStaminaInScaleForEveryBenchStrength();
     }
 
     public List<Squad> generate(long seed) {
@@ -95,7 +96,29 @@ public final class LeagueGenerator {
         int pace = rate(strength, offsets.pace(), random);
         int aerial = rate(strength, offsets.aerial(), random);
         int goalkeeping = rate(strength, offsets.goalkeeping(), random);
-        return new PlayerAttributes(passing, dribbling, shooting, tackling, positioning, pace, aerial, goalkeeping);
+        int stamina = staminaOf(role, strength);
+        return new PlayerAttributes(passing, dribbling, shooting, tackling, positioning, pace, aerial, goalkeeping,
+                stamina);
+    }
+
+    private int staminaOf(Role role, int strength) {
+        return strength + profiles.staminaOffsetOf(role);
+    }
+
+    private void requireStaminaInScaleForEveryBenchStrength() {
+        for (Role role : Role.values()) {
+            requireStaminaInScale(role, config.weakestStrength());
+            requireStaminaInScale(role, config.strongestStrength());
+        }
+    }
+
+    private void requireStaminaInScale(Role role, int strength) {
+        int stamina = staminaOf(role, strength);
+        boolean isInScale = stamina >= PlayerAttributes.MIN_VALUE && stamina <= PlayerAttributes.MAX_VALUE;
+        if (!isInScale) {
+            throw new IllegalArgumentException("stamina of " + role + " at strength " + strength + " must be between "
+                    + PlayerAttributes.MIN_VALUE + " and " + PlayerAttributes.MAX_VALUE + ", was " + stamina);
+        }
     }
 
     private int rate(int strength, int offset, MatchRandom random) {

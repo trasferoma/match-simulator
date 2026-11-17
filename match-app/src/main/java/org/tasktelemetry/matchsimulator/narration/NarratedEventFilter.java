@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.narration;
 
 import java.util.EnumSet;
 import java.util.List;
+import java.util.OptionalInt;
 import java.util.Set;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -20,7 +21,7 @@ public final class NarratedEventFilter {
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> INCIDENT_TYPES = EnumSet.of(EventType.OFFSIDE, EventType.INJURY,
-            EventType.SUBSTITUTION, EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
+            EventType.SUBSTITUTION, EventType.STYLE_CHANGED, EventType.PLAYER_MOVED, EventType.PLAYER_TIRED);
     private static final Set<EventType> FREE_KICK_TYPES = EnumSet.of(EventType.FREE_KICK,
             EventType.FREE_KICK_CROSS);
     private static final Set<EventType> PLAYED_BY_THE_OPPOSING_SIDE_TYPES = EnumSet.of(EventType.INTERCEPTION,
@@ -54,12 +55,30 @@ public final class NarratedEventFilter {
 
     public List<Integer> findEventsPreparing(List<MatchEvent> events, int shotIndex, int maxEvents) {
         MatchSide shootingSide = actingSideAt(events, shotIndex);
-        return IntStream.rangeClosed(1, maxEvents)
-                .map(distance -> shotIndex - distance)
-                .takeWhile(index -> index >= 0 && !isKickOff(events.get(index))
-                        && actingSideAt(events, index) == shootingSide)
+        return indicesBeforeIgnoringPlayerState(events, shotIndex)
+                .limit(maxEvents)
+                .takeWhile(index -> !isKickOff(events.get(index)) && actingSideAt(events, index) == shootingSide)
                 .boxed()
                 .toList();
+    }
+
+    private boolean describesPlayerState(MatchEvent event) {
+        return event.type().describesPlayerState();
+    }
+
+    public IntStream indicesBeforeIgnoringPlayerState(List<MatchEvent> events, int index) {
+        return IntStream.iterate(index - 1, candidate -> candidate >= 0, candidate -> candidate - 1)
+                .filter(candidate -> !describesPlayerState(events.get(candidate)));
+    }
+
+    public OptionalInt findPreviousIndexIgnoringPlayerState(List<MatchEvent> events, int index) {
+        return indicesBeforeIgnoringPlayerState(events, index).findFirst();
+    }
+
+    private OptionalInt findNextIndexIgnoringPlayerState(List<MatchEvent> events, int index) {
+        return IntStream.range(index + 1, events.size())
+                .filter(candidate -> !describesPlayerState(events.get(candidate)))
+                .findFirst();
     }
 
     private boolean isShot(List<MatchEvent> events, int index) {
@@ -114,12 +133,12 @@ public final class NarratedEventFilter {
     }
 
     public boolean isFollowedByCardForTheSamePlayer(List<MatchEvent> events, int foulIndex) {
-        int nextIndex = foulIndex + 1;
-        if (nextIndex >= events.size()) {
+        OptionalInt nextIndex = findNextIndexIgnoringPlayerState(events, foulIndex);
+        if (nextIndex.isEmpty()) {
             return false;
         }
         MatchEvent foul = events.get(foulIndex);
-        MatchEvent next = events.get(nextIndex);
+        MatchEvent next = events.get(nextIndex.getAsInt());
         boolean isCard = next.type().isCard();
         boolean isSamePlayer = next.participants().primary().equals(foul.participants().primary());
         boolean isSameSide = next.participants().primarySide().equals(foul.participants().primarySide());

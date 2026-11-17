@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine;
 
 import org.tasktelemetry.matchsimulator.engine.config.CrossConfig;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.config.FatigueConfig;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
 import org.tasktelemetry.matchsimulator.engine.config.InjuryConfig;
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
@@ -12,6 +13,7 @@ public final class TestConfigs {
 
     private static final double NO_HOME_ADVANTAGE = 1.0;
     private static final double NO_FOULS = 0.0;
+    private static final double NO_PERFORMANCE_LOSS = 1.0;
 
     private TestConfigs() {
     }
@@ -19,14 +21,34 @@ public final class TestConfigs {
     public static EngineConfig withHomeAdvantage(EngineConfig base, double homeAdvantage) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(), homeAdvantage);
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.fatigue(), homeAdvantage);
     }
 
     public static EngineConfig withNoTeammateDribbleThreshold(EngineConfig base, double threshold) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), threshold, base.stoppage(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(),
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.fatigue(),
                 base.homeAdvantage());
+    }
+
+    public static FatigueConfig specificationExamples() {
+        return new FatigueConfig(70.0, 40.0, 0.80, 0.45, 0.25, 0.5, 50, 0.3, 0.5, 0.3);
+    }
+
+    public static EngineConfig withFatigue(EngineConfig base, FatigueConfig fatigue) {
+        return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
+                base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(),
+                base.setPiece(), base.cross(), base.counterAttack(), base.playStyles(), base.foul(), base.offside(),
+                base.injury(), base.lineup(), base.zonePresence(), fatigue, base.homeAdvantage());
+    }
+
+    public static EngineConfig withoutPerformanceLoss(EngineConfig base) {
+        FatigueConfig fatigue = base.fatigue();
+        FatigueConfig unchanged = new FatigueConfig(fatigue.performanceThreshold(), fatigue.exhaustionThreshold(),
+                NO_PERFORMANCE_LOSS, fatigue.drainPerMinute(), fatigue.participationCost(),
+                fatigue.drainStaminaSensitivity(), fatigue.neutralStamina(), fatigue.goalkeeperDrainMultiplier(),
+                fatigue.recoveryShare(), fatigue.recoveryStaminaSensitivity());
+        return withFatigue(base, unchanged);
     }
 
     public static EngineConfig withoutHomeAdvantage(EngineConfig base) {
@@ -36,32 +58,32 @@ public final class TestConfigs {
     public static EngineConfig withFoul(EngineConfig base, FoulConfig foul) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), foul, base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.homeAdvantage());
+                base.counterAttack(), base.playStyles(), foul, base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.fatigue(), base.homeAdvantage());
     }
 
     public static EngineConfig withLineup(EngineConfig base, LineupConfig lineup) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), lineup, base.zonePresence(), base.homeAdvantage());
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), lineup, base.zonePresence(), base.fatigue(), base.homeAdvantage());
     }
 
     public static EngineConfig withInjury(EngineConfig base, InjuryConfig injury) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(), base.setPiece(), base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), injury, base.lineup(), base.zonePresence(),
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), injury, base.lineup(), base.zonePresence(), base.fatigue(),
                 base.homeAdvantage());
     }
 
     public static EngineConfig withSetPiece(EngineConfig base, SetPieceConfig setPiece) {
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(), setPiece, base.cross(),
-                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.homeAdvantage());
+                base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.fatigue(), base.homeAdvantage());
     }
 
     public static EngineConfig withCross(EngineConfig base, CrossConfig cross) {
     return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
             base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(), base.setPiece(), cross,
-            base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(),
+            base.counterAttack(), base.playStyles(), base.foul(), base.offside(), base.injury(), base.lineup(), base.zonePresence(), base.fatigue(),
             base.homeAdvantage());
 }
 
@@ -69,7 +91,7 @@ public static EngineConfig withZonePresence(EngineConfig base, ZonePresenceConfi
         return new EngineConfig(base.buildUpAndMidfieldDuration(), base.attackingThirdDuration(),
                 base.dribbleProbability(), base.noTeammateDribbleThreshold(), base.stoppage(), base.shot(),
                 base.setPiece(), base.cross(), base.counterAttack(), base.playStyles(), base.foul(), base.offside(),
-                base.injury(), base.lineup(), zonePresence, base.homeAdvantage());
+                base.injury(), base.lineup(), zonePresence, base.fatigue(), base.homeAdvantage());
     }
 
     public static EngineConfig withPassMinimumPlayers(EngineConfig base, double passMinimumPlayers) {

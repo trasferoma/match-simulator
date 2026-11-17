@@ -17,6 +17,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.Duel;
 import org.tasktelemetry.matchsimulator.engine.resolution.DuelAttributes;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.resolution.Matchups;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.ZonePresence;
@@ -71,14 +72,14 @@ public final class CrossResolver {
 
     public Player pickCrosser(TeamOnPitch attackers) {
         List<Player> candidates = listCrosserCandidates(attackers);
-        return picker.pickByPassing(candidates);
+        return picker.pickByPassing(attackers, candidates);
     }
 
     public ActionOutcome resolveCross(MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {
         Player crosser = pickCrosser(attackers);
         Player defender = pickDefender(state, defenders);
         if (crossReachesTheBox(state, attackers, crosser, defenders, defender)) {
-            return deliverCross(state, crosser);
+            return deliverCross(state, crosser, defender);
         }
         return failCross(state, crosser, defender);
     }
@@ -91,7 +92,8 @@ public final class CrossResolver {
         Player crosser = state.crosser();
         Player defender = pickDefender(state, defenders);
         if (crossReachesTheBox(state, attackers, crosser, defenders, defender)) {
-            return resolveAerialDuel(state, score, attackers, defenders);
+            ActionOutcome aerialDuel = resolveAerialDuel(state, score, attackers, defenders);
+            return involveTheCrossDuelists(state, aerialDuel, crosser, defender);
         }
         return failCross(state, crosser, defender);
     }
@@ -102,31 +104,41 @@ public final class CrossResolver {
         Player defender = pickDefender(state, defenders);
         Duel duel = aerialDuel(state, attackers, attacker, defenders, defender);
         if (attackerWins(duel)) {
-            return shootHeader(state, score, attackers, attacker, defenders);
+            return shootHeader(state, score, attackers, attacker, defenders, defender);
         }
-        return clearBall(state, defender);
+        return clearBall(state, attacker, defender);
+    }
+
+    private ActionOutcome involveTheCrossDuelists(MatchState state, ActionOutcome outcome, Player crosser,
+            Player defender) {
+        MatchSide attackingSide = state.possession();
+        MatchSide defendingSide = attackingSide.opposite();
+        return outcome.involving(crosser, attackingSide).involving(defender, defendingSide);
     }
 
     private ActionOutcome shootHeader(MatchState state, Score score, TeamOnPitch attackers, Player attacker,
-            TeamOnPitch defenders) {
-        return shotResolver.resolveShot(state, score, attackers, attacker, ShotKind.HEADER, defenders);
+            TeamOnPitch defenders, Player defender) {
+        ActionOutcome shot = shotResolver.resolveShot(state, score, attackers, attacker, ShotKind.HEADER, defenders);
+        MatchSide defendingSide = state.possession().opposite();
+        return shot.involving(defender, defendingSide);
     }
 
-    private ActionOutcome deliverCross(MatchState state, Player crosser) {
+    private ActionOutcome deliverCross(MatchState state, Player crosser, Player defender) {
         Zone opponentBox = opponentBoxOf(state);
         MatchState inTheBox = MatchState.openPlay(state.possession(), opponentBox);
         MatchState next = inTheBox.withCrossInFlightFrom(crosser);
         int duration = drawDuration(config.crossDuration());
         Participants participants = Participants.of(crosser, state.possession());
         EventDetail detail = EventDetail.none();
-        return new ActionOutcome(EventType.CROSS_COMPLETED, participants, next, duration, detail);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(crosser, state.possession(), defender);
+        return new ActionOutcome(EventType.CROSS_COMPLETED, participants, next, duration, detail, involved);
     }
 
     private ActionOutcome failCross(MatchState state, Player crosser, Player defender) {
         if (decidesToDeflectToCorner()) {
             return deflectToCorner(state, crosser, defender);
         }
-        return loseCross(state, crosser);
+        return loseCross(state, crosser, defender);
     }
 
     private ActionOutcome deflectToCorner(MatchState state, Player crosser, Player defender) {
@@ -136,26 +148,30 @@ public final class CrossResolver {
         int duration = drawDuration(config.crossDuration());
         Participants participants = Participants.of(defender, defendingSide, crosser, state.possession());
         EventDetail detail = EventDetail.none();
-        return new ActionOutcome(EventType.CROSS_DEFLECTED_TO_CORNER, participants, next, duration, detail);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(crosser, state.possession(), defender);
+        return new ActionOutcome(EventType.CROSS_DEFLECTED_TO_CORNER, participants, next, duration, detail,
+                involved);
     }
 
-    private ActionOutcome loseCross(MatchState state, Player crosser) {
+    private ActionOutcome loseCross(MatchState state, Player crosser, Player defender) {
         MatchSide defendingSide = state.possession().opposite();
         Zone defendingBox = layout.ownBoxZone(defendingSide);
         MatchState next = MatchState.openPlay(defendingSide, defendingBox);
         int duration = drawDuration(config.crossDuration());
         Participants participants = Participants.of(crosser, state.possession());
         EventDetail detail = EventDetail.none();
-        return new ActionOutcome(EventType.CROSS_FAILED, participants, next, duration, detail);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(crosser, state.possession(), defender);
+        return new ActionOutcome(EventType.CROSS_FAILED, participants, next, duration, detail, involved);
     }
 
-    private ActionOutcome clearBall(MatchState state, Player defender) {
+    private ActionOutcome clearBall(MatchState state, Player header, Player defender) {
         MatchSide defendingSide = state.possession().opposite();
         MatchState next = stateAfterClearance(state);
         int duration = drawDuration(config.clearanceDuration());
         Participants participants = Participants.of(defender, defendingSide, state.crosser(), state.possession());
         EventDetail detail = EventDetail.none();
-        return new ActionOutcome(EventType.CLEARANCE, participants, next, duration, detail);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(header, state.possession(), defender);
+        return new ActionOutcome(EventType.CLEARANCE, participants, next, duration, detail, involved);
     }
 
     private MatchState stateAfterClearance(MatchState state) {

@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -20,6 +21,7 @@ import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
@@ -722,7 +724,7 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
                 dribbleProbability, defaults.noTeammateDribbleThreshold(), defaults.stoppage(), defaults.shot(),
                 defaults.setPiece(),
                 defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(), defaults.injury(),
-                defaults.lineup(), defaults.zonePresence(), defaults.homeAdvantage());
+                defaults.lineup(), defaults.zonePresence(), defaults.fatigue(), defaults.homeAdvantage());
     }
 
     private TeamOnPitch teamOf(MatchSide side) {
@@ -748,12 +750,111 @@ void aDribbleIsChosenWithTheConfiguredProbability() {
                 defaults.stoppage(),
                 defaults.shot(),
                 defaults.setPiece(), defaults.cross(), defaults.counterAttack(), defaults.playStyles(), defaults.foul(), defaults.offside(), defaults.injury(),
-                defaults.lineup(), defaults.zonePresence(),
+                defaults.lineup(), defaults.zonePresence(), defaults.fatigue(),
                 defaults.homeAdvantage());
     }
 
     private DurationRange rangeFor(EngineConfig config, ZoneRole role) {
         boolean attackingThird = role == ZoneRole.ATTACKING_THIRD || role == ZoneRole.OPPONENT_BOX;
         return attackingThird ? config.attackingThirdDuration() : config.buildUpAndMidfieldDuration();
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void aCompletedActionInvolvesTheDefenderOfTheDuelEvenThoughTheEventNamesOnlyTheAttacker(MatchSide side) {
+        PitchLayout layout = PitchLayout.standard();
+        Zone midfield = zoneWithRole(layout, side, ZoneRole.MIDFIELD);
+        MatchState state = new MatchState(side, midfield, PlayPhase.BUILD_UP);
+        List<ActionOutcome> completed = resolveMany(resolverFor(EngineConfig.defaults(), layout, SEED), state, 500)
+                .stream()
+                .filter(outcome -> COMPLETED.contains(outcome.type()))
+                .toList();
+
+        assertThat(completed).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(outcome.participants().secondary()).isEmpty();
+            assertThat(involvedOn(outcome, side)).containsExactly(primaryPlayerOf(outcome));
+            assertThat(involvedOn(outcome, side.opposite())).hasSize(1)
+                    .allSatisfy(defender -> assertThat(teamOf(side.opposite()).players()).contains(defender));
+        });
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void aTurnoverInvolvesTheAttackerWhoLostTheBallAndTheRecoverer(MatchSide side) {
+        PitchLayout layout = PitchLayout.standard();
+        Zone midfield = zoneWithRole(layout, side, ZoneRole.MIDFIELD);
+        MatchState state = new MatchState(side, midfield, PlayPhase.BUILD_UP);
+        List<ActionOutcome> turnovers = resolveMany(resolverFor(EngineConfig.defaults(), layout, SEED), state, 500)
+                .stream()
+                .filter(outcome -> TURNOVERS.contains(outcome.type()))
+                .toList();
+
+        assertThat(turnovers).extracting(ActionOutcome::type).contains(EventType.INTERCEPTION, EventType.TACKLE);
+        assertThat(turnovers).allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, side.opposite())).containsExactly(primaryPlayerOf(outcome));
+            assertThat(involvedOn(outcome, side)).hasSize(1)
+                    .allSatisfy(attacker -> assertThat(teamOf(side).players()).contains(attacker));
+        });
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void aFoulInvolvesTheFoulerAndTheFouledAndNoOneElse(MatchSide side) {
+        EngineConfig defaults = EngineConfig.defaults();
+        FoulConfig alwaysFouling = TestConfigs.withBaseFoulProbability(defaults.foul(), 0.99);
+        EngineConfig config = TestConfigs.withFoul(defaults, alwaysFouling);
+        PitchLayout layout = PitchLayout.standard();
+        Zone midfield = zoneWithRole(layout, side, ZoneRole.MIDFIELD);
+        MatchState state = new MatchState(side, midfield, PlayPhase.BUILD_UP);
+        List<ActionOutcome> fouls = resolveMany(resolverFor(config, layout, SEED), state, 500).stream()
+                .filter(outcome -> outcome.type() == EventType.FOUL)
+                .toList();
+
+        assertThat(fouls).isNotEmpty().allSatisfy(outcome -> {
+            Player fouler = outcome.participants().primary().orElseThrow();
+            Player fouled = outcome.participants().secondary().orElseThrow();
+            assertThat(involvedOn(outcome, side.opposite())).containsExactly(fouler);
+            assertThat(involvedOn(outcome, side)).containsExactly(fouled);
+        });
+    }
+
+    @Test
+    void theCirculatedBallInvolvesTheCarrierAndTheOpponentOfTheDuelThatWasNotPlayed() {
+        PitchLayout layout = PitchLayout.standard();
+        Zone midfield = zoneWithRole(layout, MatchSide.HOME, ZoneRole.MIDFIELD);
+        MatchState state = new MatchState(MatchSide.HOME, midfield, PlayPhase.BUILD_UP);
+        TeamOnPitch attackers = teamWithoutForwards(dribblerAttributes(10));
+        TeamOnPitch defenders = tacklerTeam(90);
+        EngineConfig config = withTooFewTeammatesToPassTo();
+
+        List<ActionOutcome> outcomes = resolveMany(resolverFor(config, layout, SEED), state, attackers, defenders,
+                500);
+
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(outcome.type()).isEqualTo(EventType.BALL_CIRCULATED);
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(primaryPlayerOf(outcome));
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).hasSize(1)
+                    .allSatisfy(opponent -> assertThat(defenders.players()).contains(opponent));
+        });
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void aShotFromTheOpponentBoxInvolvesTheShooterTheGoalkeeperAndTheDefenderOfTheDuel(MatchSide side) {
+        PitchLayout layout = PitchLayout.standard();
+        Zone box = zoneWithRole(layout, side, ZoneRole.OPPONENT_BOX);
+        MatchState state = new MatchState(side, box, PlayPhase.BUILD_UP);
+        TeamOnPitch defenders = teamOf(side.opposite());
+        List<ActionOutcome> shots = resolveMany(resolverFor(EngineConfig.defaults(), layout, SEED), state, 500)
+                .stream()
+                .filter(outcome -> SHOT_TYPES.contains(outcome.type()))
+                .toList();
+
+        assertThat(shots).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, side)).containsExactly(primaryPlayerOf(outcome));
+            assertThat(involvedOn(outcome, side.opposite())).contains(defenders.goalkeeper()).hasSizeBetween(1, 2)
+                    .allSatisfy(player -> assertThat(defenders.players()).contains(player));
+        });
+        assertThat(shots).anyMatch(outcome -> involvedOn(outcome, side.opposite()).size() == 2);
     }
 }

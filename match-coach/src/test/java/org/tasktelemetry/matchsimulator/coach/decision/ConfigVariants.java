@@ -14,13 +14,13 @@ final class ConfigVariants {
         SubstitutionConfig substitutions = new SubstitutionConfig(maximum, reserved);
         return new CoachConfig(base.assessment(), base.bandResponses(), base.formations(), base.styleScale(),
                 base.sectorLimits(), base.maximumBenchSize(), base.timing(), base.resultTiming(), base.flow(),
-                base.sectorStrain(), base.tacticalReading(), substitutions);
+                base.sectorStrain(), base.tacticalReading(), substitutions, base.fatigueResponse());
     }
 
     static CoachConfig withSectorLimits(SectorLimits limits) {
         CoachConfig base = CoachConfig.defaults();
         return new CoachConfig(base.assessment(), base.bandResponses(), base.formations(), base.styleScale(),
                 limits, base.maximumBenchSize(), base.timing(), base.resultTiming(), base.flow(),
-                base.sectorStrain(), base.tacticalReading(), base.substitutions());
+                base.sectorStrain(), base.tacticalReading(), base.substitutions(), base.fatigueResponse());
     }
 }

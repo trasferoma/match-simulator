@@ -6,6 +6,7 @@ import java.util.function.ToDoubleFunction;
 
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 
@@ -13,10 +14,12 @@ public final class PlayerPicker {
 
     private final MatchRandom random;
     private final ZonePresence zonePresence;
+    private final FatiguePenalty fatigue;
 
-    public PlayerPicker(MatchRandom random, ZonePresence zonePresence) {
+    public PlayerPicker(MatchRandom random, ZonePresence zonePresence, FatiguePenalty fatigue) {
         this.random = random;
         this.zonePresence = Objects.requireNonNull(zonePresence, "zone presence must not be null");
+        this.fatigue = fatigue;
     }
 
     public Player pickFrom(TeamOnPitch team, ZoneRole zoneRole) {
@@ -38,8 +41,8 @@ public final class PlayerPicker {
         return pickByPresence(team, zoneRole, candidates);
     }
 
-    public Player pickByPassing(List<Player> candidates) {
-        return pickWeighted(candidates, this::passingOf);
+    public Player pickByPassing(TeamOnPitch team, List<Player> candidates) {
+        return pickWeighted(candidates, player -> effectivePassingOf(team, player));
     }
 
     private Player pickByPresence(TeamOnPitch team, ZoneRole zoneRole, List<Player> candidates) {
@@ -65,7 +68,8 @@ public final class PlayerPicker {
                 .sum();
     }
 
-    private double passingOf(Player player) {
-        return player.attributes().passing();
+    private double effectivePassingOf(TeamOnPitch team, Player player) {
+        double fatigueFactor = fatigue.factorOf(team, player);
+        return player.attributes().passing() * fatigueFactor;
     }
 }

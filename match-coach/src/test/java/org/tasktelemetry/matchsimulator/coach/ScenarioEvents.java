@@ -5,6 +5,7 @@ import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
 import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
@@ -107,6 +108,16 @@ public final class ScenarioEvents {
         EventDetail detail = EventDetail.lineupChange(sector, reason, DEPLOYMENT, DEPLOYMENT);
         Participants participants = Participants.of(leaving, side, entering, side);
         return build(EventType.SUBSTITUTION, side, participants, timeAt(minute, second), detail);
+    }
+
+    public MatchEvent tired(MatchSide side, Player player, FatigueBand band, int minute, int second) {
+        EventDetail detail = EventDetail.fatigue(band);
+        return withPlayer(EventType.PLAYER_TIRED, side, player, timeAt(minute, second), detail);
+    }
+
+    public MatchEvent recovered(MatchSide side, Player player, FatigueBand band, int minute, int second) {
+        EventDetail detail = EventDetail.fatigue(band);
+        return withPlayer(EventType.PLAYER_RECOVERED, side, player, timeAt(minute, second), detail);
     }
 
     public MatchEvent move(MatchSide side, Player player, Role sector, ChangeReason reason, int minute,

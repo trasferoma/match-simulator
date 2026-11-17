@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution.stoppage;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.List;
 import java.util.Optional;
@@ -14,9 +15,11 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -25,6 +28,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
@@ -51,7 +55,7 @@ class FoulResolverTest {
     void theFoulProbabilityOfAnAverageDefenderIsTheBaseOfTheConfiguration() {
         Player average = tacklingPlayer(config.neutralTackling());
 
-        double probability = resolver(SEED).foulProbability(awayTeam, average);
+        double probability = resolver(SEED).foulProbability(TestEnergy.withPlayerOnPitch(awayTeam, average), average);
 
         assertThat(probability).isCloseTo(config.baseFoulProbability(), within(EXACT));
     }
@@ -62,9 +66,9 @@ class FoulResolverTest {
         double base = config.baseFoulProbability();
         double inTheArea = base * config.penaltyAreaFoulFactor();
 
-        double probability = resolver(SEED).penaltyAreaFoulProbability(awayTeam, average);
+        double probability = resolver(SEED).penaltyAreaFoulProbability(TestEnergy.withPlayerOnPitch(awayTeam, average), average);
 
-        assertThat(probability).isLessThan(resolver(SEED).foulProbability(awayTeam, average));
+        assertThat(probability).isLessThan(resolver(SEED).foulProbability(TestEnergy.withPlayerOnPitch(awayTeam, average), average));
         assertThat(probability).isCloseTo(inTheArea, within(EXACT));
     }
 
@@ -75,9 +79,9 @@ class FoulResolverTest {
         TeamOnPitch movedToMidfield = awayTeam.withRole(defender, Role.MIDFIELDER);
         FoulResolver resolver = resolver(SEED);
 
-        double outOfPosition = resolver.foulProbability(movedToMidfield, defender);
-        double inPosition = resolver.foulProbability(awayTeam, defender);
-        double weakened = resolver.foulProbability(awayTeam, tacklingPlayer(weakenedTackling));
+        double outOfPosition = resolver.foulProbability(TestEnergy.withPlayerOnPitch(movedToMidfield, defender), defender);
+        double inPosition = resolver.foulProbability(TestEnergy.withPlayerOnPitch(awayTeam, defender), defender);
+        double weakened = resolver.foulProbability(TestEnergy.withPlayerOnPitch(awayTeam, tacklingPlayer(weakenedTackling)), tacklingPlayer(weakenedTackling));
 
         assertThat(outOfPosition).isGreaterThan(inPosition);
         assertThat(outOfPosition).isCloseTo(weakened, within(EXACT));
@@ -92,7 +96,7 @@ class FoulResolverTest {
                 .filter(trial -> resolver.resolveFoul(state, awayTeam, defender, attacker).isPresent())
                 .count();
 
-        assertThat((double) fouls / TRIALS).isCloseTo(resolver.foulProbability(awayTeam, defender), within(ONE_POINT));
+        assertThat((double) fouls / TRIALS).isCloseTo(resolver.foulProbability(TestEnergy.withPlayerOnPitch(awayTeam, defender), defender), within(ONE_POINT));
     }
 
     @Test
@@ -229,15 +233,41 @@ class FoulResolverTest {
             assertThat(card.participants()).isEqualTo(Participants.of(defender, MatchSide.AWAY));
             assertThat(card.durationSeconds()).isZero();
             assertThat(card.next()).isEqualTo(foul.next());
-            assertThat(card.detail()).isEqualTo(EventDetail.none());
             assertThat(card.type().isCard()).isTrue();
         });
     }
 
     @Test
+    void aYellowCardHasNoDetailWhileADismissalCarriesTheDeploymentWithoutTheCardedPlayer() {
+        ActionOutcome foul = foulOfSeverity(FoulSeverity.RECKLESS);
+        TeamOnPitch cautioned = awayTeam.withCautioned(defender);
+        FoulResolver resolver = resolver(SEED);
+        Deployment withoutDefender = Deployment.of(awayTeam.withoutPlayer(defender));
+
+        List<ActionOutcome> sanctions = IntStream.range(0, 500)
+                .mapToObj(trial -> resolver.sanctionFor(foul, awayTeam))
+                .flatMap(Optional::stream)
+                .toList();
+        List<ActionOutcome> afterCaution = IntStream.range(0, 500)
+                .mapToObj(trial -> resolver.sanctionFor(foul, cautioned))
+                .flatMap(Optional::stream)
+                .toList();
+
+        assertThat(withoutDefender.label()).isEqualTo("3-4-2");
+        assertThat(sanctions).filteredOn(card -> card.type() == EventType.YELLOW_CARD)
+                .isNotEmpty().allSatisfy(card -> assertThat(card.detail()).isEqualTo(EventDetail.none()));
+        assertThat(sanctions).filteredOn(card -> card.type() == EventType.RED_CARD)
+                .isNotEmpty()
+                .allSatisfy(card -> assertThat(card.detail()).isEqualTo(EventDetail.playerRemoved(withoutDefender)));
+        assertThat(afterCaution).filteredOn(card -> card.type() == EventType.SECOND_YELLOW_CARD)
+                .isNotEmpty()
+                .allSatisfy(card -> assertThat(card.detail()).isEqualTo(EventDetail.playerRemoved(withoutDefender)));
+    }
+
+    @Test
     void aSanctionNeedsAFoul() {
         ActionOutcome notAFoul = ActionOutcome.byPlayer(EventType.TACKLE, defender, MatchSide.AWAY,
-                MatchState.openPlay(MatchSide.AWAY, layout.kickOffZone()), 5);
+                MatchState.openPlay(MatchSide.AWAY, layout.kickOffZone()), 5, InvolvedPlayers.none());
 
         assertThatThrownBy(() -> resolver(SEED).sanctionFor(notAFoul, awayTeam))
                 .isInstanceOf(IllegalArgumentException.class)
@@ -257,7 +287,8 @@ class FoulResolverTest {
     private ActionOutcome foulOfSeverity(FoulSeverity severity) {
         MatchState next = MatchState.forSetPiece(MatchSide.HOME, layout.kickOffZone(), SetPieceKind.FREE_KICK);
         EventDetail detail = EventDetail.foul(severity, false);
-        return new ActionOutcome(EventType.FOUL, Participants.of(defender, MatchSide.AWAY, attacker, MatchSide.HOME), next, 5, detail);
+        return new ActionOutcome(EventType.FOUL, Participants.of(defender, MatchSide.AWAY, attacker, MatchSide.HOME), next, 5, detail,
+                InvolvedPlayers.none());
     }
 
     private List<ActionOutcome> foulsFrom(MatchState state, int minimumFouls) {
@@ -298,11 +329,45 @@ class FoulResolverTest {
     }
 
     private Player tacklingPlayer(int tackling) {
-        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, tackling, 50, 50, 50, 50);
+        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, tackling, 50, 50, 50, 50, 50);
         return TestTeams.player("T", Role.DEFENDER, attributes);
     }
 
     private FoulResolver resolver(long seed) {
         return TestResolvers.foulResolver(config, layout, new MatchRandom(seed));
+    }
+
+    @Test
+    void aFoulInvolvesTheFoulerAndTheFouledWhileACardIsNotAnActionAndInvolvesNoOne() {
+        MatchState state = openPlayWithRole(ZoneRole.MIDFIELD);
+        FoulResolver resolver = resolver(SEED);
+
+        List<ActionOutcome> fouls = foulsWith(resolver, state, TRIALS);
+        List<ActionOutcome> cards = fouls.stream()
+                .map(foul -> resolver.sanctionFor(foul, awayTeam))
+                .flatMap(Optional::stream)
+                .toList();
+
+        assertThat(fouls).isNotEmpty().allSatisfy(foul -> {
+            assertThat(involvedOn(foul, MatchSide.AWAY)).containsExactly(defender);
+            assertThat(involvedOn(foul, MatchSide.HOME)).containsExactly(attacker);
+        });
+        assertThat(cards).isNotEmpty().allSatisfy(card ->
+                assertThat(card.involved().involvements()).isEmpty());
+    }
+
+    @Test
+    void aTiredDefenderFoulsAsIfHisTacklingWereLoweredByTheFatigueFactor() {
+        FoulResolver resolver = resolver(SEED);
+        TeamOnPitch tiredTeam = TestEnergy.at(awayTeam, 35.0, defender);
+        Player lowered = tacklingPlayer(54);
+        TeamOnPitch withLowered = TestEnergy.withPlayerOnPitch(awayTeam, lowered);
+
+        double tired = resolver.foulProbability(tiredTeam, defender);
+        double equivalent = resolver.foulProbability(withLowered, lowered);
+        double rested = resolver.foulProbability(awayTeam, defender);
+
+        assertThat(tired).isGreaterThan(rested);
+        assertThat(tired).isCloseTo(equivalent, within(EXACT));
     }
 }

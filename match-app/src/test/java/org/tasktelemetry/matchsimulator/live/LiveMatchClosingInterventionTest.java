@@ -151,7 +151,8 @@ class LiveMatchClosingInterventionTest {
         public Optional<Intervention> decide(List<MatchEvent> newEvents) {
             MatchEvent last = newEvents.get(newEvents.size() - 1);
             boolean isTime = last.time().period() == period && last.time().minute() >= fromMinute;
-            boolean isHalfTime = period == MatchPeriod.FIRST_HALF && last.type() == EventType.FIRST_HALF_END;
+            boolean endsTheFirstHalf = newEvents.stream().anyMatch(event -> event.type() == EventType.FIRST_HALF_END);
+            boolean isHalfTime = period == MatchPeriod.FIRST_HALF && endsTheFirstHalf;
             if ((!isTime && !isHalfTime) || next >= planned.size()) {
                 return Optional.empty();
             }

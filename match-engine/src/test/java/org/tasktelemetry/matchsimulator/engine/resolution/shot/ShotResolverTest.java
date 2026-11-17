@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution.shot;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -14,6 +15,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestConfigs;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestShotConfig;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
@@ -313,7 +315,7 @@ class ShotResolverTest {
 
     @Test
     void aPenaltyGoesInWithTheProbabilityOfThePenaltyModel() {
-        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(penaltyTakers));
+        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(penaltyTakers), NEUTRAL);
         double expected = model.goalProbability(expectedGoals, defenders.goalkeeper(), NEUTRAL);
 
         List<ActionOutcome> outcomes = penalties(resolver(config, SEED), penaltyTakers, defenders, TRIALS);
@@ -364,7 +366,7 @@ class ShotResolverTest {
     @ValueSource(ints = {50, 95})
     void shootingMovesTheFrequencyOfGoalsOfAPenaltyAsTheModelSays(int shooting) {
         TeamOnPitch tuned = teamOnPitch("Tuned", shooting, NEUTRAL_GOALKEEPING);
-        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(tuned));
+        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(tuned), NEUTRAL);
         double expected = model.goalProbability(expectedGoals, defenders.goalkeeper(), NEUTRAL);
 
         List<ActionOutcome> outcomes = penalties(resolver(config, SEED), tuned, defenders, TRIALS);
@@ -375,7 +377,7 @@ class ShotResolverTest {
     @Test
     void goalkeepingMovesTheFrequencyOfGoalsOfAPenaltyAsTheModelSays() {
         TeamOnPitch strongKeeper = teamOnPitch("Wall", NEUTRAL_SHOOTING, 99);
-        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(attackers));
+        double expectedGoals = model.penaltyExpectedGoals(bestShooterOf(attackers), NEUTRAL);
         double expected = model.goalProbability(expectedGoals, strongKeeper.goalkeeper(), NEUTRAL);
 
         List<ActionOutcome> outcomes = penalties(resolver(config, SEED), attackers, strongKeeper, TRIALS);
@@ -610,7 +612,7 @@ class ShotResolverTest {
         TeamOnPitch keepers = styledTeam(PlayStyle.DEFENSIVE);
         ShotResolver resolver = resolverWithStyleAndVenue(SEED);
         Player taker = resolver.penaltyTakerOf(takers);
-        double expectedGoals = model.penaltyExpectedGoals(taker);
+        double expectedGoals = model.penaltyExpectedGoals(taker, NEUTRAL);
 
         List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
                 .mapToObj(index -> resolver.resolvePenalty(inTheBoxOfTheOpponent(MatchSide.HOME), Score.goalless(),
@@ -647,7 +649,7 @@ class ShotResolverTest {
 
         ActionOutcome outcome = resolver.resolvePenalty(state, Score.goalless(), bestOutOfPosition, defenders);
 
-        double expected = model.penaltyExpectedGoals(best);
+        double expected = model.penaltyExpectedGoals(best, NEUTRAL);
         assertThat(resolver.penaltyTakerOf(bestOutOfPosition)).isEqualTo(best);
         assertThat(outcome.participants().primary()).contains(best);
         assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
@@ -787,5 +789,101 @@ private List<ActionOutcome> outcomesOfType(EventType type, int trials) {
         }
         TeamOnPitch complete = teamOnPitch("Rest", NEUTRAL_SHOOTING, NEUTRAL_GOALKEEPING);
         return new TeamOnPitch(complete.team(), players);
+    }
+
+    @Test
+    void everyShotInvolvesTheShooterAndTheGoalkeeperWhoFacesItAndNobodyElse() {
+        Player shooter = attackers.playersIn(Role.FORWARD).get(0);
+
+        List<ActionOutcome> outcomes = shots(resolver(config, SEED), attackers, defenders, 2_000);
+
+        assertThat(outcomes).extracting(ActionOutcome::type).contains(EventType.GOAL, EventType.SHOT_SAVED,
+                EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(shooter);
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(defenders.goalkeeper());
+        });
+    }
+
+    @Test
+    void theAssistantNamedInAGoalIsNotInvolvedWhileTheGoalkeeperIs() {
+        Player shooter = attackers.playersIn(Role.FORWARD).get(0);
+        Player passer = attackers.playersIn(Role.MIDFIELDER).get(0);
+
+        List<ActionOutcome> goals = goalsFrom(state.withLastPasser(passer), shooter, ShotKind.FOOT);
+
+        assertThat(goals).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(outcome.participants().secondary()).contains(passer);
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(shooter);
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(defenders.goalkeeper());
+        });
+    }
+
+    @Test
+    void theCrosserNamedInAHeaderIsNotInvolvedByTheShot() {
+        Player header = attackers.playersIn(Role.FORWARD).get(0);
+        Player crosser = attackers.playersIn(Role.MIDFIELDER).get(0);
+
+        List<ActionOutcome> goals = goalsFrom(state.withCrossInFlightFrom(crosser), header, ShotKind.HEADER);
+
+        assertThat(goals).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(outcome.participants().secondary()).contains(crosser);
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(header);
+        });
+    }
+
+    @Test
+    void aPenaltyInvolvesTheTakerAndTheGoalkeeper() {
+        Player taker = bestShooterOf(penaltyTakers);
+
+        List<ActionOutcome> outcomes = penalties(resolver(config, SEED), penaltyTakers, defenders, 500);
+
+        assertThat(outcomes).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(taker);
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).containsExactly(defenders.goalkeeper());
+        });
+    }
+
+    @Test
+    void aTiredBestShooterLosesThePenaltyToAFreshTeammateWithAHigherEffectiveShooting() {
+        TeamOnPitch team = teamWithShooters(List.of(60, 50, 80, 50, 75));
+        Player best = team.players().get(2);
+        TeamOnPitch tired = TestEnergy.at(team, 35.0, best);
+
+        Player taker = resolver(config, SEED).penaltyTakerOf(tired);
+
+        assertThat(taker).isEqualTo(team.players().get(4));
+        assertThat(resolver(config, SEED).penaltyTakerOf(team)).isEqualTo(best);
+    }
+
+    @Test
+    void aTiredPenaltyTakerAndAGoalkeeperUseTheirEffectiveAttributesAtTheFatigueFactor() {
+        TeamOnPitch takers = teamWithShooters(List.of(60, 50, 90, 50, 70));
+        Player best = takers.players().get(2);
+        TeamOnPitch tiredTakers = TestEnergy.at(takers, 35.0, best);
+        TeamOnPitch tiredKeepers = TestEnergy.at(defenders, 35.0, defenders.goalkeeper());
+        ShotResolver resolver = resolverWithStyleAndVenue(SEED);
+        double expectedGoals = model.penaltyExpectedGoals(best, 0.9);
+        double expected = model.goalProbability(expectedGoals, tiredKeepers.goalkeeper(), 0.9);
+
+        List<ActionOutcome> outcomes = penalties(resolver, tiredTakers, tiredKeepers, TRIALS);
+
+        assertThat(resolver.penaltyTakerOf(tiredTakers)).isEqualTo(best);
+        assertThat(profileOf(outcomes.getFirst()).expectedGoals()).isCloseTo(expectedGoals, within(1e-9));
+        assertThat(share(outcomes, EventType.GOAL)).isCloseTo(expected, within(ONE_POINT));
+    }
+
+    @Test
+    void aTiredShooterShootsWithTheShootingLoweredByTheFatigueFactor() {
+        TeamOnPitch fresh = styledTeam(PlayStyle.BALANCED);
+        TeamOnPitch defending = styledTeam(PlayStyle.BALANCED);
+        Player shooter = fresh.playersIn(Role.FORWARD).getFirst();
+        TeamOnPitch attacking = TestEnergy.at(fresh, 35.0, shooter);
+
+        ActionOutcome outcome = resolverWithStyleAndVenue(SEED).resolveShot(inTheBoxOfTheOpponent(MatchSide.AWAY),
+                Score.goalless(), attacking, shooter, ShotKind.FOOT, defending);
+
+        double expected = model.expectedGoals(ZoneRole.OPPONENT_BOX, PlayPhase.BUILD_UP, ShotKind.FOOT, shooter, 0.9);
+        assertThat(profileOf(outcome).expectedGoals()).isCloseTo(expected, within(1e-9));
     }
 }

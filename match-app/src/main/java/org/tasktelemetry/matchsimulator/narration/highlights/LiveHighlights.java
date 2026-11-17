@@ -6,6 +6,7 @@ import java.util.Objects;
 
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.live.MatchObserver;
+import org.tasktelemetry.matchsimulator.narration.MatchSetups;
 import org.tasktelemetry.matchsimulator.narration.TeamNames;
 
 public final class LiveHighlights implements MatchObserver {
@@ -13,15 +14,17 @@ public final class LiveHighlights implements MatchObserver {
     private final HighlightsSelector selector;
     private final HighlightsNarrator narrator;
     private final TeamNames teamNames;
+    private final MatchSetups openingSetups;
     private final HighlightsListener listener;
     private final List<MatchEvent> happenedEvents = new ArrayList<>();
     private int deliveredSegmentCount;
 
     public LiveHighlights(HighlightsSelector selector, HighlightsNarrator narrator, TeamNames teamNames,
-            HighlightsListener listener) {
+            MatchSetups openingSetups, HighlightsListener listener) {
         this.selector = Objects.requireNonNull(selector, "selector must not be null");
         this.narrator = Objects.requireNonNull(narrator, "narrator must not be null");
         this.teamNames = Objects.requireNonNull(teamNames, "team names must not be null");
+        this.openingSetups = Objects.requireNonNull(openingSetups, "opening setups must not be null");
         this.listener = Objects.requireNonNull(listener, "listener must not be null");
     }
 
@@ -30,7 +33,7 @@ public final class LiveHighlights implements MatchObserver {
         rememberHappened(newEvents);
         List<MatchEvent> eventsSoFar = findHappenedSoFar();
         List<HighlightSegment> selected = selectHighlights(eventsSoFar);
-        List<HighlightSegment> decided = findDecided(selected, eventsSoFar.size());
+        List<HighlightSegment> decided = findDecided(selected, eventsSoFar);
         deliverTheNotDelivered(decided, eventsSoFar);
     }
 
@@ -58,10 +61,8 @@ public final class LiveHighlights implements MatchObserver {
         listener.chronicleFinished();
     }
 
-    private List<HighlightSegment> findDecided(List<HighlightSegment> segments, int happenedCount) {
-        int lastHappenedPosition = happenedCount - 1;
-        int eventsAfterADecidedSegment = selector.lookAhead() + 1;
-        int lastDecidedPosition = lastHappenedPosition - eventsAfterADecidedSegment;
+    private List<HighlightSegment> findDecided(List<HighlightSegment> segments, List<MatchEvent> happened) {
+        int lastDecidedPosition = selector.findLastDecidedPosition(happened);
         List<HighlightSegment> decided = new ArrayList<>();
         int endPosition = -1;
         for (HighlightSegment segment : segments) {
@@ -76,7 +77,7 @@ public final class LiveHighlights implements MatchObserver {
 
     private void deliverTheNotDelivered(List<HighlightSegment> decided, List<MatchEvent> eventsSoFar) {
         List<HighlightSegment> notDelivered = decided.subList(deliveredSegmentCount, decided.size());
-        List<NarratedSegment> narrated = narrator.narrate(notDelivered, eventsSoFar, teamNames);
+        List<NarratedSegment> narrated = narrator.narrate(notDelivered, eventsSoFar, teamNames, openingSetups);
         deliveredSegmentCount = decided.size();
         narrated.forEach(listener::segmentNarrated);
     }

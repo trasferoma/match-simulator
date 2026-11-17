@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.config.FoulConfig;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -26,8 +27,10 @@ import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 class MatchDisciplineTest {
@@ -37,7 +40,8 @@ class MatchDisciplineTest {
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> NOT_PLAYED_TYPES = EnumSet.of(EventType.STOPPAGE_ANNOUNCED,
             EventType.FIRST_HALF_END, EventType.MATCH_END, EventType.SUBSTITUTION, EventType.YELLOW_CARD,
-            EventType.SECOND_YELLOW_CARD, EventType.RED_CARD, EventType.INJURY);
+            EventType.SECOND_YELLOW_CARD, EventType.RED_CARD, EventType.INJURY, EventType.PLAYER_TIRED,
+            EventType.PLAYER_RECOVERED);
 
     private final Team home = TestTeams.team("Home", PlayStyle.BALANCED, 60);
     private final Team away = TestTeams.team("Away", PlayStyle.BALANCED, 60);
@@ -225,6 +229,35 @@ class MatchDisciplineTest {
     }
 
     @Test
+    void theFirstExpulsionOfASideCarriesTheDeploymentWithoutTheSentOffPlayer() {
+        List<List<MatchEvent>> matches = matchesWith(everyFoulARedCard());
+        int checked = 0;
+
+        for (List<MatchEvent> events : matches) {
+            for (MatchSide side : MatchSide.values()) {
+                Optional<MatchEvent> card = firstExpulsionWithTheStartingLineupIntact(events, side);
+                if (card.isEmpty()) {
+                    continue;
+                }
+                Role sentOffRole = card.get().participants().primary().orElseThrow().role();
+                Deployment expected = startingDeploymentWithout(sentOffRole);
+                assertThat(card.get().detail()).isEqualTo(EventDetail.playerRemoved(expected));
+                checked++;
+            }
+        }
+        assertThat(checked).isPositive();
+    }
+
+    @Test
+    void theYellowCardsCarryNoDetail() {
+        List<List<MatchEvent>> matches = matchesWith(EngineConfig.defaults());
+
+        assertThat(matches.stream().flatMap(List::stream).filter(event -> event.type() == EventType.YELLOW_CARD))
+                .isNotEmpty()
+                .allSatisfy(card -> assertThat(card.detail()).isEqualTo(EventDetail.none()));
+    }
+
+    @Test
     void theSecondYellowOfAPlayerIsADistinctEventThatFollowsExactlyOneYellowOfTheSamePlayer() {
         List<List<MatchEvent>> matches = matchesWith(everyFoulAYellowCard());
 
@@ -275,7 +308,7 @@ class MatchDisciplineTest {
                 if (!card.type().isCard()) {
                     continue;
                 }
-                MatchEvent before = events.get(index - 1);
+                MatchEvent before = events.get(indexOfTheEventBeforeTheFatigueOf(events, index));
                 assertThat(before.type()).isEqualTo(EventType.FOUL);
                 assertThat(before.participants().primary()).isEqualTo(card.participants().primary());
                 assertThat(card.side()).isEqualTo(before.side().opposite());
@@ -290,6 +323,32 @@ class MatchDisciplineTest {
         List<MatchEvent> second = play(EngineConfig.defaults(), 9L);
 
         assertThat(first).containsExactlyElementsOf(second);
+    }
+
+    private Optional<MatchEvent> firstExpulsionWithTheStartingLineupIntact(List<MatchEvent> events, MatchSide side) {
+        Set<EventType> lineupChanges = EnumSet.of(EventType.SUBSTITUTION, EventType.PLAYER_MOVED, EventType.INJURY);
+        for (MatchEvent event : events) {
+            if (event.side() != side) {
+                continue;
+            }
+            if (lineupChanges.contains(event.type())) {
+                return Optional.empty();
+            }
+            if (event.type() == EventType.RED_CARD) {
+                return Optional.of(event);
+            }
+        }
+        return Optional.empty();
+    }
+
+    private Deployment startingDeploymentWithout(Role sentOffRole) {
+        Deployment starting = Deployment.of(TeamOnPitch.startingWith(home));
+        return switch (sentOffRole) {
+            case DEFENDER -> new Deployment(starting.defenders() - 1, starting.midfielders(), starting.forwards());
+            case MIDFIELDER -> new Deployment(starting.defenders(), starting.midfielders() - 1, starting.forwards());
+            case FORWARD -> new Deployment(starting.defenders(), starting.midfielders(), starting.forwards() - 1);
+            case GOALKEEPER -> starting;
+        };
     }
 
     private int redCardsOf(List<MatchEvent> events, MatchSide side) {
@@ -327,6 +386,14 @@ class MatchDisciplineTest {
             case EventDetail.Shot detail -> detail.profile();
             default -> throw new IllegalStateException("not a shot detail: " + shot.detail());
         };
+    }
+
+    private int indexOfTheEventBeforeTheFatigueOf(List<MatchEvent> events, int index) {
+        int previous = index - 1;
+        while (events.get(previous).type() == EventType.PLAYER_TIRED) {
+            previous--;
+        }
+        return previous;
     }
 
     private Optional<MatchEvent> playedEventAfter(List<MatchEvent> events, int index) {

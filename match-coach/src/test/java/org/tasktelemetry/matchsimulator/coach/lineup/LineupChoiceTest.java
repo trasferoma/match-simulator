@@ -38,7 +38,7 @@ class LineupChoiceTest {
         CoachConfig base = CoachConfig.defaults();
         return new CoachConfig(base.assessment(), bandResponses, formations, base.styleScale(), base.sectorLimits(),
                 maximumBenchSize, base.timing(), base.resultTiming(), base.flow(), base.sectorStrain(),
-                base.tacticalReading(), base.substitutions());
+                base.tacticalReading(), base.substitutions(), base.fatigueResponse());
     }
 
     private static LineupChoice choiceAlwaysAimingAtTheFourFourTwo(int maximumBenchSize) {
@@ -234,7 +234,7 @@ class LineupChoiceTest {
     }
 
     private Player movementPlayer(String name, Role role, int[] a) {
-        PlayerAttributes attributes = new PlayerAttributes(a[0], a[1], a[2], a[3], a[4], a[5], a[6], 1);
+        PlayerAttributes attributes = new PlayerAttributes(a[0], a[1], a[2], a[3], a[4], a[5], a[6], 1, 50);
         return new Player(name, role, attributes);
     }
 

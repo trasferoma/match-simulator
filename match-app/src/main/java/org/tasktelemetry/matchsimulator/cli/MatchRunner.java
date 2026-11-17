@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.live.SilentObserver;
 import org.tasktelemetry.matchsimulator.narration.ChronicleMode;
 import org.tasktelemetry.matchsimulator.narration.NarratedEventFilter;
 import org.tasktelemetry.matchsimulator.narration.Narrator;
+import org.tasktelemetry.matchsimulator.narration.MatchSetups;
 import org.tasktelemetry.matchsimulator.narration.TeamNames;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfig;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsListener;
@@ -56,15 +57,17 @@ final class MatchRunner {
     MatchReport play(PreparedMatch match, long seed, ChronicleMode mode) {
         List<MatchEvent> events = liveMatch.play(match, seed, silentObserver);
         TeamNames teamNames = match.names();
-        List<List<String>> chronicle = narrator.narrate(events, teamNames, mode);
+        MatchSetups openingSetups = match.openingSetups();
+        List<List<String>> chronicle = narrator.narrate(events, teamNames, openingSetups, mode);
         MatchSummary summary = summaryCalculator.summarize(events);
         return new MatchReport(teamNames.home(), teamNames.away(), chronicle, summary, seed);
     }
 
     Scoreboard playLiveHighlights(PreparedMatch match, long seed, HighlightsListener listener) {
         TeamNames teamNames = match.names();
+        MatchSetups openingSetups = match.openingSetups();
         LiveHighlights liveHighlights = new LiveHighlights(highlightsSelector, highlightsNarrator, teamNames,
-                listener);
+                openingSetups, listener);
         List<MatchEvent> events = liveMatch.play(match, seed, liveHighlights);
         MatchSummary summary = summaryCalculator.summarize(events);
         return new Scoreboard(teamNames.home(), teamNames.away(), summary, seed);

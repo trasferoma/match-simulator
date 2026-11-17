@@ -2,6 +2,7 @@ package org.tasktelemetry.matchsimulator.engine.resolution;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.within;
+import static org.tasktelemetry.matchsimulator.engine.resolution.TestInvolvement.involvedOn;
 
 import java.util.EnumSet;
 import java.util.List;
@@ -15,6 +16,7 @@ import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestConfigs;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
@@ -227,8 +229,8 @@ class CounterAttackResolverTest {
     void theSuccessOfARunFollowsThePaceAndNotTheOtherAttributes() {
         CounterAttackResolver resolver = resolverWith(neutralVenue);
         MatchState state = counterAttackAt(MatchSide.HOME, ZoneRole.MIDFIELD);
-        TeamOnPitch runners = teamWith("Runners", new PlayerAttributes(20, 20, 20, 20, 20, 80, 20, 20));
-        TeamOnPitch chasers = teamWith("Chasers", new PlayerAttributes(90, 90, 90, 90, 90, 40, 90, 90));
+        TeamOnPitch runners = teamWith("Runners", new PlayerAttributes(20, 20, 20, 20, 20, 80, 20, 20, 50));
+        TeamOnPitch chasers = teamWith("Chasers", new PlayerAttributes(90, 90, 90, 90, 90, 40, 90, 90, 50));
 
         List<ActionOutcome> outcomes = IntStream.range(0, TRIALS)
                 .mapToObj(index -> resolver.resolve(state, Score.goalless(), runners, chasers))
@@ -241,8 +243,8 @@ class CounterAttackResolverTest {
     void theSuccessOfARunIgnoresTheMenOfTheTeamsInTheZone() {
         CounterAttackResolver resolver = resolverWith(neutralVenue);
         MatchState state = counterAttackAt(MatchSide.HOME, ZoneRole.MIDFIELD);
-        PlayerAttributes fast = new PlayerAttributes(50, 50, 50, 50, 50, 80, 50, 50);
-        PlayerAttributes slow = new PlayerAttributes(50, 50, 50, 50, 50, 40, 50, 50);
+        PlayerAttributes fast = new PlayerAttributes(50, 50, 50, 50, 50, 80, 50, 50, 50);
+        PlayerAttributes slow = new PlayerAttributes(50, 50, 50, 50, 50, 40, 50, 50, 50);
         TeamOnPitch runners = TeamOnPitch.startingWith(TestTeams.teamOf("Runners",
                 TestTeams.squad("Runners", "S", fast, 1, 4, 2, 4)));
         TeamOnPitch chasers = TeamOnPitch.startingWith(TestTeams.teamOf("Chasers",
@@ -294,7 +296,7 @@ class CounterAttackResolverTest {
                 .orElseThrow();
         Player recoverer = recoverers.players().get(1);
         MatchState next = MatchState.openPlay(recoveringSide, zone);
-        return ActionOutcome.byPlayer(type, recoverer, recoveringSide, next, 10);
+        return ActionOutcome.byPlayer(type, recoverer, recoveringSide, next, 10, InvolvedPlayers.none());
     }
 
     private MatchState counterAttackAt(MatchSide side, ZoneRole zoneRole) {
@@ -331,5 +333,68 @@ class CounterAttackResolverTest {
         MatchRandom random = new MatchRandom(seed);
         ShotResolver shotResolver = TestResolvers.shotResolver(engineConfig, layout, random);
         return TestResolvers.counterAttackResolver(engineConfig, layout, random, shotResolver);
+    }
+
+    @ParameterizedTest
+    @EnumSource(MatchSide.class)
+    void aRunInvolvesTheRunnerAndTheChaserWhicheverOneTheEventNames(MatchSide side) {
+        CounterAttackResolver resolver = resolverWith(config);
+        MatchState state = counterAttackAt(side, ZoneRole.MIDFIELD);
+        TeamOnPitch attackers = side == MatchSide.HOME ? home : away;
+        TeamOnPitch defenders = side == MatchSide.HOME ? away : home;
+
+        List<ActionOutcome> outcomes = IntStream.range(0, 500)
+                .mapToObj(index -> resolver.resolve(state, Score.goalless(), attackers, defenders))
+                .toList();
+
+        assertThat(outcomes).extracting(ActionOutcome::type).contains(EventType.DRIBBLE_COMPLETED, EventType.TACKLE);
+        assertThat(outcomes).allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, side)).hasSize(1)
+                    .allSatisfy(runner -> assertThat(attackers.players()).contains(runner));
+            assertThat(involvedOn(outcome, side.opposite())).hasSize(1)
+                    .allSatisfy(chaser -> assertThat(defenders.players()).contains(chaser));
+        });
+        assertThat(outcomes).filteredOn(outcome -> outcome.type() == EventType.DRIBBLE_COMPLETED)
+                .allSatisfy(outcome -> {
+                    assertThat(outcome.participants().secondary()).isEmpty();
+                    assertThat(involvedOn(outcome, side)).containsExactly(outcome.participants().primary().orElseThrow());
+                });
+        assertThat(outcomes).filteredOn(outcome -> outcome.type() == EventType.TACKLE).allSatisfy(outcome ->
+                assertThat(involvedOn(outcome, side.opposite()))
+                        .containsExactly(outcome.participants().primary().orElseThrow()));
+    }
+
+    @Test
+    void aShotAtTheEndOfTheRunInvolvesTheRunnerTheGoalkeeperAndTheChaser() {
+        CounterAttackResolver resolver = resolverWith(config);
+        MatchState state = counterAttackAt(MatchSide.HOME, ZoneRole.OPPONENT_BOX);
+
+        List<ActionOutcome> shots = IntStream.range(0, 500)
+                .mapToObj(index -> resolver.resolve(state, Score.goalless(), home, away))
+                .filter(outcome -> SHOT_TYPES.contains(outcome.type()))
+                .toList();
+
+        assertThat(shots).isNotEmpty().allSatisfy(outcome -> {
+            assertThat(involvedOn(outcome, MatchSide.HOME)).containsExactly(
+                    outcome.participants().primary().orElseThrow());
+            assertThat(involvedOn(outcome, MatchSide.AWAY)).contains(away.goalkeeper()).hasSizeBetween(1, 2);
+        });
+        assertThat(shots).anyMatch(outcome -> involvedOn(outcome, MatchSide.AWAY).size() == 2);
+    }
+
+    @Test
+    void aTiredRunnerAdvancesWithThePaceLoweredByTheFatigueFactor() {
+        CounterAttackResolver resolver = resolverWith(neutralVenue);
+        MatchState state = counterAttackAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
+        Player runner = home.playersIn(Role.FORWARD).getFirst();
+        Player chaser = away.playersIn(Role.DEFENDER).getFirst();
+        TeamOnPitch tiredAttackers = TestEnergy.at(home, 35.0, runner);
+
+        Duel duel = resolver.paceDuel(state, tiredAttackers, runner, away, chaser);
+
+        double paceOfTheRunner = runner.attributes().pace() * 0.9;
+        double paceOfTheChaser = chaser.attributes().pace();
+        assertThat(duel.attackerWinProbability())
+                .isCloseTo(paceOfTheRunner / (paceOfTheRunner + paceOfTheChaser), within(EXACT));
     }
 }

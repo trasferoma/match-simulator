@@ -7,6 +7,8 @@ import java.util.Optional;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
+import org.tasktelemetry.matchsimulator.narration.MatchSetups;
 import org.tasktelemetry.matchsimulator.narration.NarrationContext;
 import org.tasktelemetry.matchsimulator.narration.Narrator;
 import org.tasktelemetry.matchsimulator.narration.PitchDrawing;
@@ -26,16 +28,18 @@ public final class HighlightsNarrator {
 
     public static HighlightsNarrator italian() {
         Narrator narrator = Narrator.italian();
-        PitchDrawing pitchDrawing = new PitchDrawing();
+        UserMessages messages = UserMessages.italian();
+        PitchDrawing pitchDrawing = new PitchDrawing(messages);
         return new HighlightsNarrator(narrator, pitchDrawing);
     }
 
     public List<NarratedSegment> narrate(List<HighlightSegment> segments, List<MatchEvent> events,
-            TeamNames teamNames) {
+            TeamNames teamNames, MatchSetups openingSetups) {
         Objects.requireNonNull(segments, "segments must not be null");
         Objects.requireNonNull(events, "events must not be null");
         Objects.requireNonNull(teamNames, "team names must not be null");
-        NarrationContext context = new NarrationContext(events, teamNames);
+        Objects.requireNonNull(openingSetups, "opening setups must not be null");
+        NarrationContext context = new NarrationContext(events, teamNames, openingSetups);
         return segments.stream()
                 .map(segment -> narrateSegment(segment, context))
                 .toList();
@@ -60,24 +64,32 @@ public final class HighlightsNarrator {
     private String drawFieldLine(MatchEvent positionEvent, MatchEvent scoreEvent, NarrationContext context) {
         TeamNames teamNames = context.teamNames();
         Score score = context.scoreAfter(scoreEvent);
-        String field = pitchDrawing.draw(positionEvent, teamNames, score);
+        MatchSetups setups = context.setupsAfter(scoreEvent);
+        String field = pitchDrawing.draw(positionEvent, teamNames, score, setups);
         String time = positionEvent.time().display();
         return field + WORD_SEPARATOR + time;
     }
 
     private NarratedSegment tellStop(HighlightSegment.Stop stop, NarrationContext context) {
         boolean containsChance = stop.containsChance();
-        MatchEvent firstEvent = stop.firstEvent();
-        String fieldLine = drawFrame(firstEvent, context);
+        MatchEvent positionEvent = findPositionEventOf(stop);
+        String fieldLine = drawFrame(positionEvent, context);
         List<NarratedLine> lines = stop.events().stream()
-                .flatMap(event -> tellEvent(event, firstEvent, containsChance, context).stream())
+                .flatMap(event -> tellEvent(event, positionEvent, containsChance, context).stream())
                 .toList();
         return new NarratedSegment.Stop(fieldLine, lines, containsChance);
     }
 
-    private List<NarratedLine> tellEvent(MatchEvent event, MatchEvent firstEvent, boolean stopContainsChance,
+    private MatchEvent findPositionEventOf(HighlightSegment.Stop stop) {
+        return stop.events().stream()
+                .filter(event -> !event.type().describesPlayerState())
+                .findFirst()
+                .orElse(stop.firstEvent());
+    }
+
+    private List<NarratedLine> tellEvent(MatchEvent event, MatchEvent positionEvent, boolean stopContainsChance,
             NarrationContext context) {
-        String fieldLine = drawFieldLine(firstEvent, event, context);
+        String fieldLine = drawFieldLine(positionEvent, event, context);
         String text = narrator.narrateEventLine(event, context);
         LinePause pause = pauseOfEventLine(event, stopContainsChance);
         NarratedLine eventLine = new NarratedLine(text, pause, fieldLine);

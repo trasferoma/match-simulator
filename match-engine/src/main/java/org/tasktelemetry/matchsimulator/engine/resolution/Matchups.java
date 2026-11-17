@@ -5,6 +5,7 @@ import org.tasktelemetry.matchsimulator.engine.config.PlayStyleModifiers;
 import org.tasktelemetry.matchsimulator.engine.config.StyleEffect;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
@@ -19,15 +20,17 @@ public final class Matchups {
     private final PlayStyleModifiers playStyles;
     private final double homeAdvantage;
     private final OutOfPositionPenalty outOfPosition;
+    private final FatiguePenalty fatigue;
 
     public Matchups(PitchLayout layout, PlayerPicker picker, ZonePresence zonePresence, PlayStyleModifiers playStyles,
-            double homeAdvantage, OutOfPositionPenalty outOfPosition) {
+            double homeAdvantage, OutOfPositionPenalty outOfPosition, FatiguePenalty fatigue) {
         this.layout = layout;
         this.picker = picker;
         this.zonePresence = zonePresence;
         this.playStyles = playStyles;
         this.homeAdvantage = homeAdvantage;
         this.outOfPosition = outOfPosition;
+        this.fatigue = fatigue;
     }
 
     public Player pickAttacker(MatchState state, TeamOnPitch attackers) {
@@ -53,8 +56,8 @@ public final class Matchups {
             Player defender) {
         MatchSide attackingSide = state.possession();
         MatchSide defendingSide = attackingSide.opposite();
-        int attackerPace = DuelAttributes.PACE.attackOf(attacker);
-        int defenderPace = DuelAttributes.PACE.defenceOf(defender);
+        double attackerPace = DuelAttributes.PACE.attackOf(attackers, attacker, fatigue);
+        double defenderPace = DuelAttributes.PACE.defenceOf(defenders, defender, fatigue);
         double advance = styleOf(attackers).counterAttackAdvance();
         double attackerTeamModifier = modifierOf(advance, attackingSide);
         double defenderTeamModifier = modifierOf(NEUTRAL, defendingSide);
@@ -67,11 +70,33 @@ public final class Matchups {
     }
 
     public double shootingMultiplier(MatchState state, TeamOnPitch attackers, Player shooter) {
-        return attackingModifier(state, attackers, shooter);
+        double teamAndPositionModifier = attackingModifier(state, attackers, shooter);
+        double fatigueFactor = fatigue.factorOf(attackers, shooter);
+        return teamAndPositionModifier * fatigueFactor;
     }
 
     public double goalkeepingMultiplier(MatchState state, TeamOnPitch defenders) {
-        return defendingTeamModifier(state, defenders);
+        double teamModifier = defendingTeamModifier(state, defenders);
+        double fatigueFactor = goalkeeperFatigueFactor(defenders);
+        return teamModifier * fatigueFactor;
+    }
+
+    public double penaltyShootingMultiplier(TeamOnPitch attackers, Player taker) {
+        return fatigue.factorOf(attackers, taker);
+    }
+
+    public double penaltyGoalkeepingMultiplier(TeamOnPitch defenders) {
+        return goalkeeperFatigueFactor(defenders);
+    }
+
+    public double effectiveShootingOf(TeamOnPitch attackers, Player player) {
+        double fatigueFactor = fatigue.factorOf(attackers, player);
+        return player.attributes().shooting() * fatigueFactor;
+    }
+
+    private double goalkeeperFatigueFactor(TeamOnPitch defenders) {
+        Player goalkeeper = defenders.goalkeeper();
+        return fatigue.factorOf(defenders, goalkeeper);
     }
 
     private double attackingModifier(MatchState state, TeamOnPitch attackers, Player attacker) {
@@ -106,17 +131,17 @@ public final class Matchups {
         MatchSide defendingSide = state.possession().opposite();
         ZoneRole attackingRole = layout.roleOf(state.zone(), state.possession());
         ZoneRole defendingRole = layout.roleOf(state.zone(), defendingSide);
-        double attackAverage = attributes.attackAverageIn(zonePresence, attackers, attackingRole);
-        double defenceAverage = attributes.defenceAverageIn(zonePresence, defenders, defendingRole);
-        int attackerValue = attributes.attackOf(attacker);
-        int defenderValue = attributes.defenceOf(defender);
+        double attackAverage = attributes.attackAverageIn(zonePresence, fatigue, attackers, attackingRole);
+        double defenceAverage = attributes.defenceAverageIn(zonePresence, fatigue, defenders, defendingRole);
+        double attackerValue = attributes.attackOf(attackers, attacker, fatigue);
+        double defenderValue = attributes.defenceOf(defenders, defender, fatigue);
         double attackerStrength = blendOfAverageAndRepresentative(attackAverage, attackerValue);
         double defenderStrength = blendOfAverageAndRepresentative(defenceAverage, defenderValue);
         double superiority = zonePresence.superiorityFactor(attackers, attackingRole, defenders, defendingRole);
         return new Duel(attackerStrength * superiority, defenderStrength);
     }
 
-    private double blendOfAverageAndRepresentative(double average, int representative) {
+    private double blendOfAverageAndRepresentative(double average, double representative) {
         double representativeWeight = zonePresence.representativeWeight();
         double averagePart = StrictMath.pow(average, NEUTRAL - representativeWeight);
         double representativePart = StrictMath.pow(representative, representativeWeight);

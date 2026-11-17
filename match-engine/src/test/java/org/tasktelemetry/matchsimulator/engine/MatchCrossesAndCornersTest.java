@@ -237,6 +237,7 @@ class MatchCrossesAndCornersTest {
 
     private boolean isInterruption(MatchEvent event) {
         return event.type() == EventType.STOPPAGE_ANNOUNCED || event.type() == EventType.INJURY
-                || event.type() == EventType.SUBSTITUTION;
+                || event.type() == EventType.SUBSTITUTION || event.type() == EventType.PLAYER_TIRED
+                || event.type() == EventType.PLAYER_RECOVERED;
     }
 }

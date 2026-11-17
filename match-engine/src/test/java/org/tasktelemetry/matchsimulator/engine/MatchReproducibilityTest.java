@@ -18,6 +18,15 @@ class MatchReproducibilityTest {
     }
 
     @Test
+    void theSameSeedGivesTheSameEventsWhenTheFatigueLowersThePerformance() {
+        List<MatchEvent> first = ReferenceMatch.playWithPerformanceLoss(42L);
+        List<MatchEvent> second = ReferenceMatch.playWithPerformanceLoss(42L);
+
+        assertThat(first).isNotEmpty().containsExactlyElementsOf(second);
+        assertThat(first).isNotEqualTo(ReferenceMatch.play(42L));
+    }
+
+    @Test
     void differentSeedsGiveDifferentEvents() {
         List<MatchEvent> first = ReferenceMatch.play(1L);
         List<MatchEvent> second = ReferenceMatch.play(2L);

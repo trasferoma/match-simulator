@@ -13,10 +13,13 @@ import org.tasktelemetry.matchsimulator.coach.squad.CoachAttributes;
 import org.tasktelemetry.matchsimulator.coach.squad.CoachProfile;
 import org.tasktelemetry.matchsimulator.coach.squad.Squad;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
+import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
+import org.tasktelemetry.matchsimulator.narration.MatchSetups;
 
 class MatchPreparationTest {
 
@@ -49,6 +52,20 @@ class MatchPreparationTest {
         PreparedMatch prepared = preparation.prepare(home, away);
 
         assertThat(prepared.home().style()).isNotEqualTo(prepared.away().style());
+    }
+
+    @Test
+    void theOpeningSetupsAreTheStartingDeploymentAndStyleOfEachTeam() {
+        Squad home = squad("Casa", "Coach Casa", 2, 6, 6, 4);
+        Squad away = squad("Ospite", "Coach Ospite", 2, 6, 6, 4);
+
+        PreparedMatch prepared = preparation.prepare(home, away);
+
+        MatchSetups setups = prepared.openingSetups();
+        assertThat(setups.home().deployment()).isEqualTo(Deployment.of(TeamOnPitch.startingWith(prepared.home())));
+        assertThat(setups.away().deployment()).isEqualTo(Deployment.of(TeamOnPitch.startingWith(prepared.away())));
+        assertThat(setups.home().style()).isEqualTo(prepared.home().style());
+        assertThat(setups.away().style()).isEqualTo(prepared.away().style());
     }
 
     @Test
@@ -116,7 +133,7 @@ class MatchPreparationTest {
         List<Player> players = new ArrayList<>();
         for (int index = 1; index <= count; index++) {
             PlayerAttributes attributes = new PlayerAttributes(RATING, RATING, RATING, RATING, RATING, RATING,
-                    RATING, RATING);
+                    RATING, RATING, 50);
             players.add(new Player(squadName + " " + role + " " + index, role, attributes));
         }
         return players;

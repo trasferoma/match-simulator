@@ -116,7 +116,7 @@ class HalfTimeInterventionTest {
     @ParameterizedTest
     @ValueSource(longs = {1, 2, 3, 42})
     void aSubstitutionBetweenTwinsAtHalfTimeLeavesTheRestOfTheMatchEqualExceptTheNames(long seed) {
-        List<MatchEvent> without = ReferenceMatch.play(seed);
+        List<MatchEvent> without = withoutFatigueEvents(ReferenceMatch.play(seed));
         Match match = ReferenceMatch.start(seed);
         stepUntilHalfTime(match);
         substituteSameRole(match, MatchSide.HOME, Role.DEFENDER, 0);
@@ -124,10 +124,11 @@ class HalfTimeInterventionTest {
         playToTheEnd(match);
 
         List<MatchEvent> with = match.events();
+        List<MatchEvent> withWithoutFatigue = withoutFatigueEvents(with);
 
-        assertThat(with).hasSize(without.size() + 2);
+        assertThat(withWithoutFatigue).hasSize(without.size() + 2);
         assertThat(with).extracting(MatchEvent::order).containsExactlyElementsOf(consecutiveOrdersUpTo(with.size()));
-        assertThat(shapesWithoutTheHalfTimeSubstitutions(with)).isEqualTo(shapesOf(without));
+        assertThat(shapesWithoutTheHalfTimeSubstitutions(withWithoutFatigue)).isEqualTo(shapesOf(without));
     }
 
     @ParameterizedTest
@@ -176,6 +177,10 @@ class HalfTimeInterventionTest {
 
     private List<Integer> consecutiveOrdersUpTo(int size) {
         return IntStream.rangeClosed(1, size).boxed().toList();
+    }
+
+    private List<MatchEvent> withoutFatigueEvents(List<MatchEvent> events) {
+        return MatchDriving.withoutEventsOf(events, EventType.PLAYER_TIRED, EventType.PLAYER_RECOVERED);
     }
 
     private List<List<Object>> shapesWithoutTheHalfTimeSubstitutions(List<MatchEvent> events) {

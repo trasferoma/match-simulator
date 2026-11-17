@@ -71,7 +71,7 @@ public final class ScenarioTeams {
 
     public static Player rated(String name, Role role, int rating) {
         PlayerAttributes attributes = new PlayerAttributes(rating, rating, rating, rating, rating, rating, rating,
-                rating);
+                rating, 50);
         return new Player(name, role, attributes);
     }
 
@@ -101,7 +101,7 @@ public final class ScenarioTeams {
 
     private static Player player(String teamName, String label, Role role) {
         PlayerAttributes attributes = new PlayerAttributes(RATING, RATING, RATING, RATING, RATING, RATING, RATING,
-                RATING);
+                RATING, 50);
         return new Player(teamName + "-" + label, role, attributes);
     }
 }

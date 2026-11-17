@@ -40,16 +40,18 @@ public final class Narrator {
         PhraseKeys keys = new PhraseKeys();
         UserMessages messages = UserMessages.italian();
         PhraseFiller filler = new PhraseFiller(messages);
-        PitchDrawing pitchDrawing = new PitchDrawing();
+        PitchDrawing pitchDrawing = new PitchDrawing(messages);
         return new Narrator(catalog, picker, filter, keys, filler, pitchDrawing);
     }
 
-    public List<List<String>> narrate(List<MatchEvent> events, TeamNames teamNames, ChronicleMode mode) {
+    public List<List<String>> narrate(List<MatchEvent> events, TeamNames teamNames, MatchSetups openingSetups,
+            ChronicleMode mode) {
         Objects.requireNonNull(events, "events must not be null");
         Objects.requireNonNull(teamNames, "team names must not be null");
+        Objects.requireNonNull(openingSetups, "opening setups must not be null");
         Objects.requireNonNull(mode, "chronicle mode must not be null");
         List<MatchEvent> narratedEvents = selectNarratedEvents(events, mode);
-        NarrationContext context = readContext(events, teamNames);
+        NarrationContext context = readContext(events, teamNames, openingSetups);
         return narrateLines(narratedEvents, context);
     }
 
@@ -57,8 +59,8 @@ public final class Narrator {
         return filter.select(events, mode);
     }
 
-    private NarrationContext readContext(List<MatchEvent> events, TeamNames teamNames) {
-        return new NarrationContext(events, teamNames);
+    private NarrationContext readContext(List<MatchEvent> events, TeamNames teamNames, MatchSetups openingSetups) {
+        return new NarrationContext(events, teamNames, openingSetups);
     }
 
     private List<List<String>> narrateLines(List<MatchEvent> narratedEvents, NarrationContext context) {
@@ -79,7 +81,8 @@ public final class Narrator {
     private String drawPitch(MatchEvent event, NarrationContext context) {
         TeamNames teamNames = context.teamNames();
         Score score = context.scoreAfter(event);
-        return pitchDrawing.draw(event, teamNames, score);
+        MatchSetups setups = context.setupsAfter(event);
+        return pitchDrawing.draw(event, teamNames, score, setups);
     }
 
     public String narrateEventLine(MatchEvent event, NarrationContext context) {

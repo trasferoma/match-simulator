@@ -134,7 +134,7 @@ class SquadTest {
     }
 
     private static Player player(String name, Role role) {
-        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50);
+        PlayerAttributes attributes = new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50);
         return new Player(name, role, attributes);
     }
 }

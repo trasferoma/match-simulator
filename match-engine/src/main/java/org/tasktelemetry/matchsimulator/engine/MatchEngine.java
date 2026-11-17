@@ -13,6 +13,9 @@ import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.ZonePresence;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.EnergyDrain;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.HalfTimeRecovery;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjurySubstitution;
@@ -52,15 +55,16 @@ public final class MatchEngine {
 
     private ActionResolvers newActionResolvers(PitchLayout layout, MatchRandom random) {
         ZonePresence zonePresence = new ZonePresence(config.zonePresence());
-        PlayerPicker picker = new PlayerPicker(random, zonePresence);
+        FatiguePenalty fatigue = new FatiguePenalty(config.fatigue());
+        PlayerPicker picker = new PlayerPicker(random, zonePresence, fatigue);
         OutOfPositionPenalty outOfPosition = new OutOfPositionPenalty(config.lineup().outOfPositionMultiplier());
         Matchups matchups = new Matchups(layout, picker, zonePresence, config.playStyles(), config.homeAdvantage(),
-                outOfPosition);
+                outOfPosition, fatigue);
         ShotResolver shotResolver = newShotResolver(layout, random, matchups);
         CrossResolver crossResolver = new CrossResolver(config.cross(), config.playStyles(), layout, random, picker,
                 shotResolver, matchups, zonePresence);
-        FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random, outOfPosition);
-        OffsideRule offsideRule = new OffsideRule(config.offside(), layout, random, picker, outOfPosition);
+        FoulResolver foulResolver = new FoulResolver(config.foul(), layout, random, outOfPosition, fatigue);
+        OffsideRule offsideRule = new OffsideRule(config.offside(), layout, random, picker, outOfPosition, fatigue);
         PossessionActionResolver possessionResolver = new PossessionActionResolver(config, layout, random, matchups,
                 shotResolver, crossResolver, foulResolver, zonePresence);
         CounterAttackResolver counterAttackResolver = new CounterAttackResolver(config.counterAttack(),
@@ -77,9 +81,11 @@ public final class MatchEngine {
         VoluntarySubstitutionRule voluntarySubstitution = new VoluntarySubstitutionRule(config.lineup());
         SectorMoveRule sectorMove = new SectorMoveRule();
         StoppageTime stoppageTime = new StoppageTime(config.stoppage());
+        EnergyDrain energyDrain = new EnergyDrain(config.fatigue(), config.playStyles());
+        HalfTimeRecovery halfTimeRecovery = new HalfTimeRecovery(config.fatigue());
         return new ActionResolvers(possessionResolver, counterAttackResolver, setPieceResolver, crossResolver,
                 foulResolver, offsideRule, dismissalResolver, minimumPlayers, injuryResolver, substitutionTimer,
-                voluntarySubstitution, sectorMove, stoppageTime);
+                voluntarySubstitution, sectorMove, stoppageTime, energyDrain, halfTimeRecovery);
     }
 
     private ShotResolver newShotResolver(PitchLayout layout, MatchRandom random, Matchups matchups) {

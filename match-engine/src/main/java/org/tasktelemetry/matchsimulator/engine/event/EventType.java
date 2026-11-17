@@ -34,7 +34,9 @@ public enum EventType {
     INJURY,
     SUBSTITUTION,
     STYLE_CHANGED,
-    PLAYER_MOVED;
+    PLAYER_MOVED,
+    PLAYER_TIRED,
+    PLAYER_RECOVERED;
 
     public boolean isBallRecovery() {
         return this == INTERCEPTION || this == TACKLE;
@@ -52,7 +54,12 @@ public enum EventType {
         return this == GOAL || this == SHOT_SAVED || this == SHOT_OFF_TARGET || this == SHOT_BLOCKED;
     }
 
+    public boolean describesPlayerState() {
+        return this == PLAYER_TIRED || this == PLAYER_RECOVERED;
+    }
+
     public boolean countsForPossession() {
-        return this != INJURY && this != SUBSTITUTION && this != STYLE_CHANGED && this != PLAYER_MOVED;
+        return this != INJURY && this != SUBSTITUTION && this != STYLE_CHANGED && this != PLAYER_MOVED
+                && !describesPlayerState();
     }
 }

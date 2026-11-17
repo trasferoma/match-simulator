@@ -46,6 +46,7 @@ public final class TeamFileReader {
     private static final String PACE_FIELD = "pace";
     private static final String AERIAL_FIELD = "aerial";
     private static final String GOALKEEPING_FIELD = "goalkeeping";
+    private static final String STAMINA_FIELD = "stamina";
 
     private final TeamFileTerms terms;
     private final TeamFileErrors errors;
@@ -203,9 +204,10 @@ public final class TeamFileReader {
         int pace = requireInteger(entry.pace(), attributesField, PACE_FIELD, file);
         int aerial = requireInteger(entry.aerial(), attributesField, AERIAL_FIELD, file);
         int goalkeeping = requireInteger(entry.goalkeeping(), attributesField, GOALKEEPING_FIELD, file);
+        int stamina = requireInteger(entry.stamina(), attributesField, STAMINA_FIELD, file);
         try {
             return new PlayerAttributes(passing, dribbling, shooting, tackling, positioning, pace, aerial,
-                    goalkeeping);
+                    goalkeeping, stamina);
         } catch (TeamRuleViolation violation) {
             throw errors.inField(file, attributesField, violation);
         }

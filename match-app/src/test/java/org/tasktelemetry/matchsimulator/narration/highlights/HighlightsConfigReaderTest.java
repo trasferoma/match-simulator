@@ -29,7 +29,7 @@ class HighlightsConfigReaderTest {
             EventType.KICK_OFF_AFTER_GOAL, EventType.STOPPAGE_ANNOUNCED, EventType.FIRST_HALF_END,
             EventType.MATCH_END, EventType.MATCH_SUSPENDED, EventType.YELLOW_CARD, EventType.SECOND_YELLOW_CARD,
             EventType.RED_CARD, EventType.INJURY, EventType.SUBSTITUTION,
-            EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
+            EventType.STYLE_CHANGED, EventType.PLAYER_MOVED, EventType.PLAYER_TIRED);
     private static final Set<EventType> LINKED = EnumSet.of(EventType.CORNER_KICK, EventType.OFFSIDE);
 
     private final HighlightsConfigReader reader = new HighlightsConfigReader();

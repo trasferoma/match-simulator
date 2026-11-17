@@ -18,6 +18,7 @@ import org.junit.jupiter.params.provider.MethodSource;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestConfigs;
+import org.tasktelemetry.matchsimulator.engine.TestEnergy;
 import org.tasktelemetry.matchsimulator.engine.TestResolvers;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
@@ -35,6 +36,9 @@ import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 class MatchupsTest {
+
+    private static final double ENERGY_AT_NINETY_PERCENT = 35.0;
+    private static final double FATIGUE_FACTOR = 0.9;
 
     private static final double EXACT = 1e-9;
     private static final double ATTACK = 60.0;
@@ -672,7 +676,7 @@ class MatchupsTest {
     }
 
     private PlayerAttributes paceAttributes(int pace) {
-        return new PlayerAttributes(50, 50, 50, 50, 50, pace, 50, 50);
+        return new PlayerAttributes(50, 50, 50, 50, 50, pace, 50, 50, 50);
     }
 
     private MatchState openPlayAt(MatchSide possession, ZoneRole zoneRole) {
@@ -689,5 +693,104 @@ class MatchupsTest {
                 .findFirst()
                 .orElseThrow();
         return MatchState.openPlay(MatchSide.AWAY, zone);
+    }
+
+    @Test
+    void aZoneWhereEveryPlayerIsAtTheFatigueFactorWeakensEachSideByExactlyThatFactor() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
+        TeamOnPitch attackers = TestEnergy.allAt(teamWithStyle(PlayStyle.BALANCED), ENERGY_AT_NINETY_PERCENT);
+        TeamOnPitch defenders = TestEnergy.allAt(teamWithStyle(PlayStyle.BALANCED), ENERGY_AT_NINETY_PERCENT);
+
+        Duel duel = passingDuel(matchups, state, attackers, defenders);
+
+        assertDuel(duel, ATTACK * FATIGUE_FACTOR, DEFENCE * FATIGUE_FACTOR);
+    }
+
+    @Test
+    void aTiredAttackerLowersTheAverageOfHisZoneAndHisOwnValueInTheBlend() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
+        TeamOnPitch fresh = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+        Player attacker = fresh.playersIn(Role.MIDFIELDER).getFirst();
+        Player defender = fieldPlayerOf(defenders);
+        TeamOnPitch attackers = TestEnergy.at(fresh, ENERGY_AT_NINETY_PERCENT, attacker);
+        ZonePresence presence = TestResolvers.zonePresence(config);
+        double attackerPresence = presence.presenceOf(attackers, attacker, ZoneRole.MIDFIELD);
+        double totalPresence = attackers.players().stream()
+                .mapToDouble(player -> presence.presenceOf(attackers, player, ZoneRole.MIDFIELD))
+                .sum();
+        double average = ATTACK - ATTACK * (1.0 - FATIGUE_FACTOR) * attackerPresence / totalPresence;
+        double weight = config.zonePresence().representativeWeight();
+        double expectedAttack = StrictMath.pow(average, 1.0 - weight)
+                * StrictMath.pow(ATTACK * FATIGUE_FACTOR, weight);
+
+        Duel duel = matchups.openPlayDuel(DuelAttributes.PASSING, state, attackers, attacker, defenders, defender);
+
+        assertDuel(duel, expectedAttack, DEFENCE);
+    }
+
+    @Test
+    void aPlayerAtTheThresholdOfEnergyLeavesTheDuelUntouched() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch attackers = TestEnergy.allAt(teamWithStyle(PlayStyle.BALANCED),
+                config.fatigue().performanceThreshold());
+
+        Duel duel = passingDuel(matchups, state, attackers, defenders);
+
+        assertDuel(duel, ATTACK, DEFENCE);
+    }
+
+    @Test
+    void aTiredRunnerAdvancesWithThePaceLoweredByTheFatigueFactor() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.MIDFIELD).inCounterAttack();
+        TeamOnPitch fresh = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+        Player runner = fieldPlayerOf(fresh);
+        Player chaser = fieldPlayerOf(defenders);
+        TeamOnPitch attackers = TestEnergy.at(fresh, ENERGY_AT_NINETY_PERCENT, runner);
+
+        Duel duel = matchups.counterAttackDuel(state, attackers, runner, defenders, chaser);
+
+        assertDuel(duel, PACE * FATIGUE_FACTOR, PACE);
+    }
+
+    @Test
+    void aTiredShooterAndATiredGoalkeeperMultiplyTheirAttributeByTheFatigueFactor() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.OPPONENT_BOX);
+        TeamOnPitch fresh = teamWithStyle(PlayStyle.BALANCED);
+        Player shooter = fresh.playersIn(Role.FORWARD).getFirst();
+        TeamOnPitch attackers = TestEnergy.at(fresh, ENERGY_AT_NINETY_PERCENT, shooter);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch tiredDefenders = TestEnergy.at(defenders, ENERGY_AT_NINETY_PERCENT, defenders.goalkeeper());
+
+        double shooting = matchups.shootingMultiplier(state, attackers, shooter);
+        double goalkeeping = matchups.goalkeepingMultiplier(state, tiredDefenders);
+
+        assertThat(shooting).isCloseTo(FATIGUE_FACTOR, within(EXACT));
+        assertThat(goalkeeping).isCloseTo(FATIGUE_FACTOR, within(EXACT));
+    }
+
+    @Test
+    void thePenaltyIsLeftOutOfTheTeamFactorsAndReadsOnlyTheFatigueOfTakerAndGoalkeeper() {
+        Matchups matchups = matchupsFor(config);
+        TeamOnPitch fresh = teamWithStyle(PlayStyle.ATTACKING);
+        Player taker = fresh.playersIn(Role.FORWARD).getFirst();
+        TeamOnPitch takers = TestEnergy.at(fresh, ENERGY_AT_NINETY_PERCENT, taker);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.DEFENSIVE);
+        TeamOnPitch tiredDefenders = TestEnergy.at(defenders, ENERGY_AT_NINETY_PERCENT, defenders.goalkeeper());
+
+        double shooting = matchups.penaltyShootingMultiplier(takers, taker);
+        double goalkeeping = matchups.penaltyGoalkeepingMultiplier(tiredDefenders);
+        double effectiveShooting = matchups.effectiveShootingOf(takers, taker);
+
+        assertThat(shooting).isCloseTo(FATIGUE_FACTOR, within(EXACT));
+        assertThat(goalkeeping).isCloseTo(FATIGUE_FACTOR, within(EXACT));
+        assertThat(effectiveShooting).isCloseTo(taker.attributes().shooting() * FATIGUE_FACTOR, within(EXACT));
     }
 }

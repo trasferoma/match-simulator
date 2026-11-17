@@ -12,6 +12,7 @@ import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.InvolvedPlayers;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotResolver;
@@ -58,7 +59,8 @@ public final class SetPieceResolver {
         Participants nobody = Participants.nobody();
         EventDetail detail = EventDetail.none();
         MatchState next = state.inOpenPlay();
-        return new ActionOutcome(EventType.KICK_OFF_AFTER_GOAL, nobody, next, 0, detail);
+        InvolvedPlayers noOne = InvolvedPlayers.none();
+        return new ActionOutcome(EventType.KICK_OFF_AFTER_GOAL, nobody, next, 0, detail, noOne);
     }
 
     private ActionOutcome cornerKick(MatchState state, TeamOnPitch restartingTeam) {
@@ -66,7 +68,8 @@ public final class SetPieceResolver {
         DurationRange range = config.cornerDuration();
         int duration = random.nextIntInclusive(range.minSeconds(), range.maxSeconds());
         MatchState next = state.withCrossInFlightFrom(taker);
-        return ActionOutcome.byPlayer(EventType.CORNER_KICK, taker, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(taker, state.possession());
+        return ActionOutcome.byPlayer(EventType.CORNER_KICK, taker, state.possession(), next, duration, involved);
     }
 
     private ActionOutcome goalKick(MatchState state, TeamOnPitch restartingTeam) {
@@ -74,7 +77,9 @@ public final class SetPieceResolver {
         DurationRange range = config.goalKickDuration();
         int duration = random.nextIntInclusive(range.minSeconds(), range.maxSeconds());
         MatchState next = state.inOpenPlay();
-        return ActionOutcome.byPlayer(EventType.GOAL_KICK, goalkeeper, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(goalkeeper, state.possession());
+        return ActionOutcome.byPlayer(EventType.GOAL_KICK, goalkeeper, state.possession(), next, duration,
+                involved);
     }
 
     private ActionOutcome freeKick(MatchState state, Score score, TeamOnPitch restartingTeam,
@@ -97,13 +102,16 @@ public final class SetPieceResolver {
         Player taker = pickTaker(restartingTeam);
         int duration = drawFreeKickDuration();
         MatchState next = state.inOpenPlay();
-        return ActionOutcome.byPlayer(EventType.OFFSIDE_FREE_KICK, taker, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(taker, state.possession());
+        return ActionOutcome.byPlayer(EventType.OFFSIDE_FREE_KICK, taker, state.possession(), next, duration,
+                involved);
     }
 
     private ActionOutcome restartFromFreeKick(MatchState state, Player taker) {
         int duration = drawFreeKickDuration();
         MatchState next = state.inOpenPlay();
-        return ActionOutcome.byPlayer(EventType.FREE_KICK, taker, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(taker, state.possession());
+        return ActionOutcome.byPlayer(EventType.FREE_KICK, taker, state.possession(), next, duration, involved);
     }
 
     private ActionOutcome crossFromFreeKick(MatchState state, Player taker) {
@@ -112,7 +120,9 @@ public final class SetPieceResolver {
         MatchState inTheBox = MatchState.forSetPiece(state.possession(), opponentBox, SetPieceKind.FREE_KICK);
         MatchState next = inTheBox.withCrossInFlightFrom(taker);
         int duration = drawFreeKickDuration();
-        return ActionOutcome.byPlayer(EventType.FREE_KICK_CROSS, taker, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(taker, state.possession());
+        return ActionOutcome.byPlayer(EventType.FREE_KICK_CROSS, taker, state.possession(), next, duration,
+                involved);
     }
 
     private Player pickTaker(TeamOnPitch restartingTeam) {

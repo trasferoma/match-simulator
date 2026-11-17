@@ -64,27 +64,32 @@ public final class CounterAttackResolver {
         Player chaser = pickChaser(state, defenders);
         Duel duel = paceDuel(state, attackers, runner, defenders, chaser);
         if (attackerWins(duel)) {
-            return completeRun(state, score, attackers, runner, defenders);
+            return completeRun(state, score, attackers, runner, defenders, chaser);
         }
-        return loseRun(state, chaser);
+        return loseRun(state, runner, chaser);
     }
 
     private ActionOutcome completeRun(MatchState state, Score score, TeamOnPitch attackers, Player runner,
-            TeamOnPitch defenders) {
+            TeamOnPitch defenders, Player chaser) {
+        MatchSide attackingSide = state.possession();
         if (isInOpponentBox(state)) {
-            return shotResolver.resolveShot(state, score, attackers, runner, ShotKind.FOOT, defenders);
+            ActionOutcome shot = shotResolver.resolveShot(state, score, attackers, runner, ShotKind.FOOT, defenders);
+            MatchSide defendingSide = attackingSide.opposite();
+            return shot.involving(chaser, defendingSide);
         }
         Zone target = forwardZone(state);
-        MatchState next = new MatchState(state.possession(), target, state.phase());
+        MatchState next = new MatchState(attackingSide, target, state.phase());
         int duration = drawDuration();
-        return ActionOutcome.byPlayer(EventType.DRIBBLE_COMPLETED, runner, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(runner, attackingSide, chaser);
+        return ActionOutcome.byPlayer(EventType.DRIBBLE_COMPLETED, runner, attackingSide, next, duration, involved);
     }
 
-    private ActionOutcome loseRun(MatchState state, Player chaser) {
+    private ActionOutcome loseRun(MatchState state, Player runner, Player chaser) {
         MatchSide recoveringSide = state.possession().opposite();
         MatchState next = MatchState.openPlay(recoveringSide, state.zone());
         int duration = drawDuration();
-        return ActionOutcome.byPlayer(EventType.TACKLE, chaser, recoveringSide, next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.ofDuel(runner, state.possession(), chaser);
+        return ActionOutcome.byPlayer(EventType.TACKLE, chaser, recoveringSide, next, duration, involved);
     }
 
     private Player pickRunner(MatchState state, TeamOnPitch attackers) {
@@ -108,7 +113,7 @@ public final class CounterAttackResolver {
     private ActionOutcome inCounterAttackPhase(ActionOutcome outcome) {
         MatchState counterAttack = outcome.next().inCounterAttack();
         return new ActionOutcome(outcome.type(), outcome.participants(), counterAttack, outcome.durationSeconds(),
-                outcome.detail());
+                outcome.detail(), outcome.involved());
     }
 
     private boolean canStartFrom(ZoneRole recoveryZoneRole) {

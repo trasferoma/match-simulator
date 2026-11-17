@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.nio.file.Path;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
@@ -38,8 +39,22 @@ class TeamFileReaderTest {
         assertThat(squad.players().get(0).name()).isEqualTo("Marco Bianchi");
         assertThat(squad.players().get(0).role()).isEqualTo(Role.GOALKEEPER);
         assertThat(squad.players().get(0).attributes().goalkeeping()).isEqualTo(84);
+        assertThat(squad.players().get(0).attributes().stamina()).isEqualTo(60);
         assertThat(squad.players().get(11).role()).isEqualTo(Role.GOALKEEPER);
         assertThat(squad.players().get(17).name()).isEqualTo("Emanuele Sala");
+    }
+
+    @Test
+    void bothExamplesHaveSomePlayersThatTireEarlyAndSomeThatTireLate() {
+        for (Path example : List.of(TeamFileFixture.homeExample(), TeamFileFixture.awayExample())) {
+            Squad squad = reader.read(example);
+
+            List<Integer> staminas = squad.players().stream().map(player -> player.attributes().stamina()).toList();
+
+            assertThat(staminas).anyMatch(stamina -> stamina < 35);
+            assertThat(staminas).anyMatch(stamina -> stamina > 80);
+            assertThat(staminas.stream().distinct().count()).isGreaterThan(1);
+        }
     }
 
     @Test
@@ -218,6 +233,31 @@ class TeamFileReaderTest {
         attributesOf(team, 4).remove("pace");
 
         assertRefused(team, "players[4].attributes.pace", "il campo manca");
+    }
+
+    @Test
+    void aMissingStaminaIsRefusedNamingThePlayerAndTheAttribute() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        attributesOf(team, 3).remove("stamina");
+
+        assertRefused(team, "players[3].attributes.stamina", "il campo manca");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 101})
+    void aStaminaOutOfScaleIsRefusedNamingThePlayerAndTheAttribute(int value) {
+        ObjectNode team = TeamFileFixture.validTeam();
+        attributesOf(team, 3).put("stamina", value);
+
+        assertRefused(team, "players[3].attributes", "l'attributo stamina", "compreso tra 1 e 100", "vale " + value);
+    }
+
+    @Test
+    void aStaminaThatIsNotAnIntegerIsRefusedNamingThePlayerAndTheAttribute() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        attributesOf(team, 3).put("stamina", 70.5);
+
+        assertRefused(team, "players[3].attributes.stamina", "il tipo atteso");
     }
 
     @ParameterizedTest

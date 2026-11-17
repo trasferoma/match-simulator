@@ -38,17 +38,19 @@ class PlayStyleModifiersTest {
         assertThat(balanced.counterAttackStart()).isEqualTo(NEUTRAL);
         assertThat(balanced.counterAttackAdvance()).isEqualTo(NEUTRAL);
         assertThat(balanced.crossPropensity()).isEqualTo(NEUTRAL);
+        assertThat(balanced.energyCost()).isEqualTo(NEUTRAL);
     }
 
     @ParameterizedTest
     @CsvSource({
-            "BALANCED,       1.00, 1.00, 1.00, 1.00, 1.00, 1.00",
-            "ATTACKING,      1.10, 1.00, 0.92, 1.00, 1.00, 1.15",
-            "DEFENSIVE,      0.90, 1.00, 1.10, 1.00, 1.00, 1.00",
-            "POSSESSION,     1.00, 1.10, 1.00, 0.70, 1.00, 0.85",
-            "COUNTER_ATTACK, 1.00, 0.92, 1.00, 1.40, 1.10, 1.00"})
+            "BALANCED,       1.00, 1.00, 1.00, 1.00, 1.00, 1.00, 1.00",
+            "ATTACKING,      1.10, 1.00, 0.92, 1.00, 1.00, 1.15, 1.15",
+            "DEFENSIVE,      0.90, 1.00, 1.10, 1.00, 1.00, 1.00, 1.00",
+            "POSSESSION,     1.00, 1.10, 1.00, 0.70, 1.00, 0.85, 1.10",
+            "COUNTER_ATTACK, 1.00, 0.92, 1.00, 1.40, 1.10, 1.00, 1.00"})
     void everyStyleModifiesOnlyThePointsDeclaredInTheSpecification(PlayStyle style, double attack, double midfield,
-            double defence, double counterAttackStart, double counterAttackAdvance, double crossPropensity) {
+            double defence, double counterAttackStart, double counterAttackAdvance, double crossPropensity,
+            double energyCost) {
         StyleEffect effect = defaults.effectOf(style);
 
         assertThat(effect.attack()).isCloseTo(attack, within(EXACT));
@@ -57,6 +59,12 @@ class PlayStyleModifiersTest {
         assertThat(effect.counterAttackStart()).isCloseTo(counterAttackStart, within(EXACT));
         assertThat(effect.counterAttackAdvance()).isCloseTo(counterAttackAdvance, within(EXACT));
         assertThat(effect.crossPropensity()).isCloseTo(crossPropensity, within(EXACT));
+        assertThat(effect.energyCost()).isCloseTo(energyCost, within(EXACT));
+    }
+
+    @Test
+    void theNeutralEffectMultipliesTheEnergyCostByOne() {
+        assertThat(StyleEffect.neutral().energyCost()).isEqualTo(NEUTRAL);
     }
 
     @ParameterizedTest
@@ -117,17 +125,21 @@ class PlayStyleModifiersTest {
         assertThatThrownBy(() -> neutral.withCrossPropensity(multiplier))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("cross propensity multiplier must be positive and finite");
+        assertThatThrownBy(() -> neutral.withEnergyCost(multiplier))
+                .isInstanceOf(IllegalArgumentException.class)
+                .hasMessageContaining("energy cost multiplier must be positive and finite");
     }
 
     @Test
     void eachWitherChangesOnlyItsOwnPoint() {
         StyleEffect neutral = StyleEffect.neutral();
 
-        assertThat(neutral.withAttack(2.0)).isEqualTo(new StyleEffect(2.0, 1.0, 1.0, 1.0, 1.0, 1.0));
-        assertThat(neutral.withMidfield(2.0)).isEqualTo(new StyleEffect(1.0, 2.0, 1.0, 1.0, 1.0, 1.0));
-        assertThat(neutral.withDefence(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 2.0, 1.0, 1.0, 1.0));
-        assertThat(neutral.withCounterAttackStart(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 2.0, 1.0, 1.0));
-        assertThat(neutral.withCounterAttackAdvance(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 1.0, 2.0, 1.0));
-        assertThat(neutral.withCrossPropensity(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 1.0, 1.0, 2.0));
+        assertThat(neutral.withAttack(2.0)).isEqualTo(new StyleEffect(2.0, 1.0, 1.0, 1.0, 1.0, 1.0, 1.0));
+        assertThat(neutral.withMidfield(2.0)).isEqualTo(new StyleEffect(1.0, 2.0, 1.0, 1.0, 1.0, 1.0, 1.0));
+        assertThat(neutral.withDefence(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 2.0, 1.0, 1.0, 1.0, 1.0));
+        assertThat(neutral.withCounterAttackStart(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 2.0, 1.0, 1.0, 1.0));
+        assertThat(neutral.withCounterAttackAdvance(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 1.0, 2.0, 1.0, 1.0));
+        assertThat(neutral.withCrossPropensity(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 1.0, 1.0, 2.0, 1.0));
+        assertThat(neutral.withEnergyCost(2.0)).isEqualTo(new StyleEffect(1.0, 1.0, 1.0, 1.0, 1.0, 1.0, 2.0));
     }
 }

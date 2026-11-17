@@ -18,7 +18,8 @@
         "positioning": 74,
         "pace": 52,
         "aerial": 65,
-        "goalkeeping": 80
+        "goalkeeping": 80,
+        "stamina": 64
       }
     },
     {
@@ -32,7 +33,8 @@
         "positioning": 72,
         "pace": 61,
         "aerial": 72,
-        "goalkeeping": 28
+        "goalkeeping": 28,
+        "stamina": 72
       }
     },
     {
@@ -46,7 +48,8 @@
         "positioning": 70,
         "pace": 59,
         "aerial": 70,
-        "goalkeeping": 31
+        "goalkeeping": 31,
+        "stamina": 56
       }
     },
     {
@@ -60,7 +63,8 @@
         "positioning": 73,
         "pace": 62,
         "aerial": 68,
-        "goalkeeping": 29
+        "goalkeeping": 29,
+        "stamina": 61
       }
     },
     {
@@ -74,7 +78,8 @@
         "positioning": 71,
         "pace": 60,
         "aerial": 71,
-        "goalkeeping": 32
+        "goalkeeping": 32,
+        "stamina": 34
       }
     },
     {
@@ -88,7 +93,8 @@
         "positioning": 66,
         "pace": 60,
         "aerial": 55,
-        "goalkeeping": 28
+        "goalkeeping": 28,
+        "stamina": 77
       }
     },
     {
@@ -102,7 +108,8 @@
         "positioning": 64,
         "pace": 63,
         "aerial": 58,
-        "goalkeeping": 26
+        "goalkeeping": 26,
+        "stamina": 90
       }
     },
     {
@@ -116,7 +123,8 @@
         "positioning": 62,
         "pace": 61,
         "aerial": 56,
-        "goalkeeping": 29
+        "goalkeeping": 29,
+        "stamina": 69
       }
     },
     {
@@ -130,7 +138,8 @@
         "positioning": 65,
         "pace": 64,
         "aerial": 54,
-        "goalkeeping": 27
+        "goalkeeping": 27,
+        "stamina": 81
       }
     },
     {
@@ -144,7 +153,8 @@
         "positioning": 61,
         "pace": 70,
         "aerial": 67,
-        "goalkeeping": 30
+        "goalkeeping": 30,
+        "stamina": 50
       }
     },
     {
@@ -158,7 +168,8 @@
         "positioning": 64,
         "pace": 68,
         "aerial": 65,
-        "goalkeeping": 28
+        "goalkeeping": 28,
+        "stamina": 38
       }
     },
     {
@@ -172,7 +183,8 @@
         "positioning": 72,
         "pace": 55,
         "aerial": 68,
-        "goalkeeping": 78
+        "goalkeeping": 78,
+        "stamina": 58
       }
     },
     {
@@ -186,7 +198,8 @@
         "positioning": 70,
         "pace": 59,
         "aerial": 70,
-        "goalkeeping": 31
+        "goalkeeping": 31,
+        "stamina": 67
       }
     },
     {
@@ -200,7 +213,8 @@
         "positioning": 73,
         "pace": 62,
         "aerial": 68,
-        "goalkeeping": 29
+        "goalkeeping": 29,
+        "stamina": 29
       }
     },
     {
@@ -214,7 +228,8 @@
         "positioning": 63,
         "pace": 62,
         "aerial": 57,
-        "goalkeeping": 30
+        "goalkeeping": 30,
+        "stamina": 73
       }
     },
     {
@@ -228,7 +243,8 @@
         "positioning": 66,
         "pace": 60,
         "aerial": 55,
-        "goalkeeping": 28
+        "goalkeeping": 28,
+        "stamina": 84
       }
     },
     {
@@ -242,7 +258,8 @@
         "positioning": 62,
         "pace": 71,
         "aerial": 68,
-        "goalkeeping": 26
+        "goalkeeping": 26,
+        "stamina": 46
       }
     },
     {
@@ -256,7 +273,8 @@
         "positioning": 60,
         "pace": 69,
         "aerial": 66,
-        "goalkeeping": 29
+        "goalkeeping": 29,
+        "stamina": 42
       }
     }
   ]

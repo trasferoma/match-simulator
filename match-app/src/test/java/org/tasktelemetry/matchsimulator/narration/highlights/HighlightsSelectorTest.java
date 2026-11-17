@@ -27,6 +27,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -182,6 +183,171 @@ class HighlightsSelectorTest {
 
         assertThat(segments).containsExactly(stop(true, events.subList(0, 2)), frame(events.get(2)),
                 stop(true, events.subList(3, 5)));
+    }
+
+    @Test
+    void theTiredPlayersInTheMiddleDoNotCountAmongThePreparingEventsOfAChance() {
+        addHomePasses(3);
+        addTired(AWAY_DEFENDER);
+        addHomePasses(3);
+        addHomeShot(EventType.SHOT_OFF_TARGET);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(frame(events.get(0)), frame(events.get(1)),
+                stop(true, events.subList(2, 8)));
+    }
+
+    @Test
+    void aTiredPlayerIsOneStopWithOneEventAndARecoveryIsNot() {
+        addHomePasses(1);
+        addTired(HOME_MIDFIELDER);
+        fixture.addRecovered(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.FRESH);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(frame(events.get(0)), stop(false, events.subList(1, 2)),
+                frame(events.get(2)));
+    }
+
+    @Test
+    void aPenaltyWithThreeEventsAndTiredPlayersBetweenFoulAndShotKeepsTheFoul() {
+        addPenaltyFoul();
+        addHomePasses(1);
+        addTired(HOME_MIDFIELDER);
+        addHomePasses(2);
+        addTired(AWAY_DEFENDER);
+        addPenaltyKick();
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(stop(true, events));
+    }
+
+    @Test
+    void aPenaltyWithFourEventsAndTiredPlayersBetweenFoulAndShotKeepsTheLastFourAndDropsTheFoul() {
+        addPenaltyFoul();
+        addHomePasses(1);
+        addTired(HOME_MIDFIELDER);
+        addHomePasses(2);
+        addTired(AWAY_DEFENDER);
+        addHomePasses(1);
+        addPenaltyKick();
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(frame(events.get(0)), stop(true, events.subList(1, 8)));
+    }
+
+    @Test
+    void aFoulATiredPlayerAndTheCardForTheFoulerAreOneStop() {
+        addHomePasses(1);
+        addLightFoulBy(AWAY_DEFENDER);
+        addTired(HOME_MIDFIELDER);
+        fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_DEFENDER);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(frame(events.get(0)), stop(false, events.subList(1, 4)));
+    }
+
+    @Test
+    void aFoulATiredPlayerAndACardForAnotherPlayerLeaveTheFoulInTheAnimation() {
+        addLightFoulBy(AWAY_DEFENDER);
+        addTired(HOME_MIDFIELDER);
+        fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_FORWARD);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(frame(events.get(0)), stop(false, events.subList(1, 3)));
+    }
+
+    @Test
+    void anInjuryATiredPlayerAndTheSubstitutionOfTheInjuredAreOneStop() throws IOException {
+        fixture.add(EventType.INJURY, MatchSide.HOME, HOME_MIDFIELDER);
+        addTired(AWAY_DEFENDER);
+        addSubstitution(Participants.of(HOME_MIDFIELDER, MatchSide.HOME, HOME_BENCH, MatchSide.HOME));
+        List<MatchEvent> events = fixture.list();
+        HighlightsConfig config = configWith(Map.of("event.INJURY", "ANIMATION_ONLY"), Set.of());
+
+        List<HighlightSegment> segments = select(config);
+
+        assertThat(segments).containsExactly(stop(false, events));
+    }
+
+    @Test
+    void aCornerAfterASavedShotAndATiredDefenderOfTheOtherSideStaysLinkedToTheChance() {
+        addHomeShot(EventType.SHOT_SAVED);
+        addTired(AWAY_DEFENDER);
+        addHomeCorner();
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(stop(true, events));
+    }
+
+    @Test
+    void theTiredPlayersDoNotUseUpTheWindowThatLinksACornerToTheChance() {
+        addHomeShot(EventType.SHOT_OFF_TARGET);
+        addHomePasses(1);
+        addTired(AWAY_DEFENDER);
+        addTired(HOME_MIDFIELDER);
+        addHomeCorner();
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(stop(true, events));
+    }
+
+    @Test
+    void anOffsideInTheMidfieldAfterAShotAndATiredPlayerJoinsTheStopOfTheChance() {
+        addHomeShot(EventType.SHOT_SAVED);
+        addTired(AWAY_DEFENDER);
+        addOffside(ZoneRole.MIDFIELD);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(stop(true, events));
+    }
+
+    @Test
+    void theLastDecidedPositionWaitsForTheSameNumberOfEventsAsWithoutTiredPlayers() {
+        HighlightsSelector selector = new HighlightsSelector(reader.readDefault(), new NarratedEventFilter());
+        addHomePasses(2);
+        addTired(AWAY_DEFENDER);
+        addHomePasses(2);
+        addTired(HOME_MIDFIELDER);
+        addHomePasses(2);
+        List<MatchEvent> withTired = fixture.list();
+        List<MatchEvent> withoutTired = withTired.stream()
+                .filter(event -> event.type() != EventType.PLAYER_TIRED)
+                .toList();
+
+        int lastDecidedWithTired = selector.findLastDecidedPosition(withTired);
+        int lastDecidedWithoutTired = selector.findLastDecidedPosition(withoutTired);
+
+        assertThat(withoutTired).hasSize(6);
+        assertThat(lastDecidedWithoutTired).isZero();
+        assertThat(lastDecidedWithTired).isZero();
+    }
+
+    @Test
+    void nothingIsDecidedUntilEnoughEventsThatAreNotTiredPlayersHaveHappened() {
+        HighlightsSelector selector = new HighlightsSelector(reader.readDefault(), new NarratedEventFilter());
+        addHomePasses(4);
+        addTired(AWAY_DEFENDER);
+        addTired(HOME_MIDFIELDER);
+
+        assertThat(selector.findLastDecidedPosition(fixture.list())).isEqualTo(-1);
     }
 
     @Test
@@ -557,6 +723,10 @@ class HighlightsSelectorTest {
 
     private void addAwayPass() {
         fixture.add(EventType.PASS_COMPLETED, MatchSide.AWAY, AWAY_DEFENDER);
+    }
+
+    private void addTired(Player player) {
+        fixture.addTired(NarrationEvents.sideOf(player), player, FatigueBand.TIRED);
     }
 
     private void addMatchFlow(EventType type, MatchSide side) {

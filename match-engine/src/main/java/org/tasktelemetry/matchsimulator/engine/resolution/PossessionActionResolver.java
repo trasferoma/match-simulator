@@ -50,13 +50,8 @@ public final class PossessionActionResolver {
         }
         Player carrier = pickCarrier(state, attackers);
         Player opponent = pickOpponent(state, defenders);
-        if (decidesToDribble()) {
-            return resolveDribble(state, score, carrier, opponent, attackers, defenders);
-        }
-        if (hasNoTeammateToPassTo(state, attackers, carrier)) {
-            return resolveInsteadOfPassing(state, score, carrier, opponent, attackers, defenders);
-        }
-        return resolvePass(state, score, carrier, opponent, attackers, defenders);
+        ActionOutcome outcome = resolveDuelAction(state, score, carrier, opponent, attackers, defenders);
+        return involveTheDuelists(state, outcome, carrier, opponent);
     }
 
     public Duel passingDuel(MatchState state, TeamOnPitch attackers, Player passer, TeamOnPitch defenders,
@@ -67,6 +62,24 @@ public final class PossessionActionResolver {
     public Duel dribblingDuel(MatchState state, TeamOnPitch attackers, Player dribbler, TeamOnPitch defenders,
             Player tackler) {
         return matchups.openPlayDuel(DuelAttributes.DRIBBLING, state, attackers, dribbler, defenders, tackler);
+    }
+
+    private ActionOutcome resolveDuelAction(MatchState state, Score score, Player carrier, Player opponent,
+            TeamOnPitch attackers, TeamOnPitch defenders) {
+        if (decidesToDribble()) {
+            return resolveDribble(state, score, carrier, opponent, attackers, defenders);
+        }
+        if (hasNoTeammateToPassTo(state, attackers, carrier)) {
+            return resolveInsteadOfPassing(state, score, carrier, opponent, attackers, defenders);
+        }
+        return resolvePass(state, score, carrier, opponent, attackers, defenders);
+    }
+
+    private ActionOutcome involveTheDuelists(MatchState state, ActionOutcome outcome, Player carrier,
+            Player opponent) {
+        MatchSide attackingSide = state.possession();
+        MatchSide defendingSide = attackingSide.opposite();
+        return outcome.involving(carrier, attackingSide).involving(opponent, defendingSide);
     }
 
     private ActionOutcome resolvePass(MatchState state, Score score, Player passer, Player interceptor,
@@ -110,7 +123,9 @@ public final class PossessionActionResolver {
 
     private ActionOutcome circulateBall(MatchState state, Player carrier) {
         int duration = drawDuration(state);
-        return ActionOutcome.byPlayer(EventType.BALL_CIRCULATED, carrier, state.possession(), state, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(carrier, state.possession());
+        return ActionOutcome.byPlayer(EventType.BALL_CIRCULATED, carrier, state.possession(), state, duration,
+                involved);
     }
 
     private ActionOutcome completeAction(MatchState state, Score score, EventType type, TeamOnPitch attackers,
@@ -124,7 +139,8 @@ public final class PossessionActionResolver {
     private ActionOutcome advancePossession(MatchState state, EventType type, Player attacker) {
         MatchState next = stateAfterAdvance(state, type, attacker);
         int duration = drawDuration(state);
-        return ActionOutcome.byPlayer(type, attacker, state.possession(), next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(attacker, state.possession());
+        return ActionOutcome.byPlayer(type, attacker, state.possession(), next, duration, involved);
     }
 
     private MatchState stateAfterAdvance(MatchState state, EventType type, Player attacker) {
@@ -146,7 +162,8 @@ public final class PossessionActionResolver {
         MatchSide recoveringSide = state.possession().opposite();
         MatchState next = new MatchState(recoveringSide, state.zone(), state.phase());
         int duration = drawDuration(state);
-        return ActionOutcome.byPlayer(type, recoverer, recoveringSide, next, duration);
+        InvolvedPlayers involved = InvolvedPlayers.of(recoverer, recoveringSide);
+        return ActionOutcome.byPlayer(type, recoverer, recoveringSide, next, duration, involved);
     }
 
     private ActionOutcome attemptCross(MatchState state, TeamOnPitch attackers, TeamOnPitch defenders) {

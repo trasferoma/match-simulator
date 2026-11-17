@@ -146,11 +146,13 @@ public final class LeagueMetrics {
         double styleChanges = averageInterventionsPerTeam(matches, VoluntaryInterventions::styleChanges);
         double substitutions = averageInterventionsPerTeam(matches, VoluntaryInterventions::substitutions);
         double moves = averageInterventionsPerTeam(matches, VoluntaryInterventions::moves);
+        double firstHalfGoals = measureFirstHalfGoalsShare(matches);
         double lateGoals = measureLateGoalsShare(matches);
         orientation.put("cambi volontari per squadra", voluntary);
         orientation.put("di cui cambi di stile", styleChanges);
         orientation.put("di cui sostituzioni", substitutions);
         orientation.put("di cui spostamenti", moves);
+        orientation.put("gol nel primo tempo (%)", firstHalfGoals);
         orientation.put("gol nel finale (%)", lateGoals);
         return orientation;
     }
@@ -160,15 +162,22 @@ public final class LeagueMetrics {
         return averageOf(matches, match -> count.applyAsInt(match.interventions()) / TEAMS_PER_MATCH);
     }
 
+    private double measureFirstHalfGoalsShare(List<PlayedMatch> matches) {
+        return measureShareOfFieldGoals(matches, PlayedMatch::fieldGoalsInFirstHalf);
+    }
+
     private double measureLateGoalsShare(List<PlayedMatch> matches) {
+        ToIntFunction<PlayedMatch> lateGoals = match -> match.fieldGoalsFromMinute(finalPhaseStartMinute);
+        return measureShareOfFieldGoals(matches, lateGoals);
+    }
+
+    private double measureShareOfFieldGoals(List<PlayedMatch> matches, ToIntFunction<PlayedMatch> selectedGoals) {
         long allGoals = matches.stream().mapToLong(PlayedMatch::fieldGoals).sum();
         if (allGoals == 0) {
             return 0.0;
         }
-        long lateGoals = matches.stream()
-                .mapToLong(match -> match.fieldGoalsFromMinute(finalPhaseStartMinute))
-                .sum();
-        return PERCENT * lateGoals / allGoals;
+        long chosenGoals = matches.stream().mapToLong(selectedGoals::applyAsInt).sum();
+        return PERCENT * chosenGoals / allGoals;
     }
 
     private double averageContour(List<PlayedMatch> matches, ToIntFunction<ContourCounters> counter) {

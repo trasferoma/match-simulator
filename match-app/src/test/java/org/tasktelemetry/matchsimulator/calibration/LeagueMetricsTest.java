@@ -27,7 +27,7 @@ class LeagueMetricsTest {
 
     private final LeagueMetrics metrics = new LeagueMetrics();
     private final Player scorer = new Player("Rossi", Role.FORWARD,
-            new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50));
+            new PlayerAttributes(50, 50, 50, 50, 50, 50, 50, 50, 50));
 
     @Test
     void goalsAndResultsAreAveragedOverAllTheMatches() {
@@ -185,6 +185,44 @@ class LeagueMetricsTest {
         MeasuredLeague league = metrics.measure(List.of(match(0, 0, statistics(1, 100), statistics(1, 100))));
 
         assertThat(league.orientation().get("gol nel finale (%)")).isZero();
+    }
+
+    @Test
+    void theShareOfGoalsInTheFirstHalfCountsTheGoalsOfTheFirstHalfOverAllTheMatches() {
+        List<ScoredGoal> firstMatchGoals = List.of(
+                new ScoredGoal(MatchSide.HOME, scorer, new MatchTime(MatchPeriod.FIRST_HALF, 0)),
+                new ScoredGoal(MatchSide.AWAY, scorer, new MatchTime(MatchPeriod.FIRST_HALF, 45 * 60 + 30)),
+                new ScoredGoal(MatchSide.HOME, scorer, new MatchTime(MatchPeriod.SECOND_HALF, 0)));
+        List<ScoredGoal> secondMatchGoals = List.of(
+                new ScoredGoal(MatchSide.AWAY, scorer, new MatchTime(MatchPeriod.SECOND_HALF, 600)));
+        PlayedMatch first = matchWithGoals(firstMatchGoals);
+        PlayedMatch second = matchWithGoals(secondMatchGoals);
+
+        MeasuredLeague league = metrics.measure(List.of(first, second));
+
+        assertThat(league.orientation().get("gol nel primo tempo (%)")).isCloseTo(50.0, within(TOLERANCE));
+    }
+
+    @Test
+    void aGoalAtTheFirstSecondOfTheSecondHalfIsNotAFirstHalfGoal() {
+        List<ScoredGoal> goals = List.of(
+                new ScoredGoal(MatchSide.HOME, scorer, new MatchTime(MatchPeriod.SECOND_HALF, 0)));
+
+        MeasuredLeague league = metrics.measure(List.of(matchWithGoals(goals)));
+
+        assertThat(league.orientation().get("gol nel primo tempo (%)")).isZero();
+    }
+
+    @Test
+    void theShareOfGoalsInTheFirstHalfIsZeroWhenNobodyScores() {
+        MeasuredLeague league = metrics.measure(List.of(match(0, 0, statistics(1, 100), statistics(1, 100))));
+
+        assertThat(league.orientation().get("gol nel primo tempo (%)")).isZero();
+    }
+
+    private PlayedMatch matchWithGoals(List<ScoredGoal> goals) {
+        MatchSummary summary = new MatchSummary(goals, statistics(1, 100), statistics(1, 100));
+        return new PlayedMatch("Home", "Away", summary, VoluntaryInterventions.none());
     }
 
     private PlayedMatch matchWithInterventions(VoluntaryInterventions interventions) {

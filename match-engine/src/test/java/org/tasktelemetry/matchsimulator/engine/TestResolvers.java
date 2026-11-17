@@ -10,6 +10,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.OutOfPositionPenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.PlayerPicker;
 import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.ZonePresence;
+import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsModel;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotQualityScale;
@@ -42,7 +43,7 @@ public final class TestResolvers {
     public static CrossResolver crossResolver(EngineConfig config, PitchLayout layout, MatchRandom random,
             ShotResolver shotResolver) {
         ZonePresence zonePresence = zonePresence(config);
-        PlayerPicker picker = new PlayerPicker(random, zonePresence);
+        PlayerPicker picker = playerPicker(config, random);
         Matchups matchups = matchups(config, layout, random);
         return new CrossResolver(config.cross(), config.playStyles(), layout, random, picker, shotResolver,
                 matchups, zonePresence);
@@ -53,15 +54,20 @@ public final class TestResolvers {
     }
 
     public static PlayerPicker playerPicker(EngineConfig config, MatchRandom random) {
-        return new PlayerPicker(random, zonePresence(config));
+        return new PlayerPicker(random, zonePresence(config), fatiguePenalty(config));
+    }
+
+    public static FatiguePenalty fatiguePenalty(EngineConfig config) {
+        return new FatiguePenalty(config.fatigue());
     }
 
     public static Matchups matchups(EngineConfig config, PitchLayout layout, MatchRandom random) {
         ZonePresence zonePresence = zonePresence(config);
-        PlayerPicker picker = new PlayerPicker(random, zonePresence);
+        PlayerPicker picker = playerPicker(config, random);
         OutOfPositionPenalty outOfPosition = outOfPositionPenalty(config);
+        FatiguePenalty fatigue = fatiguePenalty(config);
         return new Matchups(layout, picker, zonePresence, config.playStyles(), config.homeAdvantage(),
-                outOfPosition);
+                outOfPosition, fatigue);
     }
 
     public static OutOfPositionPenalty outOfPositionPenalty(EngineConfig config) {
@@ -70,7 +76,8 @@ public final class TestResolvers {
 
     public static FoulResolver foulResolver(FoulConfig foulConfig, PitchLayout layout, MatchRandom random) {
         OutOfPositionPenalty outOfPosition = outOfPositionPenalty(EngineConfig.defaults());
-        return new FoulResolver(foulConfig, layout, random, outOfPosition);
+        FatiguePenalty fatigue = fatiguePenalty(EngineConfig.defaults());
+        return new FoulResolver(foulConfig, layout, random, outOfPosition, fatigue);
     }
 
     public static CounterAttackResolver counterAttackResolver(EngineConfig config, PitchLayout layout,

@@ -21,6 +21,7 @@ record TeamFileDocument(String name, CoachEntry coach, List<PlayerEntry> players
             Integer positioning,
             Integer pace,
             Integer aerial,
-            Integer goalkeeping) {
+            Integer goalkeeping,
+            Integer stamina) {
     }
 }
