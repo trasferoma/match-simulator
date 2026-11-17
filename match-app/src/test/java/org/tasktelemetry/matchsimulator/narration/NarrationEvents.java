@@ -34,7 +34,7 @@ public final class NarrationEvents {
 
     private static final Set<Player> AWAY_PLAYERS = Set.of(AWAY_FORWARD, AWAY_DEFENDER, AWAY_GOALKEEPER);
 
-    public static final TeamNames TEAM_NAMES = new TeamNames("Aquile", "Lupi");
+    public static final TeamNames TEAM_NAMES = new TeamNames("Aquile", "Lupi", "Marini", "Fabbri");
 
     private static final int SECONDS_BETWEEN_EVENTS = 20;
 

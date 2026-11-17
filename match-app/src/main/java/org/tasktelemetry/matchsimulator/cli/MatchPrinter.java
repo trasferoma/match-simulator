@@ -4,9 +4,13 @@ import java.io.PrintStream;
 import java.util.List;
 import java.util.Locale;
 
+import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.live.PreparedMatch;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
+import org.tasktelemetry.matchsimulator.narration.TeamNames;
 import org.tasktelemetry.matchsimulator.summary.ContourCounters;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 import org.tasktelemetry.matchsimulator.summary.ScoredGoal;
@@ -28,6 +32,14 @@ final class MatchPrinter {
         this.messages = messages;
         this.out = out;
         this.enterKeyReader = enterKeyReader;
+    }
+
+    void printLineups(PreparedMatch match) {
+        TeamNames names = match.names();
+        printLine(ReportLabel.LINEUPS_TITLE);
+        printLineup(names.home(), names.homeCoach(), match.homeDecision());
+        printLineup(names.away(), names.awayCoach(), match.awayDecision());
+        printBlankLine();
     }
 
     void print(MatchReport report) {
@@ -83,6 +95,13 @@ final class MatchPrinter {
 
     private void printBlankLine() {
         out.println();
+    }
+
+    private void printLineup(String teamName, String coachName, PreMatchDecision decision) {
+        String formation = decision.formation().label();
+        PlayStyle style = decision.team().style();
+        String styleText = messages.text(style);
+        printLine(ReportLabel.LINEUP_ROW, teamName, coachName, formation, styleText);
     }
 
     private void printTitle() {

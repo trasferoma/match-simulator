@@ -7,14 +7,20 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
-import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
+import org.tasktelemetry.matchsimulator.coach.lineup.FeasibleFormations;
+import org.tasktelemetry.matchsimulator.coach.squad.CoachAttributes;
+import org.tasktelemetry.matchsimulator.coach.squad.CoachProfile;
+import org.tasktelemetry.matchsimulator.coach.squad.Squad;
+import org.tasktelemetry.matchsimulator.coach.squad.SquadRuleViolation;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.engine.team.TeamRuleViolation;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
 import org.tasktelemetry.matchsimulator.teamfile.TeamFileDocument.AttributesEntry;
+import org.tasktelemetry.matchsimulator.teamfile.TeamFileDocument.CoachAttributesEntry;
+import org.tasktelemetry.matchsimulator.teamfile.TeamFileDocument.CoachEntry;
 import org.tasktelemetry.matchsimulator.teamfile.TeamFileDocument.PlayerEntry;
 
 import tools.jackson.core.JacksonException;
@@ -28,11 +34,10 @@ import tools.jackson.databind.json.JsonMapper;
 public final class TeamFileReader {
 
     private static final String NAME_FIELD = "name";
-    private static final String STYLE_FIELD = "style";
     private static final String ROLE_FIELD = "role";
-    private static final String STARTERS_FIELD = "starters";
-    private static final String BENCH_FIELD = "bench";
     private static final String ATTRIBUTES_FIELD = "attributes";
+    private static final String COACH_FIELD = "coach";
+    private static final String COACH_ATTRIBUTES_FIELD = COACH_FIELD + "." + ATTRIBUTES_FIELD;
     private static final String PASSING_FIELD = "passing";
     private static final String DRIBBLING_FIELD = "dribbling";
     private static final String SHOOTING_FIELD = "shooting";
@@ -44,34 +49,38 @@ public final class TeamFileReader {
 
     private final TeamFileTerms terms;
     private final TeamFileErrors errors;
-    private final TeamRuleFields ruleFields;
+    private final SquadRuleFields ruleFields;
+    private final FeasibleFormations feasibleFormations;
     private final JsonMapper mapper = JsonMapper.builder()
             .disable(DeserializationFeature.ACCEPT_FLOAT_AS_INT)
             .enable(DeserializationFeature.FAIL_ON_UNKNOWN_PROPERTIES)
             .build();
 
-    TeamFileReader(TeamFileTerms terms, TeamFileErrors errors, TeamRuleFields ruleFields) {
+    TeamFileReader(TeamFileTerms terms, TeamFileErrors errors, SquadRuleFields ruleFields,
+            FeasibleFormations feasibleFormations) {
         this.terms = terms;
         this.errors = errors;
         this.ruleFields = ruleFields;
+        this.feasibleFormations = feasibleFormations;
     }
 
     public static TeamFileReader italian() {
         TeamFileTerms terms = new TeamFileTerms();
         UserMessages messages = UserMessages.italian();
-        TeamFileErrors errors = new TeamFileErrors(messages, terms);
-        TeamRuleFields ruleFields = new TeamRuleFields();
-        return new TeamFileReader(terms, errors, ruleFields);
+        TeamFileErrors errors = new TeamFileErrors(messages);
+        SquadRuleFields ruleFields = new SquadRuleFields();
+        CoachConfig coachConfig = CoachConfig.defaults();
+        FeasibleFormations feasibleFormations = new FeasibleFormations(coachConfig.formations());
+        return new TeamFileReader(terms, errors, ruleFields, feasibleFormations);
     }
 
-    public Team read(Path file) {
+    public Squad read(Path file) {
         Objects.requireNonNull(file, "team file must not be null");
         TeamFileDocument document = parse(file);
-        String name = requireText(document.name(), NAME_FIELD, file);
-        PlayStyle style = translateStyle(document.style(), file);
-        List<Player> starters = translatePlayers(document.starters(), STARTERS_FIELD, file);
-        List<Player> bench = translatePlayers(document.bench(), BENCH_FIELD, file);
-        return createTeam(name, style, starters, bench, file);
+        String name = requireText(document.name(), SquadRuleFields.SQUAD_NAME_FIELD, file);
+        CoachProfile coach = translateCoach(document.coach(), file);
+        List<Player> players = translatePlayers(document.players(), SquadRuleFields.PLAYERS_FIELD, file);
+        return createSquad(name, coach, players, file);
     }
 
     private TeamFileDocument parse(Path file) {
@@ -137,11 +146,22 @@ public final class TeamFileReader {
         return path.toString();
     }
 
-    private PlayStyle translateStyle(String term, Path file) {
-        String text = requireText(term, STYLE_FIELD, file);
-        String allowedValues = terms.allowedStyles();
-        return terms.style(text).orElseThrow(
-                () -> errors.inField(file, STYLE_FIELD, TeamFileProblem.UNKNOWN_VALUE, text, allowedValues));
+    private CoachProfile translateCoach(CoachEntry entry, Path file) {
+        requirePresent(entry, COACH_FIELD, file);
+        String name = requireText(entry.name(), SquadRuleFields.COACH_NAME_FIELD, file);
+        CoachAttributes attributes = translateCoachAttributes(entry.attributes(), file);
+        return new CoachProfile(name, attributes);
+    }
+
+    private CoachAttributes translateCoachAttributes(CoachAttributesEntry entry, Path file) {
+        requirePresent(entry, COACH_ATTRIBUTES_FIELD, file);
+        Integer tacticalReading = entry.tacticalReading();
+        requirePresent(tacticalReading, SquadRuleFields.TACTICAL_READING_FIELD, file);
+        try {
+            return new CoachAttributes(tacticalReading);
+        } catch (SquadRuleViolation violation) {
+            throw errorOf(violation, file);
+        }
     }
 
     private Role translateRole(String term, String field, Path file) {
@@ -191,13 +211,19 @@ public final class TeamFileReader {
         }
     }
 
-    private Team createTeam(String name, PlayStyle style, List<Player> starters, List<Player> bench, Path file) {
+    private Squad createSquad(String name, CoachProfile coach, List<Player> players, Path file) {
         try {
-            return new Team(name, style, starters, bench);
-        } catch (TeamRuleViolation violation) {
-            String field = ruleFields.fieldOf(violation.rule());
-            throw errors.inField(file, field, violation);
+            Squad squad = new Squad(name, coach, players);
+            feasibleFormations.requireAtLeastOne(squad.players());
+            return squad;
+        } catch (SquadRuleViolation violation) {
+            throw errorOf(violation, file);
         }
+    }
+
+    private InvalidTeamFileException errorOf(SquadRuleViolation violation, Path file) {
+        String field = ruleFields.fieldOf(violation.rule());
+        return errors.inField(file, field, violation);
     }
 
     private void requirePresent(Object value, String field, Path file) {

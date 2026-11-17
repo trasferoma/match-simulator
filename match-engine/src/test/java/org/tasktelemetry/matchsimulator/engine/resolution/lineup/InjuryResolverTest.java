@@ -15,6 +15,7 @@ import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.InjuryConfig;
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
@@ -99,7 +100,7 @@ class InjuryResolverTest {
         LineupOutcome outcome = resolver().replaceInjured(onPitch, injured);
 
         assertThat(outcome.suspendsTheMatch()).isFalse();
-        assertThat(outcome.substitutions()).containsExactly(new Substitution(injured, find(team, "BD")));
+        assertThat(outcome.substitutions()).containsExactly(new Substitution(injured, find(team, "BD"), Role.DEFENDER, ChangeReason.INJURY));
         assertThat(outcome.team().players()).hasSize(11).doesNotContain(injured).contains(find(team, "BD"));
         assertThat(outcome.team().substitutionsMade()).isEqualTo(1);
         assertThat(outcome.team().playersIn(Role.DEFENDER)).hasSize(4);
@@ -160,7 +161,8 @@ class InjuryResolverTest {
 
         LineupOutcome second = resolver().replaceInjured(first.team(), find(team, "BD1"));
 
-        assertThat(second.substitutions()).containsExactly(new Substitution(find(team, "BD1"), find(team, "BD2")));
+        assertThat(second.substitutions()).containsExactly(new Substitution(find(team, "BD1"), find(team, "BD2"), Role.DEFENDER,
+                ChangeReason.INJURY));
         assertThat(second.team().players()).doesNotContain(find(team, "BD1")).contains(find(team, "BD2"));
     }
 
@@ -233,7 +235,8 @@ class InjuryResolverTest {
         LineupOutcome outcome = resolver().replaceInjured(onPitch, injured);
 
         assertThat(outcome.suspendsTheMatch()).isFalse();
-        assertThat(outcome.substitutions()).containsExactly(new Substitution(injured, find(team, "BG")));
+        assertThat(outcome.substitutions()).containsExactly(new Substitution(injured, find(team, "BG"), Role.GOALKEEPER,
+                ChangeReason.INJURY));
         assertThat(outcome.team().goalkeeper()).isEqualTo(find(team, "BG"));
         assertThat(outcome.team().players()).hasSize(11);
         assertThat(outcome.team().substitutionsMade()).isEqualTo(1);
@@ -251,7 +254,8 @@ class InjuryResolverTest {
 
         Player newGoalkeeper = find(withSpecialist, "M2");
         assertThat(outcome.suspendsTheMatch()).isFalse();
-        assertThat(outcome.substitutions()).containsExactly(new Substitution(injured, find(withSpecialist, "BD")));
+        assertThat(outcome.substitutions()).containsExactly(new Substitution(injured, find(withSpecialist, "BD"), Role.DEFENDER,
+                ChangeReason.INJURY));
         assertThat(outcome.team().goalkeeper()).isEqualTo(newGoalkeeper);
         assertThat(outcome.team().roleOf(newGoalkeeper)).isEqualTo(Role.GOALKEEPER);
         assertThat(outcome.team().players()).hasSize(11);

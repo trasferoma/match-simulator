@@ -103,7 +103,7 @@ class LeagueMetricsTest {
             goals.add(new ScoredGoal(MatchSide.AWAY, scorer, time));
         }
         MatchSummary summary = new MatchSummary(goals, home, away);
-        return new PlayedMatch("Home", "Away", summary);
+        return new PlayedMatch("Home", "Away", summary, VoluntaryInterventions.none());
     }
 
     @Test
@@ -151,13 +151,54 @@ class LeagueMetricsTest {
         assertThat(league.orientation().get("infortuni a partita")).isCloseTo(1.0, within(TOLERANCE));
     }
 
+    @Test
+    void theVoluntaryInterventionsAreAveragedPerTeamAndPerKind() {
+        PlayedMatch busy = matchWithInterventions(new VoluntaryInterventions(2, 4, 2));
+        PlayedMatch quiet = matchWithInterventions(VoluntaryInterventions.none());
+
+        MeasuredLeague league = metrics.measure(List.of(busy, quiet));
+
+        assertThat(league.orientation().get("cambi volontari per squadra")).isCloseTo(2.0, within(TOLERANCE));
+        assertThat(league.orientation().get("di cui cambi di stile")).isCloseTo(0.5, within(TOLERANCE));
+        assertThat(league.orientation().get("di cui sostituzioni")).isCloseTo(1.0, within(TOLERANCE));
+        assertThat(league.orientation().get("di cui spostamenti")).isCloseTo(0.5, within(TOLERANCE));
+    }
+
+    @Test
+    void theShareOfGoalsInTheFinalPhaseCountsFromTheMinuteOfTheCoachTiming() {
+        MatchTime beforeTheFinal = new MatchTime(MatchPeriod.SECOND_HALF, 29 * 60);
+        MatchTime atTheFinal = new MatchTime(MatchPeriod.SECOND_HALF, 30 * 60);
+        List<ScoredGoal> goals = List.of(new ScoredGoal(MatchSide.HOME, scorer, beforeTheFinal),
+                new ScoredGoal(MatchSide.AWAY, scorer, atTheFinal),
+                new ScoredGoal(MatchSide.HOME, scorer, new MatchTime(MatchPeriod.FIRST_HALF, 100)),
+                new ScoredGoal(MatchSide.HOME, scorer, new MatchTime(MatchPeriod.FIRST_HALF, 200)));
+        MatchSummary summary = new MatchSummary(goals, statistics(1, 100), statistics(1, 100));
+        PlayedMatch played = new PlayedMatch("Home", "Away", summary, VoluntaryInterventions.none());
+
+        MeasuredLeague league = metrics.measure(List.of(played));
+
+        assertThat(league.orientation().get("gol nel finale (%)")).isCloseTo(25.0, within(TOLERANCE));
+    }
+
+    @Test
+    void theShareOfGoalsInTheFinalPhaseIsZeroWhenNobodyScores() {
+        MeasuredLeague league = metrics.measure(List.of(match(0, 0, statistics(1, 100), statistics(1, 100))));
+
+        assertThat(league.orientation().get("gol nel finale (%)")).isZero();
+    }
+
+    private PlayedMatch matchWithInterventions(VoluntaryInterventions interventions) {
+        MatchSummary summary = new MatchSummary(List.of(), statistics(1, 100), statistics(1, 100));
+        return new PlayedMatch("Home", "Away", summary, interventions);
+    }
+
     private PlayedMatch suspendedMatch(int fieldHome, int fieldAway, Score official, TeamStatistics home,
             TeamStatistics away) {
         List<ScoredGoal> goals = goalsOf(fieldHome, fieldAway);
         MatchTime time = new MatchTime(MatchPeriod.SECOND_HALF, 1800);
         Suspension suspension = new Suspension(MatchSide.HOME, official, time);
         MatchSummary summary = new MatchSummary(goals, home, away, suspension);
-        return new PlayedMatch("Home", "Away", summary);
+        return new PlayedMatch("Home", "Away", summary, VoluntaryInterventions.none());
     }
 
     private List<ScoredGoal> goalsOf(int homeGoals, int awayGoals) {

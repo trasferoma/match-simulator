@@ -5,6 +5,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_DEFENDER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_GOALKEEPER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_BENCH;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.TEAM_NAMES;
@@ -21,6 +22,7 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -32,11 +34,18 @@ import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 class NarratorTest {
+
+    private static final Deployment DEPLOYMENT = new Deployment(4, 4, 2);
 
     private static final Pattern LINE_START = Pattern.compile("^(\\*\\*\\* )?\\d+(\\+\\d+)?' \\S.*");
     private static final int MAX_ANNOUNCED_MINUTES = 8;
@@ -327,7 +336,7 @@ class NarratorTest {
     @Test
     void anEventWithoutAPhraseIsReportedWithItsKey() {
         Narrator withoutPhrases = new Narrator(new PhraseCatalog(Map.of("OTHER", List.of("x"))),
-                new PhraseVariantPicker(), new NarratedEventFilter(), new PhraseKeys(), new PhraseFiller(), new PitchDrawing());
+                new PhraseVariantPicker(), new NarratedEventFilter(), new PhraseKeys(), new PhraseFiller(UserMessages.italian()), new PitchDrawing());
         fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
 
         assertThatThrownBy(() -> withoutPhrases.narrate(fixture.list(), TEAM_NAMES, ChronicleMode.FULL))
@@ -349,6 +358,124 @@ class NarratorTest {
             assertThat(full).as("seed %d", seed)
                     .allSatisfy(line -> assertThat(line).matches(LINE_START).doesNotContain("{", "}"));
         }
+    }
+
+    @Test
+    void aStyleChangeNamesTheTeamTheCoachTheReasonAndBothStylesInItalian() {
+        addStyleChange(MatchSide.HOME, PlayStyle.BALANCED, PlayStyle.ATTACKING, ChangeReason.CHASE_GAME);
+        addStyleChange(MatchSide.AWAY, PlayStyle.POSSESSION, PlayStyle.COUNTER_ATTACK, ChangeReason.PROTECT_LEAD);
+
+        List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        assertThat(lines.get(0)).endsWith(
+                " Aquile: Marini cerca la rimonta e passa da un gioco equilibrato a uno offensivo.");
+        assertThat(lines.get(1)).endsWith(" Lupi: Fabbri vuole difendere il vantaggio e passa da un gioco di "
+                + "possesso a uno di contropiede.");
+    }
+
+    @Test
+    void aVoluntarySubstitutionNamesTheCoachTheReasonBothPlayersAndTheSector() {
+        addSubstitution(ChangeReason.SEEK_WINNER, Role.MIDFIELDER);
+
+        List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        assertThat(lines.get(0)).endsWith(" Aquile, cambio per cercare la vittoria: Marini toglie Bianchi e "
+                + "inserisce Esposito, che va a centrocampo.");
+    }
+
+    @Test
+    void aForcedSubstitutionSaysItWasForced() {
+        addSubstitution(ChangeReason.INJURY, Role.FORWARD);
+
+        List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        String sentence = lines.get(0).substring(lines.get(0).indexOf(' ') + 1);
+        assertThat(sentence).isIn(
+                "Aquile, cambio forzato: Bianchi non ce la fa e Marini manda in campo Esposito, che va in attacco.",
+                "Bianchi deve lasciare il campo: Marini sceglie Esposito, che va in attacco, e Aquile riparte.",
+                "Aquile perde Bianchi per infortunio: Marini inserisce Esposito, che va in attacco.");
+    }
+
+    @Test
+    void aMoveNamesTheCoachOfTheSideOfTheEventAndTheSector() {
+        addMove(MatchSide.HOME, HOME_MIDFIELDER, ChangeReason.EXPLOIT_NUMERICAL_ADVANTAGE, Role.DEFENDER);
+        addMove(MatchSide.AWAY, AWAY_DEFENDER, ChangeReason.REINFORCE_STRUGGLING_SECTOR, Role.MIDFIELDER);
+        addMove(MatchSide.HOME, HOME_MIDFIELDER, ChangeReason.EMPTIED_SECTOR, Role.DEFENDER);
+        addMove(MatchSide.HOME, HOME_MIDFIELDER, ChangeReason.MAKESHIFT_GOALKEEPER, Role.GOALKEEPER);
+
+        List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        assertThat(lines.get(0)).endsWith(" Aquile: per sfruttare l'uomo in più Marini sposta Bianchi in difesa.");
+        assertThat(lines.get(1)).endsWith(" Lupi: per rinforzare il reparto in difficoltà Fabbri sposta Neri a "
+                + "centrocampo.");
+        assertThat(lines.get(2)).endsWith(" Aquile ha un reparto scoperto: Marini sposta Bianchi in difesa.");
+        assertThat(lines.get(3)).endsWith(" Aquile resta senza portiere: Marini manda Bianchi tra i pali.");
+    }
+
+    @Test
+    void aSubstitutionThatChangesTheDeploymentSaysFromWhichModuleToWhich() {
+        Deployment before = new Deployment(4, 4, 2);
+        Deployment after = new Deployment(3, 4, 3);
+        addSubstitution(ChangeReason.CHASE_GAME, Role.FORWARD, before, after);
+
+        for (ChronicleMode mode : List.of(ChronicleMode.DEFAULT, ChronicleMode.FULL)) {
+            List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, mode);
+
+            assertThat(lines).hasSize(1);
+            assertThat(lines.get(0)).as(mode.name()).containsAnyOf(" Si passa da 4-4-2 a 3-4-3.",
+                    " Cambia lo schieramento: da 4-4-2 a 3-4-3.");
+        }
+    }
+
+    @Test
+    void aMoveThatChangesTheDeploymentSaysFromWhichModuleToWhich() {
+        Deployment before = new Deployment(4, 4, 2);
+        Deployment after = new Deployment(5, 3, 2);
+        addMove(MatchSide.HOME, HOME_MIDFIELDER, ChangeReason.PROTECT_LEAD, Role.DEFENDER, before, after);
+
+        List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        assertThat(lines.get(0)).containsAnyOf(" Si passa da 4-4-2 a 5-3-2.",
+                " Cambia lo schieramento: da 4-4-2 a 5-3-2.");
+    }
+
+    @Test
+    void aChangeThatKeepsTheDeploymentAddsNoModuleChange() {
+        addSubstitution(ChangeReason.SEEK_WINNER, Role.MIDFIELDER);
+        addMove(MatchSide.HOME, HOME_MIDFIELDER, ChangeReason.EMPTIED_SECTOR, Role.MIDFIELDER);
+
+        List<String> lines = narrateSentences(fixture.list(), TEAM_NAMES, ChronicleMode.FULL);
+
+        assertThat(lines).hasSize(2).allSatisfy(line -> assertThat(line)
+                .doesNotContain("4-4-2")
+                .doesNotContain("Si passa da")
+                .doesNotContain("schieramento"));
+    }
+
+    private void addStyleChange(MatchSide side, PlayStyle from, PlayStyle to, ChangeReason reason) {
+        EventDetail detail = EventDetail.styleChange(from, to, reason);
+        fixture.add(EventType.STYLE_CHANGED, side, ZoneRole.MIDFIELD, Participants.nobody(), detail);
+    }
+
+    private void addSubstitution(ChangeReason reason, Role sector) {
+        addSubstitution(reason, sector, DEPLOYMENT, DEPLOYMENT);
+    }
+
+    private void addSubstitution(ChangeReason reason, Role sector, Deployment before, Deployment after) {
+        Participants participants = NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH);
+        EventDetail detail = EventDetail.lineupChange(sector, reason, before, after);
+        fixture.add(EventType.SUBSTITUTION, MatchSide.HOME, ZoneRole.MIDFIELD, participants, detail);
+    }
+
+    private void addMove(MatchSide side, Player player, ChangeReason reason, Role sector) {
+        addMove(side, player, reason, sector, DEPLOYMENT, DEPLOYMENT);
+    }
+
+    private void addMove(MatchSide side, Player player, ChangeReason reason, Role sector, Deployment before,
+            Deployment after) {
+        Participants participants = NarrationEvents.participantsOf(player);
+        EventDetail detail = EventDetail.lineupChange(sector, reason, before, after);
+        fixture.add(EventType.PLAYER_MOVED, side, ZoneRole.MIDFIELD, participants, detail);
     }
 
     private List<String> narrateSentences(List<MatchEvent> events, TeamNames teamNames, ChronicleMode mode) {

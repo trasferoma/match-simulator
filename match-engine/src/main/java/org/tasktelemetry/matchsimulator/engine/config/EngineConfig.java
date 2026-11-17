@@ -57,7 +57,7 @@ public record EngineConfig(
         InjuryConfig injury = InjuryConfig.defaults();
         LineupConfig lineup = LineupConfig.defaults();
         ZonePresenceConfig zonePresence = ZonePresenceConfig.defaults();
-        double homeAdvantage = 1.08;
+        double homeAdvantage = 1.075;
         return new EngineConfig(buildUpAndMidfieldDuration, attackingThirdDuration, dribbleProbability,
                 noTeammateDribbleThreshold, stoppage, shot, setPiece, cross, counterAttack, playStyles, foul,
                 offside, injury, lineup, zonePresence, homeAdvantage);

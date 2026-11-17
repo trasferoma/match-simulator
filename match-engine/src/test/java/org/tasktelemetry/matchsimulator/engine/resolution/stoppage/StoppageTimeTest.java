@@ -168,6 +168,26 @@ class StoppageTimeTest {
         assertThat(customStoppage.announcedMinutes(events, MatchPeriod.SECOND_HALF)).isEqualTo(2);
     }
 
+    @Test
+    void substitutionsRecordedAtHalfTimeBeforeTheStartOfTheSecondHalfDoNotCount() {
+        for (int substitution = 0; substitution < 4; substitution++) {
+            add(EventType.SUBSTITUTION, MatchPeriod.SECOND_HALF);
+        }
+        add(EventType.SECOND_HALF_START, MatchPeriod.SECOND_HALF);
+
+        assertThat(stoppage.announcedMinutes(events, MatchPeriod.SECOND_HALF)).isEqualTo(1);
+    }
+
+    @Test
+    void substitutionsAfterTheStartOfTheSecondHalfCountAsAlways() {
+        add(EventType.SECOND_HALF_START, MatchPeriod.SECOND_HALF);
+        for (int substitution = 0; substitution < 4; substitution++) {
+            add(EventType.SUBSTITUTION, MatchPeriod.SECOND_HALF);
+        }
+
+        assertThat(stoppage.announcedMinutes(events, MatchPeriod.SECOND_HALF)).isEqualTo(2);
+    }
+
     @ParameterizedTest
     @EnumSource(value = MatchPeriod.class, names = {"BEFORE_KICK_OFF", "HALF_TIME", "FINISHED", "SUSPENDED"})
     void aPeriodThatIsNotAHalfHasNoStoppage(MatchPeriod period) {

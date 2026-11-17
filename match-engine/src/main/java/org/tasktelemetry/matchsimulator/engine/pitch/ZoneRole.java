@@ -5,5 +5,9 @@ public enum ZoneRole {
     DEFENCE,
     MIDFIELD,
     ATTACKING_THIRD,
-    OPPONENT_BOX
+    OPPONENT_BOX;
+
+    public boolean isInAttackingArea() {
+        return this == ATTACKING_THIRD || this == OPPONENT_BOX;
+    }
 }

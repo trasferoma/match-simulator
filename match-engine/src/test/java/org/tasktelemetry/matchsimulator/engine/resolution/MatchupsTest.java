@@ -145,6 +145,30 @@ class MatchupsTest {
         assertDuel(duel, ATTACK * multiplier, DEFENCE);
     }
 
+    @Test
+    void theAttackersDuelUsesTheStyleInUseOnThePitchAndNotTheOneTheTeamStartedWith() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.ATTACKING_THIRD);
+        TeamOnPitch attackers = teamWithStyle(PlayStyle.DEFENSIVE).withStyle(PlayStyle.ATTACKING);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.BALANCED);
+
+        Duel duel = passingDuel(matchups, state, attackers, defenders);
+
+        assertDuel(duel, ATTACK * 1.10, DEFENCE);
+    }
+
+    @Test
+    void theDefendersDuelUsesTheStyleInUseOnThePitchAndNotTheOneTheTeamStartedWith() {
+        Matchups matchups = matchupsFor(TestConfigs.withoutHomeAdvantage(config));
+        MatchState state = openPlayAt(MatchSide.AWAY, ZoneRole.ATTACKING_THIRD);
+        TeamOnPitch attackers = teamWithStyle(PlayStyle.BALANCED);
+        TeamOnPitch defenders = teamWithStyle(PlayStyle.ATTACKING).withStyle(PlayStyle.DEFENSIVE);
+
+        Duel duel = passingDuel(matchups, state, attackers, defenders);
+
+        assertDuel(duel, ATTACK, DEFENCE * 1.10);
+    }
+
     @ParameterizedTest
     @CsvSource({
             "ATTACKING, ATTACKING_THIRD, 0.92",

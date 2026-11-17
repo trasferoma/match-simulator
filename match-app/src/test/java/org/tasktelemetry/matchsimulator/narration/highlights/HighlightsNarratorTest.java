@@ -15,6 +15,7 @@ import java.util.stream.IntStream;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.GoalContext;
@@ -23,7 +24,9 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.narration.ChronicleMode;
 import org.tasktelemetry.matchsimulator.narration.NarrationEvents;
 import org.tasktelemetry.matchsimulator.narration.Narrator;
@@ -66,6 +69,23 @@ class HighlightsNarratorTest {
                 assertThat(linesOf(segments.get(index))).containsExactly(fullLines.get(index));
             }
         }
+    }
+
+    @Test
+    void theStopOfAChangeOfDeploymentTellsTheModuleChangeInItsOneLine() {
+        Deployment before = new Deployment(4, 4, 2);
+        Deployment after = new Deployment(4, 3, 3);
+        EventDetail detail = EventDetail.lineupChange(Role.FORWARD, ChangeReason.CHASE_GAME, before, after);
+        fixture.add(EventType.PLAYER_MOVED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(HOME_MIDFIELDER), detail);
+        List<MatchEvent> events = fixture.list();
+
+        List<NarratedSegment> segments = narrator.narrate(singleEventStops(events, false), events, TEAM_NAMES);
+
+        List<String> lines = linesOf(segments.get(0));
+        assertThat(lines).hasSize(1);
+        assertThat(lines.get(0)).containsAnyOf(" Si passa da 4-4-2 a 4-3-3.",
+                " Cambia lo schieramento: da 4-4-2 a 4-3-3.");
     }
 
     @Test

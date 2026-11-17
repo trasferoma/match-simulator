@@ -25,14 +25,13 @@ import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.live.LiveMatch;
 import org.tasktelemetry.matchsimulator.live.MatchObserver;
+import org.tasktelemetry.matchsimulator.live.PreparedMatch;
 import org.tasktelemetry.matchsimulator.narration.NarratedEventFilter;
 import org.tasktelemetry.matchsimulator.narration.NarrationEvents;
 import org.tasktelemetry.matchsimulator.narration.ReferenceChronicle;
 import org.tasktelemetry.matchsimulator.narration.TeamNames;
-import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
 
 class LiveHighlightsTest {
 
@@ -102,12 +101,11 @@ class LiveHighlightsTest {
     @ParameterizedTest
     @ValueSource(longs = {1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 42})
     void theLiveChronicleEqualsTheEndOfMatchChronicle(long seed) {
-        Team home = readTeam(ReferenceChronicle.homeTeamFile());
-        Team away = readTeam(ReferenceChronicle.awayTeamFile());
-        TeamNames teamNames = new TeamNames(home.name(), away.name());
+        PreparedMatch prepared = prepareReferenceMatch();
+        TeamNames teamNames = prepared.names();
         LiveHighlights live = newLiveHighlights(teamNames);
 
-        List<MatchEvent> events = newLiveMatch().play(home, away, seed, live);
+        List<MatchEvent> events = newLiveMatch().play(prepared, seed, live);
 
         assertThat(listener.segments()).isEqualTo(narratedAtTheEnd(events, teamNames));
         assertThat(listener.calls()).last().isEqualTo(FINISHED);
@@ -115,12 +113,11 @@ class LiveHighlightsTest {
 
     @Test
     void withSeed42TheKickOffStopArrivesInTheFirstDeliveryReachingSixEvents() {
-        Team home = readTeam(ReferenceChronicle.homeTeamFile());
-        Team away = readTeam(ReferenceChronicle.awayTeamFile());
-        TeamNames teamNames = new TeamNames(home.name(), away.name());
+        PreparedMatch prepared = prepareReferenceMatch();
+        TeamNames teamNames = prepared.names();
         ObserverSpy spy = new ObserverSpy(newLiveHighlights(teamNames), listener);
 
-        List<MatchEvent> events = newLiveMatch().play(home, away, ReferenceChronicle.SEED, spy);
+        List<MatchEvent> events = newLiveMatch().play(prepared, ReferenceChronicle.SEED, spy);
 
         List<HighlightSegment> selected = selector.select(events);
         assertThat(selected.get(0).events()).hasSize(1);
@@ -203,8 +200,10 @@ class LiveHighlightsTest {
         return new LiveMatch(new MatchEngine(EngineConfig.defaults()));
     }
 
-    private Team readTeam(Path file) {
-        return TeamFileReader.italian().read(file);
+    private PreparedMatch prepareReferenceMatch() {
+        Path homeFile = ReferenceChronicle.homeTeamFile();
+        Path awayFile = ReferenceChronicle.awayTeamFile();
+        return ReferenceChronicle.prepare(homeFile, awayFile);
     }
 
     private static class ObserverSpy implements MatchObserver {

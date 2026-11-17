@@ -10,6 +10,7 @@ import java.util.List;
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -21,6 +22,7 @@ import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
@@ -30,6 +32,8 @@ import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 class MatchSummaryCalculatorTest {
+
+    private static final Deployment DEPLOYMENT = new Deployment(4, 4, 2);
 
     private static final double TOLERANCE = 1e-9;
 
@@ -161,7 +165,8 @@ class MatchSummaryCalculatorTest {
         events.add(event(EventType.INJURY, MatchSide.AWAY, firstHalf(40), Participants.of(awayDefender, MatchSide.AWAY), 100,
                 EventDetail.none()));
         events.add(event(EventType.SUBSTITUTION, MatchSide.AWAY, firstHalf(41),
-                Participants.of(awayDefender, MatchSide.AWAY, awayForward, MatchSide.AWAY), 35, EventDetail.none()));
+                Participants.of(awayDefender, MatchSide.AWAY, awayForward, MatchSide.AWAY), 35,
+                EventDetail.lineupChange(Role.FORWARD, ChangeReason.INJURY, DEPLOYMENT, DEPLOYMENT)));
 
         MatchSummary summary = calculator.summarize(events);
 
@@ -290,9 +295,24 @@ void aGoalWithoutAScorerIsRejected() {
     }
 
     @Test
+    void aMoveOfAPlayerIsNeitherASubstitutionNorTimeWithTheBall() {
+        events.add(plainEvent(EventType.PASS_COMPLETED, MatchSide.HOME, homeMidfielder, 30));
+        events.add(event(EventType.PLAYER_MOVED, MatchSide.AWAY, firstHalf(31),
+                Participants.of(awayDefender, MatchSide.AWAY), 0,
+                EventDetail.lineupChange(Role.GOALKEEPER, ChangeReason.MAKESHIFT_GOALKEEPER, DEPLOYMENT, DEPLOYMENT)));
+
+        MatchSummary summary = calculator.summarize(events);
+
+        assertThat(summary.away().contour().substitutions()).isZero();
+        assertThat(summary.home().possessionSeconds()).isEqualTo(30);
+        assertThat(summary.away().possessionSeconds()).isZero();
+    }
+
+    @Test
     void substitutionsAreCountedForTheSideThatMadeThem() {
         events.add(event(EventType.SUBSTITUTION, MatchSide.AWAY, firstHalf(10),
-                Participants.of(awayDefender, MatchSide.AWAY, awayGoalkeeper, MatchSide.AWAY), 0, EventDetail.none()));
+                Participants.of(awayDefender, MatchSide.AWAY, awayGoalkeeper, MatchSide.AWAY), 0,
+                EventDetail.lineupChange(Role.GOALKEEPER, ChangeReason.RESERVE_GOALKEEPER, DEPLOYMENT, DEPLOYMENT)));
 
         MatchSummary summary = calculator.summarize(events);
 

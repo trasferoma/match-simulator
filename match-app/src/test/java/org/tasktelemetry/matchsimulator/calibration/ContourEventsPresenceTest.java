@@ -18,7 +18,8 @@ class ContourEventsPresenceTest {
     @ValueSource(strings = {"falli a partita", "gialli a partita", "rossi diretti a partita", "secondi gialli a partita",
             "rigori a partita",
             "fuorigioco a partita", "infortuni a partita", "cambi a partita", "angoli a partita",
-            "cross a partita", "cross deviati in angolo a partita"})
+            "cross a partita", "cross deviati in angolo a partita", "cambi volontari per squadra",
+            "di cui cambi di stile", "di cui sostituzioni", "di cui spostamenti", "gol nel finale (%)"})
     void everyContourEventAppearsAtLeastOnceInTheLeagueOfTheBench(String metric) {
         assertThat(ORIENTATION).containsKey(metric);
         assertThat(ORIENTATION.get(metric))

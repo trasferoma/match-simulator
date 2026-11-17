@@ -8,6 +8,8 @@ import java.io.StringReader;
 import java.util.Map;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.TeamRule;
 
 class UserMessagesTest {
@@ -30,6 +32,12 @@ class UserMessagesTest {
 
             assertThat(text).as(rule.name()).isNotBlank().doesNotContain("{");
         }
+    }
+
+    @Test
+    void everySectorAndEveryPlayStyleHasItsItalianWord() {
+        assertThat(Role.values()).allSatisfy(role -> assertThat(italian.text(role)).isNotBlank());
+        assertThat(PlayStyle.values()).allSatisfy(style -> assertThat(italian.text(style)).isNotBlank());
     }
 
     @Test

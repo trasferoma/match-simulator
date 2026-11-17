@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.teamfile;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.coach.squad.SquadRule;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 class TeamFileMessagesTest {
@@ -22,6 +23,14 @@ class TeamFileMessagesTest {
     void everyTeamFileErrorFrameHasItsItalianMessage() {
         for (TeamFileErrorFrame frame : TeamFileErrorFrame.values()) {
             assertThat(italian.has(frame)).as(frame.name()).isTrue();
+        }
+    }
+
+    @Test
+    void everySquadRuleHasItsItalianMessageFilledWithoutLeavingPlaceholders() {
+        for (SquadRule rule : SquadRule.values()) {
+            assertThat(italian.has(rule)).as(rule.name()).isTrue();
+            assertThat(italian.text(rule, FOUR_ARGUMENTS)).as(rule.name()).doesNotContain("{");
         }
     }
 

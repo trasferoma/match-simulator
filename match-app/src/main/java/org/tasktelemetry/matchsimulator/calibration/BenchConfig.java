@@ -9,7 +9,8 @@ public record BenchConfig(
         int seasons,
         long baseSeed,
         int individualVariation,
-        double possessionTolerance) {
+        double possessionTolerance,
+        int coachTacticalReading) {
 
     public BenchConfig {
         requireAtLeast("team count", teamCount, 2);
@@ -19,6 +20,7 @@ public record BenchConfig(
         requireAtLeast("seasons", seasons, 1);
         requireAtLeast("individual variation", individualVariation, 0);
         requireNotNegative(possessionTolerance);
+        requireInScale("coach tactical reading", coachTacticalReading);
     }
 
     public static BenchConfig defaults() {
@@ -29,8 +31,9 @@ public record BenchConfig(
         long baseSeed = 42L;
         int individualVariation = 3;
         double possessionTolerance = 3.0;
+        int coachTacticalReading = 50;
         return new BenchConfig(teamCount, weakestStrength, strongestStrength, seasons, baseSeed,
-                individualVariation, possessionTolerance);
+                individualVariation, possessionTolerance, coachTacticalReading);
     }
 
     private static void requireAtLeast(String name, int value, int minimum) {
@@ -39,11 +42,11 @@ public record BenchConfig(
         }
     }
 
-    private static void requireInScale(String name, int strength) {
-        boolean isInScale = strength >= PlayerAttributes.MIN_VALUE && strength <= PlayerAttributes.MAX_VALUE;
+    private static void requireInScale(String name, int value) {
+        boolean isInScale = value >= PlayerAttributes.MIN_VALUE && value <= PlayerAttributes.MAX_VALUE;
         if (!isInScale) {
             throw new IllegalArgumentException(name + " must be between " + PlayerAttributes.MIN_VALUE + " and "
-                    + PlayerAttributes.MAX_VALUE + ", was " + strength);
+                    + PlayerAttributes.MAX_VALUE + ", was " + value);
         }
     }
 

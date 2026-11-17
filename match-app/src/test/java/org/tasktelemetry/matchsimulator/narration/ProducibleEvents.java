@@ -13,6 +13,7 @@ import java.util.Set;
 import java.util.stream.Stream;
 
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -23,18 +24,24 @@ import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 
 final class ProducibleEvents {
+
+    private static final Deployment DEPLOYMENT_BEFORE = new Deployment(4, 4, 2);
+    private static final Deployment DEPLOYMENT_AFTER = new Deployment(4, 3, 3);
 
     private static final Set<EventType> WITHOUT_PLAYERS = EnumSet.of(EventType.KICK_OFF, EventType.SECOND_HALF_START,
             EventType.FIRST_HALF_END, EventType.MATCH_END, EventType.KICK_OFF_AFTER_GOAL);
     private static final Set<EventType> WITH_BOTH_PLAYERS = EnumSet.of(EventType.CLEARANCE, EventType.OFFSIDE,
-            EventType.SUBSTITUTION, EventType.CROSS_DEFLECTED_TO_CORNER);
+            EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final Set<EventType> WITH_SPECIFIC_DETAIL = EnumSet.of(EventType.STOPPAGE_ANNOUNCED,
             EventType.MATCH_SUSPENDED, EventType.FOUL, EventType.GOAL, EventType.SHOT_SAVED,
-            EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
+            EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED, EventType.STYLE_CHANGED, EventType.SUBSTITUTION,
+            EventType.PLAYER_MOVED);
 
     private final NarrationEvents fixture = new NarrationEvents();
 
@@ -45,7 +52,8 @@ final class ProducibleEvents {
     private List<MatchEvent> build() {
         Stream<MatchEvent> flow = Stream.concat(withoutPlayers(), withPrimaryOnly());
         Stream<MatchEvent> pairs = Stream.concat(withBothPlayers(), specificDetails());
-        return Stream.concat(flow, pairs).toList();
+        Stream<MatchEvent> interventions = interventions();
+        return Stream.concat(Stream.concat(flow, pairs), interventions).toList();
     }
 
     private Stream<MatchEvent> withoutPlayers() {
@@ -57,6 +65,38 @@ final class ProducibleEvents {
         EventDetail suspension = EventDetail.suspension(MatchSide.HOME, fieldScore, officialScore);
         MatchEvent suspended = eventWithDetail(EventType.MATCH_SUSPENDED, Participants.nobody(), suspension);
         return Stream.concat(flow, Stream.of(stoppage, suspended));
+    }
+
+    private Stream<MatchEvent> interventions() {
+        return InterventionReasons.types().stream()
+                .flatMap(type -> InterventionReasons.validFor(type).stream()
+                        .map(reason -> intervention(type, reason)));
+    }
+
+    private MatchEvent intervention(EventType type, ChangeReason reason) {
+        return switch (type) {
+            case STYLE_CHANGED -> styleChange(reason);
+            case SUBSTITUTION -> substitution(reason);
+            case PLAYER_MOVED -> playerMoved(reason);
+            default -> throw new IllegalArgumentException(type + " is not an intervention");
+        };
+    }
+
+    private MatchEvent styleChange(ChangeReason reason) {
+        EventDetail detail = EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.ATTACKING, reason);
+        return eventWithDetail(EventType.STYLE_CHANGED, Participants.nobody(), detail);
+    }
+
+    private MatchEvent substitution(ChangeReason reason) {
+        Participants participants = NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH);
+        EventDetail detail = EventDetail.lineupChange(InterventionReasons.sectorOf(reason), reason, DEPLOYMENT_BEFORE, DEPLOYMENT_AFTER);
+        return eventWithDetail(EventType.SUBSTITUTION, participants, detail);
+    }
+
+    private MatchEvent playerMoved(ChangeReason reason) {
+        Participants participants = NarrationEvents.participantsOf(HOME_MIDFIELDER);
+        EventDetail detail = EventDetail.lineupChange(InterventionReasons.sectorOf(reason), reason, DEPLOYMENT_BEFORE, DEPLOYMENT_AFTER);
+        return eventWithDetail(EventType.PLAYER_MOVED, participants, detail);
     }
 
     private Stream<MatchEvent> withPrimaryOnly() {
@@ -146,7 +186,8 @@ final class ProducibleEvents {
     }
 
     private MatchEvent eventWithBothPlayers(EventType type) {
-        return eventWithDetail(type, NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD), EventDetail.none());
+        Participants participants = NarrationEvents.participantsOf(AWAY_DEFENDER, HOME_FORWARD);
+        return eventWithDetail(type, participants, EventDetail.none());
     }
 
     private MatchEvent eventWithDetail(EventType type, Participants participants, EventDetail detail) {

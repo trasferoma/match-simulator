@@ -2,7 +2,13 @@ package org.tasktelemetry.matchsimulator.teamfile;
 
 import java.util.List;
 
-record TeamFileDocument(String name, String style, List<PlayerEntry> starters, List<PlayerEntry> bench) {
+record TeamFileDocument(String name, CoachEntry coach, List<PlayerEntry> players) {
+
+    record CoachEntry(String name, CoachAttributesEntry attributes) {
+    }
+
+    record CoachAttributesEntry(Integer tacticalReading) {
+    }
 
     record PlayerEntry(String name, String role, AttributesEntry attributes) {
     }

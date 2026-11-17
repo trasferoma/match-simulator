@@ -28,7 +28,8 @@ class HighlightsConfigReaderTest {
     private static final Set<EventType> ONE_LINE = EnumSet.of(EventType.KICK_OFF, EventType.SECOND_HALF_START,
             EventType.KICK_OFF_AFTER_GOAL, EventType.STOPPAGE_ANNOUNCED, EventType.FIRST_HALF_END,
             EventType.MATCH_END, EventType.MATCH_SUSPENDED, EventType.YELLOW_CARD, EventType.SECOND_YELLOW_CARD,
-            EventType.RED_CARD, EventType.INJURY, EventType.SUBSTITUTION);
+            EventType.RED_CARD, EventType.INJURY, EventType.SUBSTITUTION,
+            EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
     private static final Set<EventType> LINKED = EnumSet.of(EventType.CORNER_KICK, EventType.OFFSIDE);
 
     private final HighlightsConfigReader reader = new HighlightsConfigReader();
@@ -54,10 +55,11 @@ class HighlightsConfigReaderTest {
         assertThat(config.maxPreparationLines()).isEqualTo(4);
         assertThat(config.consequenceWindow()).isEqualTo(2);
         assertThat(config.framePause()).isEqualTo(Duration.ofMillis(150));
-        assertThat(config.eventLinePause()).isEqualTo(Duration.ofMillis(1000));
-        assertThat(config.chanceLinePause()).isEqualTo(Duration.ofMillis(1500));
-        assertThat(config.afterGoalPause()).isEqualTo(Duration.ofMillis(2500));
-        assertThat(config.resumePause()).isEqualTo(Duration.ofMillis(800));
+        assertThat(config.eventLinePause()).isEqualTo(Duration.ofMillis(1500));
+        assertThat(config.chanceLinePause()).isEqualTo(Duration.ofMillis(2200));
+        assertThat(config.afterGoalPause()).isEqualTo(Duration.ofMillis(3500));
+        assertThat(config.resumePause()).isEqualTo(Duration.ofMillis(2000));
+        assertThat(config.lineupsPause()).isEqualTo(Duration.ofMillis(4000));
     }
 
     @Test
@@ -134,6 +136,16 @@ class HighlightsConfigReaderTest {
     }
 
     @Test
+    void aMissingLineupsPauseIsRejectedWithItsKey() {
+        assertRejected(Map.of(), Set.of("pause.lineupsMillis"), "pause.lineupsMillis", "missing");
+    }
+
+    @Test
+    void aNegativeLineupsPauseIsRejectedWithKeyAndValue() {
+        assertRejected(Map.of("pause.lineupsMillis", "-1"), Set.of(), "pause.lineupsMillis", "-1");
+    }
+
+    @Test
     void theConfigurationRejectsTreatmentsAndZonesThatBreakItsInvariantsWhenBuiltDirectly() {
         HighlightsConfig valid = reader.readDefault();
         Map<EventType, HighlightTreatment> treatments = new EnumMap<>(valid.treatments());
@@ -148,7 +160,7 @@ class HighlightsConfigReaderTest {
     private HighlightsConfig withTreatments(HighlightsConfig base, Map<EventType, HighlightTreatment> treatments) {
         return new HighlightsConfig(treatments, base.alsoStopsInZones(), base.maxPreparationLines(),
                 base.consequenceWindow(), base.framePause(), base.eventLinePause(), base.chanceLinePause(),
-                base.afterGoalPause(), base.resumePause());
+                base.afterGoalPause(), base.resumePause(), base.lineupsPause());
     }
 
     private HighlightTreatment expectedTreatmentOf(EventType type) {

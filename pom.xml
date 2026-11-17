@@ -11,6 +11,7 @@
 
     <modules>
         <module>match-engine</module>
+        <module>match-coach</module>
         <module>match-app</module>
     </modules>
 
@@ -51,6 +52,11 @@
             <dependency>
                 <groupId>${project.groupId}</groupId>
                 <artifactId>match-engine</artifactId>
+                <version>${project.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>${project.groupId}</groupId>
+                <artifactId>match-coach</artifactId>
                 <version>${project.version}</version>
             </dependency>
         </dependencies>

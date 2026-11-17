@@ -20,7 +20,8 @@ public record HighlightsConfig(
         Duration eventLinePause,
         Duration chanceLinePause,
         Duration afterGoalPause,
-        Duration resumePause) {
+        Duration resumePause,
+        Duration lineupsPause) {
 
     public HighlightsConfig {
         Objects.requireNonNull(treatments, "treatments must not be null");
@@ -35,6 +36,7 @@ public record HighlightsConfig(
         requireNotNegative("chance line pause millis", chanceLinePause);
         requireNotNegative("after goal pause millis", afterGoalPause);
         requireNotNegative("resume pause millis", resumePause);
+        requireNotNegative("lineups pause millis", lineupsPause);
         treatments = immutableTreatments(treatments);
         alsoStopsInZones = immutableZones(alsoStopsInZones);
     }

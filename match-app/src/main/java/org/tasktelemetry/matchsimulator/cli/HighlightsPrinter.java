@@ -42,6 +42,16 @@ final class HighlightsPrinter {
         return new StopsOnlySession();
     }
 
+    void pauseAfterLineups(boolean forceAnimation) {
+        if (isAnimated(forceAnimation)) {
+            waitFor(config.lineupsPause());
+        }
+    }
+
+    private boolean isAnimated(boolean forceAnimation) {
+        return interactiveTerminal || forceAnimation;
+    }
+
     private final class AnimatedSession implements HighlightsListener {
 
         private final AnimatedRows rows;

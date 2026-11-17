@@ -32,7 +32,9 @@ public enum EventType {
     SECOND_YELLOW_CARD,
     RED_CARD,
     INJURY,
-    SUBSTITUTION;
+    SUBSTITUTION,
+    STYLE_CHANGED,
+    PLAYER_MOVED;
 
     public boolean isBallRecovery() {
         return this == INTERCEPTION || this == TACKLE;
@@ -44,5 +46,13 @@ public enum EventType {
 
     public boolean isDismissal() {
         return this == SECOND_YELLOW_CARD || this == RED_CARD;
+    }
+
+    public boolean isShot() {
+        return this == GOAL || this == SHOT_SAVED || this == SHOT_OFF_TARGET || this == SHOT_BLOCKED;
+    }
+
+    public boolean countsForPossession() {
+        return this != INJURY && this != SUBSTITUTION && this != STYLE_CHANGED && this != PLAYER_MOVED;
     }
 }

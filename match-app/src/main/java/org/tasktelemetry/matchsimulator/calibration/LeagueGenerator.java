@@ -5,21 +5,21 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Objects;
 
+import org.tasktelemetry.matchsimulator.coach.squad.CoachAttributes;
+import org.tasktelemetry.matchsimulator.coach.squad.CoachProfile;
+import org.tasktelemetry.matchsimulator.coach.squad.Squad;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
-import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 public final class LeagueGenerator {
 
-    private static final List<Role> STARTING_ROLES = List.of(
+    private static final List<Role> ROSTER_ROLES = List.of(
             Role.GOALKEEPER,
             Role.DEFENDER, Role.DEFENDER, Role.DEFENDER, Role.DEFENDER,
             Role.MIDFIELDER, Role.MIDFIELDER, Role.MIDFIELDER, Role.MIDFIELDER,
-            Role.FORWARD, Role.FORWARD);
-    private static final List<Role> BENCH_ROLES = List.of(
+            Role.FORWARD, Role.FORWARD,
             Role.GOALKEEPER,
             Role.DEFENDER, Role.DEFENDER,
             Role.MIDFIELDER, Role.MIDFIELDER,
@@ -33,14 +33,15 @@ public final class LeagueGenerator {
         this.profiles = Objects.requireNonNull(profiles, "role profiles must not be null");
     }
 
-    public List<Team> generate(long seed) {
+    public List<Squad> generate(long seed) {
         MatchRandom random = new MatchRandom(seed);
-        List<Team> teams = new ArrayList<>();
+        List<Squad> squads = new ArrayList<>();
         for (int index = 0; index < config.teamCount(); index++) {
-            Team team = generateTeam(index, random);
-            teams.add(team);
+            int strength = strengthOf(index);
+            Squad squad = generateSquad(index, strength, random);
+            squads.add(squad);
         }
-        return teams;
+        return squads;
     }
 
     public int strengthOf(int teamIndex) {
@@ -55,26 +56,28 @@ public final class LeagueGenerator {
         return String.format(Locale.ROOT, "Team %02d", teamIndex);
     }
 
-    private Team generateTeam(int teamIndex, MatchRandom random) {
+    public String coachNameOf(int teamIndex) {
+        return String.format(Locale.ROOT, "Coach %02d", teamIndex);
+    }
+
+    public Squad generateSquad(int teamIndex, int strength, MatchRandom random) {
         String name = nameOf(teamIndex);
-        int strength = strengthOf(teamIndex);
-        PlayStyle style = rotatingStyle(teamIndex);
-        List<Player> starters = generatePlayers(name, "S", STARTING_ROLES, strength, random);
-        List<Player> bench = generatePlayers(name, "B", BENCH_ROLES, strength, random);
-        return new Team(name, style, starters, bench);
+        List<Player> players = generatePlayers(name, strength, random);
+        CoachProfile coach = generateCoach(teamIndex);
+        return new Squad(name, coach, players);
     }
 
-    private PlayStyle rotatingStyle(int teamIndex) {
-        PlayStyle[] styles = PlayStyle.values();
-        return styles[teamIndex % styles.length];
+    private CoachProfile generateCoach(int teamIndex) {
+        String coachName = coachNameOf(teamIndex);
+        CoachAttributes attributes = new CoachAttributes(config.coachTacticalReading());
+        return new CoachProfile(coachName, attributes);
     }
 
-    private List<Player> generatePlayers(String teamName, String squadPart, List<Role> roles, int strength,
-            MatchRandom random) {
+    private List<Player> generatePlayers(String teamName, int strength, MatchRandom random) {
         List<Player> players = new ArrayList<>();
-        for (int position = 0; position < roles.size(); position++) {
-            Role role = roles.get(position);
-            String playerName = teamName + " " + squadPart + (position + 1);
+        for (int position = 0; position < ROSTER_ROLES.size(); position++) {
+            Role role = ROSTER_ROLES.get(position);
+            String playerName = teamName + " P" + (position + 1);
             PlayerAttributes attributes = generateAttributes(role, strength, random);
             Player player = new Player(playerName, role, attributes);
             players.add(player);

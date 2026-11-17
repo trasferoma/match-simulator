@@ -1,0 +1,14 @@
+package org.tasktelemetry.matchsimulator.engine.intervention;
+
+public enum RefusalReason {
+    MATCH_NOT_IN_PLAY,
+    INTERVENTION_ALREADY_PENDING,
+    PLAYER_NOT_ON_PITCH,
+    SUBSTITUTE_NOT_AVAILABLE,
+    NO_SUBSTITUTIONS_LEFT,
+    GOALKEEPER_NOT_COVERED,
+    GOALKEEPER_CANNOT_MOVE,
+    ALREADY_IN_THAT_SECTOR,
+    SECTOR_WOULD_BE_EMPTIED,
+    STYLE_ALREADY_IN_USE
+}

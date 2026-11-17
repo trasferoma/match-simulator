@@ -1,7 +1,12 @@
 {
   "name": "Sporting Collina",
-  "style": "contropiede",
-  "starters": [
+  "coach": {
+    "name": "Roberto Basile",
+    "attributes": {
+      "tacticalReading": 40
+    }
+  },
+  "players": [
     {
       "name": "Carlo Rossetti",
       "role": "portiere",
@@ -155,9 +160,7 @@
         "aerial": 65,
         "goalkeeping": 28
       }
-    }
-  ],
-  "bench": [
+    },
     {
       "name": "Pietro Silvestri",
       "role": "portiere",

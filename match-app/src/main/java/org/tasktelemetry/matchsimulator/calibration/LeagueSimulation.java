@@ -6,11 +6,15 @@ import java.util.Objects;
 import java.util.random.RandomGenerator;
 import java.util.random.RandomGeneratorFactory;
 
-import org.tasktelemetry.matchsimulator.engine.Match;
+import org.tasktelemetry.matchsimulator.coach.squad.Squad;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
+import org.tasktelemetry.matchsimulator.live.LiveMatch;
+import org.tasktelemetry.matchsimulator.live.MatchObserver;
+import org.tasktelemetry.matchsimulator.live.MatchPreparation;
+import org.tasktelemetry.matchsimulator.live.PreparedMatch;
+import org.tasktelemetry.matchsimulator.live.SilentObserver;
 import org.tasktelemetry.matchsimulator.summary.MatchSummary;
 import org.tasktelemetry.matchsimulator.summary.MatchSummaryCalculator;
 
@@ -20,14 +24,20 @@ public final class LeagueSimulation {
 
     private final BenchConfig config;
     private final LeagueGenerator generator;
-    private final MatchEngine engine;
+    private final MatchPreparation preparation;
+    private final LiveMatch liveMatch;
+    private final MatchObserver silentObserver;
     private final MatchSummaryCalculator summaryCalculator;
 
-    public LeagueSimulation(BenchConfig config, LeagueGenerator generator, EngineConfig engineConfig) {
+    public LeagueSimulation(BenchConfig config, LeagueGenerator generator, MatchPreparation preparation,
+            EngineConfig engineConfig) {
         this.config = Objects.requireNonNull(config, "config must not be null");
         this.generator = Objects.requireNonNull(generator, "generator must not be null");
+        this.preparation = Objects.requireNonNull(preparation, "match preparation must not be null");
         Objects.requireNonNull(engineConfig, "engine configuration must not be null");
-        this.engine = new MatchEngine(engineConfig);
+        MatchEngine engine = new MatchEngine(engineConfig);
+        this.liveMatch = new LiveMatch(engine);
+        this.silentObserver = new SilentObserver();
         this.summaryCalculator = new MatchSummaryCalculator();
     }
 
@@ -48,10 +58,10 @@ public final class LeagueSimulation {
 
     private List<PlayedMatch> simulateSeason(RandomGenerator seeds) {
         long leagueSeed = seeds.nextLong();
-        List<Team> teams = generator.generate(leagueSeed);
+        List<Squad> squads = generator.generate(leagueSeed);
         List<PlayedMatch> played = new ArrayList<>();
-        for (Team home : teams) {
-            for (Team away : teams) {
+        for (Squad home : squads) {
+            for (Squad away : squads) {
                 if (home != away) {
                     long matchSeed = seeds.nextLong();
                     PlayedMatch playedMatch = playMatch(home, away, matchSeed);
@@ -62,17 +72,11 @@ public final class LeagueSimulation {
         return played;
     }
 
-    private PlayedMatch playMatch(Team home, Team away, long seed) {
-        List<MatchEvent> events = runToTheEnd(home, away, seed);
+    private PlayedMatch playMatch(Squad home, Squad away, long seed) {
+        PreparedMatch prepared = preparation.prepare(home, away);
+        List<MatchEvent> events = liveMatch.play(prepared, seed, silentObserver);
         MatchSummary summary = summaryCalculator.summarize(events);
-        return new PlayedMatch(home.name(), away.name(), summary);
-    }
-
-    private List<MatchEvent> runToTheEnd(Team home, Team away, long seed) {
-        Match match = engine.start(home, away, seed);
-        while (!match.isFinished()) {
-            match.step();
-        }
-        return match.events();
+        VoluntaryInterventions interventions = VoluntaryInterventions.from(events);
+        return new PlayedMatch(home.name(), away.name(), summary, interventions);
     }
 }

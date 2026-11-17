@@ -30,8 +30,10 @@ public final class HighlightsConfigReader {
     private static final String CHANCE_LINE_PAUSE_KEY = "pause.chanceLineMillis";
     private static final String AFTER_GOAL_PAUSE_KEY = "pause.afterGoalMillis";
     private static final String RESUME_PAUSE_KEY = "pause.resumeMillis";
+    private static final String LINEUPS_PAUSE_KEY = "pause.lineupsMillis";
     private static final Set<String> NUMERIC_KEYS = Set.of(MAX_PREPARATION_LINES_KEY, CONSEQUENCE_WINDOW_KEY,
-            FRAME_PAUSE_KEY, EVENT_LINE_PAUSE_KEY, CHANCE_LINE_PAUSE_KEY, AFTER_GOAL_PAUSE_KEY, RESUME_PAUSE_KEY);
+            FRAME_PAUSE_KEY, EVENT_LINE_PAUSE_KEY, CHANCE_LINE_PAUSE_KEY, AFTER_GOAL_PAUSE_KEY, RESUME_PAUSE_KEY,
+            LINEUPS_PAUSE_KEY);
     private static final Pattern ZONE_SEPARATOR = Pattern.compile(",");
 
     public HighlightsConfig readDefault() {
@@ -59,8 +61,9 @@ public final class HighlightsConfigReader {
         Duration chanceLinePause = readPause(properties, CHANCE_LINE_PAUSE_KEY, source);
         Duration afterGoalPause = readPause(properties, AFTER_GOAL_PAUSE_KEY, source);
         Duration resumePause = readPause(properties, RESUME_PAUSE_KEY, source);
+        Duration lineupsPause = readPause(properties, LINEUPS_PAUSE_KEY, source);
         return new HighlightsConfig(treatments, zones, maxPreparationLines, consequenceWindow, framePause,
-                eventLinePause, chanceLinePause, afterGoalPause, resumePause);
+                eventLinePause, chanceLinePause, afterGoalPause, resumePause, lineupsPause);
     }
 
     private void requireOnlyKnownKeys(Properties properties, String source) {

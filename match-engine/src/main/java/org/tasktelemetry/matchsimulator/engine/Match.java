@@ -1,22 +1,30 @@
 package org.tasktelemetry.matchsimulator.engine;
 
 import java.util.ArrayList;
+import java.util.EnumMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.event.BallPosition;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
+import org.tasktelemetry.matchsimulator.engine.intervention.Intervention;
+import org.tasktelemetry.matchsimulator.engine.intervention.InterventionResult;
+import org.tasktelemetry.matchsimulator.engine.intervention.RefusalReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.resolution.ActionOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupOutcome;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.PlayerMove;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.Substitution;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.VoluntarySubstitutionRule;
 import org.tasktelemetry.matchsimulator.engine.state.MatchClock;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
@@ -24,14 +32,29 @@ import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.SetPieceKind;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public final class Match {
+
+    private record PendingIntervention(Intervention intervention, Score scoreAtRequest) {
+    }
+
+    private record DeploymentShift(Deployment before, Deployment after) {
+
+        static DeploymentShift between(TeamOnPitch teamBefore, TeamOnPitch teamAfter) {
+            Deployment before = Deployment.of(teamBefore);
+            Deployment after = Deployment.of(teamAfter);
+            return new DeploymentShift(before, after);
+        }
+    }
 
     private final PitchLayout layout;
     private final Map<MatchSide, TeamOnPitch> teams;
     private final ActionResolvers resolvers;
     private final List<MatchEvent> events = new ArrayList<>();
+    private final Map<MatchSide, PendingIntervention> pendingInterventions = new EnumMap<>(MatchSide.class);
 
     private MatchClock clock = MatchClock.beforeKickOff();
     private MatchState state;
@@ -51,6 +74,20 @@ public final class Match {
             case FIRST_HALF, SECOND_HALF -> playAction();
             case FINISHED, SUSPENDED -> throw new IllegalStateException("the match is over, no step can be played");
         }
+        settlePendingInterventions();
+    }
+
+    public InterventionResult apply(Intervention intervention) {
+        Objects.requireNonNull(intervention, "intervention must not be null");
+        Optional<RefusalReason> refusal = findRefusalToRequest(intervention);
+        if (refusal.isPresent()) {
+            return InterventionResult.refused(refusal.get());
+        }
+        if (isBallLive()) {
+            return keepPending(intervention);
+        }
+        execute(intervention);
+        return InterventionResult.executed();
     }
 
     public boolean isFinished() {
@@ -59,6 +96,149 @@ public final class Match {
 
     public List<MatchEvent> events() {
         return List.copyOf(events);
+    }
+
+    TeamOnPitch teamOnPitch(MatchSide side) {
+        return teams.get(side);
+    }
+
+    MatchState state() {
+        return state;
+    }
+
+    private Optional<RefusalReason> findRefusalToRequest(Intervention intervention) {
+        if (!clock.period().isInProgress()) {
+            return Optional.of(RefusalReason.MATCH_NOT_IN_PLAY);
+        }
+        if (pendingInterventions.containsKey(intervention.side())) {
+            return Optional.of(RefusalReason.INTERVENTION_ALREADY_PENDING);
+        }
+        return findRefusalOf(intervention);
+    }
+
+    private InterventionResult keepPending(Intervention intervention) {
+        pendingInterventions.put(intervention.side(), new PendingIntervention(intervention, score));
+        return InterventionResult.pending();
+    }
+
+    private boolean isBallLive() {
+        boolean isPlayed = clock.period().isPlayed();
+        return isPlayed && (state.hasCrossInFlight() || state.isAwaitingPenalty());
+    }
+
+    private void settlePendingInterventions() {
+        if (pendingInterventions.isEmpty() || isBallLive()) {
+            return;
+        }
+        List<PendingIntervention> due = List.copyOf(pendingInterventions.values());
+        pendingInterventions.clear();
+        for (PendingIntervention pending : due) {
+            if (isFinished()) {
+                return;
+            }
+            executeIfStillValid(pending);
+        }
+    }
+
+    private void executeIfStillValid(PendingIntervention pending) {
+        Intervention intervention = pending.intervention();
+        boolean isOutdatedByAGoal = !score.equals(pending.scoreAtRequest());
+        if (isOutdatedByAGoal || findRefusalOf(intervention).isPresent()) {
+            return;
+        }
+        execute(intervention);
+    }
+
+    private Optional<RefusalReason> findRefusalOf(Intervention intervention) {
+        TeamOnPitch team = teams.get(intervention.side());
+        return switch (intervention) {
+            case Intervention.StyleChange change -> findStyleRefusalOf(team, change);
+            case Intervention.VoluntarySubstitution request -> findSubstitutionRefusalOf(team, request);
+            case Intervention.SectorMove request -> findMoveRefusalOf(team, request);
+        };
+    }
+
+    private Optional<RefusalReason> findSubstitutionRefusalOf(TeamOnPitch team,
+            Intervention.VoluntarySubstitution request) {
+        return resolvers.voluntarySubstitution().refusalOf(team, request);
+    }
+
+    private Optional<RefusalReason> findMoveRefusalOf(TeamOnPitch team, Intervention.SectorMove request) {
+        return resolvers.sectorMove().refusalOf(team, request);
+    }
+
+    private Optional<RefusalReason> findStyleRefusalOf(TeamOnPitch team, Intervention.StyleChange change) {
+        if (team.style() == change.style()) {
+            return Optional.of(RefusalReason.STYLE_ALREADY_IN_USE);
+        }
+        return Optional.empty();
+    }
+
+    private void execute(Intervention intervention) {
+        switch (intervention) {
+            case Intervention.StyleChange change -> changeStyle(change);
+            case Intervention.VoluntarySubstitution request -> substituteVoluntarily(request);
+            case Intervention.SectorMove request -> moveToSector(request);
+        }
+    }
+
+    private void changeStyle(Intervention.StyleChange change) {
+        MatchSide side = change.side();
+        TeamOnPitch beforeChange = teams.get(side);
+        PlayStyle previousStyle = beforeChange.style();
+        TeamOnPitch restyled = beforeChange.withStyle(change.style());
+        teams.put(side, restyled);
+        recordStyleChange(side, previousStyle, change);
+    }
+
+    private void substituteVoluntarily(Intervention.VoluntarySubstitution request) {
+        MatchSide side = request.side();
+        TeamOnPitch beforeChange = teams.get(side);
+        Substitution substitution = bringInTheSubstitute(request);
+        TeamOnPitch afterChange = teams.get(side);
+        DeploymentShift shift = DeploymentShift.between(beforeChange, afterChange);
+        recordVoluntarySubstitution(side, substitution, shift);
+    }
+
+    private void moveToSector(Intervention.SectorMove request) {
+        MatchSide side = request.side();
+        TeamOnPitch beforeMove = teams.get(side);
+        TeamOnPitch moved = resolvers.sectorMove().move(beforeMove, request);
+        teams.put(side, moved);
+        PlayerMove move = new PlayerMove(request.player(), request.sector(), request.reason());
+        DeploymentShift shift = DeploymentShift.between(beforeMove, moved);
+        recordMove(side, move, shift);
+    }
+
+    private Substitution bringInTheSubstitute(Intervention.VoluntarySubstitution request) {
+        MatchSide side = request.side();
+        TeamOnPitch beforeChange = teams.get(side);
+        VoluntarySubstitutionRule rule = resolvers.voluntarySubstitution();
+        TeamOnPitch changed = rule.substitute(beforeChange, request);
+        teams.put(side, changed);
+        Role sector = changed.roleOf(request.entering());
+        return new Substitution(request.leaving(), request.entering(), sector, request.reason());
+    }
+
+    private void recordVoluntarySubstitution(MatchSide side, Substitution substitution, DeploymentShift shift) {
+        if (clock.period() == MatchPeriod.HALF_TIME) {
+            appendSubstitution(side, substitution, shift, 0);
+            return;
+        }
+        forgetPassOf(side, substitution.leaving());
+        recordSubstitution(side, substitution, shift);
+        announceStoppageAndClosePeriodIfDue();
+    }
+
+    private void announceStoppageAndClosePeriodIfDue() {
+        announceStoppageIfDue();
+        closePeriodIfExpired();
+    }
+
+    private void recordStyleChange(MatchSide side, PlayStyle previousStyle, Intervention.StyleChange change) {
+        EventDetail detail = EventDetail.styleChange(previousStyle, change.style(), change.reason());
+        Participants nobody = Participants.nobody();
+        appendEvent(EventType.STYLE_CHANGED, side, state, nobody, 0, detail);
     }
 
     private void startPeriod(MatchPeriod period, MatchSide kickingOffSide, EventType type) {
@@ -141,8 +321,19 @@ public final class Match {
     private void treatInjury(MatchSide side, Player injured) {
         recordInjury(side, injured);
         forgetPassOf(side, injured);
-        LineupOutcome outcome = replaceInjured(side, injured);
-        applyLineupOutcome(side, outcome);
+        TeamOnPitch beforeInjury = teams.get(side);
+        LineupOutcome outcome = replaceInjured(beforeInjury, injured);
+        TeamOnPitch beforeChanges = lineupBeforeChangesAfterInjury(beforeInjury, injured, outcome);
+        applyLineupOutcome(side, beforeChanges, outcome);
+    }
+
+    private TeamOnPitch lineupBeforeChangesAfterInjury(TeamOnPitch beforeInjury, Player injured,
+            LineupOutcome outcome) {
+        boolean isLeftWithoutReplacement = outcome.substitutions().isEmpty();
+        if (isLeftWithoutReplacement) {
+            return beforeInjury.withoutPlayer(injured);
+        }
+        return beforeInjury;
     }
 
     private void forgetPassOf(MatchSide side, Player injured) {
@@ -156,8 +347,7 @@ public final class Match {
         return isPossessingSide && player.equals(state.lastPasser());
     }
 
-    private LineupOutcome replaceInjured(MatchSide side, Player injured) {
-        TeamOnPitch beforeInjury = teams.get(side);
+    private LineupOutcome replaceInjured(TeamOnPitch beforeInjury, Player injured) {
         return resolvers.injury().replaceInjured(beforeInjury, injured);
     }
 
@@ -250,17 +440,20 @@ public final class Match {
     }
 
     private void dismiss(MatchSide side, Player dismissed) {
+        TeamOnPitch beforeDismissal = teams.get(side);
         LineupOutcome outcome = resolveDismissal(side, dismissed);
-        applyLineupOutcome(side, outcome);
+        TeamOnPitch beforeChanges = beforeDismissal.withoutPlayer(dismissed);
+        applyLineupOutcome(side, beforeChanges, outcome);
     }
 
-    private void applyLineupOutcome(MatchSide side, LineupOutcome outcome) {
+    private void applyLineupOutcome(MatchSide side, TeamOnPitch beforeChanges, LineupOutcome outcome) {
         teams.put(side, outcome.team());
         if (outcome.suspendsTheMatch()) {
             suspendMatch(side);
             return;
         }
-        recordSubstitutions(side, outcome.substitutions());
+        TeamOnPitch afterSubstitutions = recordSubstitutions(side, beforeChanges, outcome.substitutions());
+        recordMoves(side, afterSubstitutions, outcome.moves());
     }
 
     private LineupOutcome resolveDismissal(MatchSide side, Player dismissed) {
@@ -269,18 +462,48 @@ public final class Match {
         return resolvers.dismissal().dismiss(beforeDismissal, dismissed, lead);
     }
 
-    private void recordSubstitutions(MatchSide side, List<Substitution> substitutions) {
+    private TeamOnPitch recordSubstitutions(MatchSide side, TeamOnPitch beforeAll,
+            List<Substitution> substitutions) {
+        TeamOnPitch current = beforeAll;
         for (Substitution substitution : substitutions) {
-            recordSubstitution(side, substitution);
+            Player leaving = substitution.leaving();
+            Player entering = substitution.entering();
+            TeamOnPitch changed = current.withSubstitution(leaving, entering, substitution.sector());
+            DeploymentShift shift = DeploymentShift.between(current, changed);
+            recordSubstitution(side, substitution, shift);
+            current = changed;
+        }
+        return current;
+    }
+
+    private void recordMoves(MatchSide side, TeamOnPitch beforeAll, List<PlayerMove> moves) {
+        TeamOnPitch current = beforeAll;
+        for (PlayerMove move : moves) {
+            TeamOnPitch moved = current.withRole(move.player(), move.sector());
+            DeploymentShift shift = DeploymentShift.between(current, moved);
+            recordMove(side, move, shift);
+            current = moved;
         }
     }
 
-    private void recordSubstitution(MatchSide side, Substitution substitution) {
+    private void recordMove(MatchSide side, PlayerMove move, DeploymentShift shift) {
+        Participants participants = Participants.of(move.player(), side);
+        EventDetail detail = EventDetail.lineupChange(move.sector(), move.reason(), shift.before(), shift.after());
+        appendEvent(EventType.PLAYER_MOVED, side, state, participants, 0, detail);
+    }
+
+    private void recordSubstitution(MatchSide side, Substitution substitution, DeploymentShift shift) {
         int duration = resolvers.substitutionTimer().drawSubstitutionSeconds();
         advanceClock(duration);
+        appendSubstitution(side, substitution, shift, duration);
+    }
+
+    private void appendSubstitution(MatchSide side, Substitution substitution, DeploymentShift shift,
+            int durationSeconds) {
         Participants participants = Participants.of(substitution.leaving(), side, substitution.entering(), side);
-        EventDetail detail = EventDetail.none();
-        appendEvent(EventType.SUBSTITUTION, side, state, participants, duration, detail);
+        EventDetail detail = EventDetail.lineupChange(substitution.sector(), substitution.reason(), shift.before(),
+                shift.after());
+        appendEvent(EventType.SUBSTITUTION, side, state, participants, durationSeconds, detail);
     }
 
     private void suspendMatch(MatchSide responsibleSide) {
@@ -356,13 +579,20 @@ public final class Match {
     private void recordEvent(Occurrence occurrence, Participants participants, int durationSeconds,
             EventDetail detail) {
         int order = events.size() + 1;
-        MatchTime time = new MatchTime(clock.period(), clock.seconds());
+        MatchTime time = timeOfNextEvent();
         MatchState at = occurrence.at();
         ZoneRole zoneRole = layout.roleOf(at.zone(), occurrence.side());
         BallPosition ball = ballPositionAt(occurrence.ballAt());
         MatchEvent event = new MatchEvent(order, time, occurrence.type(), occurrence.side(), zoneRole, ball,
                 at.phase(), participants, durationSeconds, detail);
         events.add(event);
+    }
+
+    private MatchTime timeOfNextEvent() {
+        if (clock.period() == MatchPeriod.HALF_TIME) {
+            return new MatchTime(MatchPeriod.SECOND_HALF, 0);
+        }
+        return new MatchTime(clock.period(), clock.seconds());
     }
 
     private BallPosition ballPositionAt(MatchState ballAt) {

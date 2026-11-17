@@ -11,6 +11,7 @@ import org.junit.jupiter.params.provider.CsvSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
@@ -164,9 +165,10 @@ class MinimumPlayersRuleTest {
 
     @Test
     void aSuspendedOutcomeCannotCarrySubstitutions() {
-        Substitution substitution = new Substitution(complete.players().get(1), complete.players().get(2));
+        Substitution substitution = new Substitution(complete.players().get(1), complete.players().get(2), Role.MIDFIELDER,
+                ChangeReason.INJURY);
 
-        assertThatThrownBy(() -> new LineupOutcome(complete, true, List.of(substitution)))
+        assertThatThrownBy(() -> new LineupOutcome(complete, true, List.of(substitution), List.of()))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("a suspended match has no substitutions");
     }

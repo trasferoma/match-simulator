@@ -26,11 +26,17 @@ class MatchCommandLineTest {
     private static final Pattern SEED_ROW = Pattern.compile("(?m)^Seme: (-?\\d+)$");
     private static final Pattern SCORED_GOAL_ROW =
             Pattern.compile("(?m)^(\\d+(?:\\+\\d+)?' .+) \\((Atletico Mare|Sporting Collina)\\)$");
+    private static final String PLAY_STYLE_WORDS = "(?:equilibrato|offensivo|difensivo|di possesso|di contropiede)";
+    private static final Pattern LINEUPS_BLOCK = Pattern.compile("^Formazioni\\R"
+            + "Atletico Mare \\(all\\. Giorgio Parodi\\): \\d-\\d-\\d, gioco " + PLAY_STYLE_WORDS + "\\R"
+            + "Sporting Collina \\(all\\. Roberto Basile\\): \\d-\\d-\\d, gioco " + PLAY_STYLE_WORDS + "\\R\\R");
+    private static final Duration LINEUPS_PAUSE = Duration.ofMillis(4000);
     private static final String SCOREBOARD_TITLE = "Tabellino";
+    private static final String STYLE_CHANGE_TEXT = " passa da un gioco ";
     private static final String NL = System.lineSeparator();
     private static final String CURSOR_UP = "\u001B[1A";
     private static final Pattern REDRAW_CARRIAGE_RETURN = Pattern.compile("\r(?!\n)");
-    private static final Duration LAST_STOP_LINE_PAUSE = Duration.ofMillis(1000);
+    private static final Duration LAST_STOP_LINE_PAUSE = Duration.ofMillis(1500);
     private static final String INCOMPATIBLE_TEXT =
             "l'opzione --highlights non si combina con --full né con --stepByStep";
     private static final String ENTER_KEYS = "\n".repeat(5000);
@@ -56,6 +62,62 @@ class MatchCommandLineTest {
                 .contains("Statistiche (Atletico Mare - Sporting Collina)")
                 .contains("Seme: 42");
         assertThat(run.out()).containsPattern(RESULT_ROW);
+    }
+
+    @Test
+    void everyModeStartsWithTheLineupsOfBothTeamsFollowedByABlankLine() {
+        CliRun brief = CliRun.of(home, away, "--seed", "42");
+        CliRun full = CliRun.of(home, away, "--seed", "42", "--full");
+        CliRun stepByStep = CliRun.withInput(ENTER_KEYS, home, away, "--seed", "42", "--stepByStep");
+        CliRun highlights = CliRun.withTerminal(false, duration -> { }, home, away, "--seed", "42", "--highlights");
+        CliRun animated = CliRun.withTerminal(true, duration -> { }, home, away, "--seed", "42", "--highlights");
+
+        String expectedBlock = lineupsOf(brief);
+        assertThat(List.of(full, stepByStep, highlights, animated)).allSatisfy(run -> {
+            assertThat(run.out()).startsWith(expectedBlock);
+            assertThat(lineupsOf(run)).isEqualTo(expectedBlock);
+        });
+        assertThat(brief.out()).startsWith(expectedBlock);
+    }
+
+    @Test
+    void theLineupsComeBeforeTheFirstEventOfTheChronicle() {
+        CliRun run = CliRun.of(home, away, "--seed", "42");
+
+        String afterTheLineups = withoutLineups(run.out());
+
+        assertThat(afterTheLineups).startsWith("    ").contains("0'");
+        assertThat(run.out().indexOf("Formazioni")).isZero();
+    }
+
+    @Test
+    void highlightsOnATerminalWaitTheLineupsPauseBeforeAnyOtherPause() {
+        List<Duration> pauses = new ArrayList<>();
+
+        CliRun run = CliRun.withTerminal(true, pauses::add, home, away, "--seed", "42", "--highlights");
+
+        assertThat(run.exitCode()).isZero();
+        assertThat(pauses.getFirst()).isEqualTo(LINEUPS_PAUSE);
+        assertThat(pauses.subList(1, pauses.size())).doesNotContain(LINEUPS_PAUSE);
+    }
+
+    @Test
+    void animateWithoutATerminalWaitsTheLineupsPauseToo() {
+        List<Duration> pauses = new ArrayList<>();
+
+        CliRun.withTerminal(false, pauses::add, home, away, "--seed", "42", "--highlights", "--animate");
+
+        assertThat(pauses.getFirst()).isEqualTo(LINEUPS_PAUSE);
+    }
+
+    @Test
+    void theLineupsAreNotFollowedByAPauseInTheModesWithoutAnimation() {
+        List<Duration> pauses = new ArrayList<>();
+
+        CliRun.withTerminal(false, pauses::add, home, away, "--seed", "42", "--highlights");
+        CliRun.withTerminal(false, pauses::add, home, away, "--seed", "42");
+
+        assertThat(pauses).isEmpty();
     }
 
     @Test
@@ -136,6 +198,10 @@ class MatchCommandLineTest {
         assertThat(checkedGoals).isPositive();
     }
 
+    private long occurrencesOf(String text, String fragment) {
+        return text.split(Pattern.quote(fragment), -1).length - 1L;
+    }
+
     private String minuteOf(String minuteAndScorer) {
         return minuteAndScorer.substring(0, minuteAndScorer.indexOf(' '));
     }
@@ -180,6 +246,23 @@ class MatchCommandLineTest {
 
         assertThat(atTheStart.outBytes()).isEqualTo(atTheEnd.outBytes());
         assertThat(inTheMiddle.outBytes()).isEqualTo(atTheEnd.outBytes());
+    }
+
+    @Test
+    void everyModePlaysWithTheCoachesAndShowsTheirInterventions() {
+        CliRun brief = CliRun.of(home, away, "--seed", "42");
+        CliRun full = CliRun.of(home, away, "--seed", "42", "--full");
+        CliRun stepByStep = CliRun.withInput(ENTER_KEYS, home, away, "--seed", "42", "--stepByStep");
+        CliRun highlights = CliRun.withTerminal(false, duration -> { }, home, away, "--seed", "42", "--highlights");
+
+        assertThat(List.of(brief, full, stepByStep, highlights)).allSatisfy(run -> {
+            assertThat(run.exitCode()).isZero();
+            assertThat(run.out()).contains(STYLE_CHANGE_TEXT);
+        });
+        long inTheDefaultChronicle = occurrencesOf(brief.out(), STYLE_CHANGE_TEXT);
+        assertThat(occurrencesOf(full.out(), STYLE_CHANGE_TEXT)).isEqualTo(inTheDefaultChronicle);
+        assertThat(occurrencesOf(stepByStep.out(), STYLE_CHANGE_TEXT)).isEqualTo(inTheDefaultChronicle);
+        assertThat(occurrencesOf(highlights.out(), STYLE_CHANGE_TEXT)).isEqualTo(inTheDefaultChronicle);
     }
 
     @Test
@@ -297,7 +380,7 @@ class MatchCommandLineTest {
 
     @Test
     void anInvalidTeamFileIsReportedOnStderrWithFileAndFieldAndSimulatesNothing() throws IOException {
-        Path invalid = writeVariantOfTheHomeTeam("\"offensivo\"", "\"Offensivo\"");
+        Path invalid = writeVariantOfTheHomeTeam("\"role\": \"difensore\"", "\"role\": \"Difensore\"");
 
         CliRun run = CliRun.of(invalid.toString(), away);
 
@@ -305,28 +388,30 @@ class MatchCommandLineTest {
         assertThat(run.outBytes()).isEmpty();
         assertThat(run.err())
                 .contains(invalid.toString())
-                .contains("campo style")
-                .contains("valore sconosciuto \"Offensivo\"")
-                .contains("valori ammessi: equilibrato, offensivo, difensivo, possesso, contropiede");
+                .contains("campo players[1].role")
+                .contains("valore sconosciuto \"Difensore\"")
+                .contains("valori ammessi: portiere, difensore, centrocampista, attaccante");
     }
 
     @Test
-    void aBrokenFormationRuleIsReportedInItalianAndSimulatesNothing() throws IOException {
-        Path invalid = writeVariantOfTheHomeTeam("\"role\": \"difensore\"", "\"role\": \"portiere\"");
+    void aBrokenSquadRuleIsReportedInItalianAndSimulatesNothing() throws IOException {
+        Path invalid = writeVariantOfTheHomeTeam("\"name\": \"Luca Ferri\"", "\"name\": \"Marco Bianchi\"");
 
         CliRun run = CliRun.of(home, invalid.toString());
 
-        assertThat(run.exitCode()).isNotZero();
+        assertThat(run.exitCode()).isEqualTo(MatchCommandLine.EXIT_INVALID_TEAM_FILE);
         assertThat(run.outBytes()).isEmpty();
         assertThat(run.err())
-                .contains("campo starters:")
-                .contains("la squadra deve avere esattamente un portiere tra i titolari")
+                .contains(invalid.toString())
+                .contains("campo players:")
+                .contains("i nomi dei giocatori devono essere unici nella rosa, ripetuto: Marco Bianchi")
                 .doesNotContain("must");
     }
 
     @Test
-    void anUnknownFieldIsReportedInItalianWithFileAndFieldAndSimulatesNothing() throws IOException {
-        Path invalid = writeVariantOfTheHomeTeam("\"style\"", "\"stile\"");
+    void anUnknownFieldInsideTheCoachIsReportedInItalianWithFileAndFieldAndSimulatesNothing() throws IOException {
+        Path invalid = writeVariantOfTheHomeTeam("\"name\": \"Giorgio Parodi\"",
+                "\"stile\": \"offensivo\", \"name\": \"Giorgio Parodi\"");
 
         CliRun run = CliRun.of(invalid.toString(), away);
 
@@ -334,9 +419,38 @@ class MatchCommandLineTest {
         assertThat(run.outBytes()).isEmpty();
         assertThat(run.err())
                 .contains(invalid.toString())
-                .contains("campo stile")
+                .contains("campo coach.stile")
                 .contains("il campo non è previsto dal formato del file squadra")
                 .doesNotContain("Unrecognized");
+    }
+
+    @Test
+    void theOldStartersFieldIsRefusedAsUnknown() throws IOException {
+        Path invalid = writeVariantOfTheHomeTeam("\"players\": [", "\"starters\": [], \"players\": [");
+
+        CliRun run = CliRun.of(invalid.toString(), away);
+
+        assertThat(run.exitCode()).isEqualTo(MatchCommandLine.EXIT_INVALID_TEAM_FILE);
+        assertThat(run.outBytes()).isEmpty();
+        assertThat(run.err())
+                .contains(invalid.toString())
+                .contains("campo starters")
+                .contains("il campo non è previsto dal formato del file squadra");
+    }
+
+    @Test
+    void aTacticalReadingOutOfScaleIsReportedInItalianWithFileAndField() throws IOException {
+        Path invalid = writeVariantOfTheHomeTeam("\"tacticalReading\": 65", "\"tacticalReading\": 101");
+
+        CliRun run = CliRun.of(invalid.toString(), away);
+
+        assertThat(run.exitCode()).isEqualTo(MatchCommandLine.EXIT_INVALID_TEAM_FILE);
+        assertThat(run.outBytes()).isEmpty();
+        assertThat(run.err())
+                .contains(invalid.toString())
+                .contains("campo coach.attributes.tacticalReading")
+                .contains("la lettura tattica deve essere compresa tra 1 e 100, ma vale 101")
+                .doesNotContain("must");
     }
 
     @Test
@@ -354,7 +468,7 @@ class MatchCommandLineTest {
 
     @Test
     void anInvalidSecondFileSimulatesNothingEvenIfTheFirstOneIsValid() throws IOException {
-        Path invalid = writeVariantOfTheHomeTeam("\"offensivo\"", "\"Offensivo\"");
+        Path invalid = writeVariantOfTheHomeTeam("\"tacticalReading\": 65", "\"tacticalReading\": 101");
 
         CliRun run = CliRun.of(home, invalid.toString(), "--seed", "42");
 
@@ -508,8 +622,19 @@ class MatchCommandLineTest {
         assertThat(run.err()).contains("[--highlights]");
     }
 
+    private String lineupsOf(CliRun run) {
+        Matcher matcher = LINEUPS_BLOCK.matcher(run.out());
+        assertThat(matcher.find()).as("lineups block in %s", run.out()).isTrue();
+        return matcher.group();
+    }
+
+    private String withoutLineups(String output) {
+        int endOfTheBlock = output.indexOf(NL + NL) + NL.length() * 2;
+        return output.substring(endOfTheBlock);
+    }
+
     private String chronicleOf(CliRun run) {
-        String output = run.out();
+        String output = withoutLineups(run.out());
         return output.substring(0, output.indexOf(SCOREBOARD_TITLE));
     }
 
@@ -526,9 +651,7 @@ class MatchCommandLineTest {
     }
 
     private List<String> linesBeforeTheScoreboard(CliRun run) {
-        String output = run.out();
-        String chronicle = output.substring(0, output.indexOf(SCOREBOARD_TITLE));
-        return chronicle.lines().toList();
+        return chronicleOf(run).lines().toList();
     }
 
     private String scoreboardOf(CliRun run) {

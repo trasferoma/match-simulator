@@ -1,6 +1,8 @@
 package org.tasktelemetry.matchsimulator.cli;
 
 enum ReportLabel {
+    LINEUPS_TITLE,
+    LINEUP_ROW,
     TITLE,
     RESULT,
     OFFICIAL_RESULT,

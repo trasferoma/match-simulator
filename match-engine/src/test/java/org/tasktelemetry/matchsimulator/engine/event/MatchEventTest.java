@@ -5,9 +5,12 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 class MatchEventTest {
 
@@ -27,6 +30,27 @@ class MatchEventTest {
         assertThatThrownBy(() -> EventDetail.stoppageAnnounced(0))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("at least 1 minute");
+    }
+
+    @Test
+    void styleChangeCarriesPreviousStyleNewStyleAndReason() {
+        EventDetail detail = EventDetail.styleChange(PlayStyle.ATTACKING, PlayStyle.DEFENSIVE,
+                ChangeReason.PROTECT_LEAD);
+
+        assertThat(detail).isEqualTo(new EventDetail.StyleChange(PlayStyle.ATTACKING, PlayStyle.DEFENSIVE,
+                ChangeReason.PROTECT_LEAD));
+    }
+
+    @Test
+    void styleChangeRejectsTheSameStyleAndMissingValues() {
+        assertThatThrownBy(() -> EventDetail.styleChange(PlayStyle.ATTACKING, PlayStyle.ATTACKING,
+                ChangeReason.CHASE_GAME)).isInstanceOf(IllegalArgumentException.class);
+        assertThatThrownBy(() -> EventDetail.styleChange(null, PlayStyle.ATTACKING, ChangeReason.CHASE_GAME))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> EventDetail.styleChange(PlayStyle.BALANCED, null, ChangeReason.CHASE_GAME))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.ATTACKING, null))
+                .isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -54,6 +78,37 @@ class MatchEventTest {
         assertThatThrownBy(() -> new MatchEvent(1, time, EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD,
                 null, PlayPhase.SET_PIECE, Participants.nobody(), 0, EventDetail.none()))
                 .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void aStyleChangeIsAVoluntaryIntervention() {
+        EventDetail detail = EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.ATTACKING,
+                ChangeReason.CHASE_GAME);
+
+        assertThat(interventionEvent(EventType.STYLE_CHANGED, detail).isVoluntaryIntervention()).isTrue();
+    }
+
+    @Test
+    void aSubstitutionOrAMoveIsVoluntaryOnlyWithAVoluntaryReason() {
+        Deployment deployment = new Deployment(4, 4, 2);
+        EventDetail voluntary = EventDetail.lineupChange(Role.FORWARD, ChangeReason.CHASE_GAME, deployment,
+                deployment);
+        EventDetail forced = EventDetail.lineupChange(Role.FORWARD, ChangeReason.INJURY, deployment, deployment);
+
+        assertThat(interventionEvent(EventType.SUBSTITUTION, voluntary).isVoluntaryIntervention()).isTrue();
+        assertThat(interventionEvent(EventType.PLAYER_MOVED, voluntary).isVoluntaryIntervention()).isTrue();
+        assertThat(interventionEvent(EventType.SUBSTITUTION, forced).isVoluntaryIntervention()).isFalse();
+        assertThat(interventionEvent(EventType.PLAYER_MOVED, forced).isVoluntaryIntervention()).isFalse();
+    }
+
+    @Test
+    void anyOtherEventIsNotAnIntervention() {
+        assertThat(eventWith(1, 0).isVoluntaryIntervention()).isFalse();
+    }
+
+    private MatchEvent interventionEvent(EventType type, EventDetail detail) {
+        return new MatchEvent(1, time, type, MatchSide.HOME, ZoneRole.MIDFIELD, midfieldBall, PlayPhase.BUILD_UP,
+                Participants.nobody(), 0, detail);
     }
 
     private MatchEvent eventWith(int order, int durationSeconds) {

@@ -8,6 +8,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.TestTeams;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
@@ -206,6 +207,45 @@ class TeamOnPitchTest {
         assertThatThrownBy(() -> onPitch.withRole(benchPlayer, Role.DEFENDER))
                 .isInstanceOf(IllegalArgumentException.class);
         assertThatThrownBy(() -> onPitch.withCautioned(benchPlayer)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void theCurrentStyleStartsAsTheStyleOfTheTeam() {
+        Team defensive = TestTeams.team("Home", PlayStyle.DEFENSIVE, 60);
+
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(defensive);
+
+        assertThat(onPitch.style()).isEqualTo(PlayStyle.DEFENSIVE);
+    }
+
+    @Test
+    void changingTheStyleLeavesTheTeamAndTheLineupUntouchedAndSurvivesLaterChanges() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+        Player cautioned = onPitch.players().get(3);
+        Player leaving = onPitch.players().get(4);
+        Player entering = team.bench().stream()
+                .filter(bench -> bench.role() == leaving.role())
+                .findFirst()
+                .orElseThrow();
+
+        TeamOnPitch restyled = onPitch.withCautioned(cautioned).withStyle(PlayStyle.ATTACKING);
+        TeamOnPitch afterLaterChanges = restyled.withSubstitution(leaving, entering, leaving.role())
+                .withRole(cautioned, Role.MIDFIELDER)
+                .withoutPlayer(onPitch.players().get(5));
+
+        assertThat(restyled.style()).isEqualTo(PlayStyle.ATTACKING);
+        assertThat(restyled.team()).isEqualTo(team);
+        assertThat(restyled.players()).isEqualTo(onPitch.players());
+        assertThat(restyled.isCautioned(cautioned)).isTrue();
+        assertThat(onPitch.style()).isEqualTo(PlayStyle.BALANCED);
+        assertThat(afterLaterChanges.style()).isEqualTo(PlayStyle.ATTACKING);
+    }
+
+    @Test
+    void refusesAMissingStyle() {
+        TeamOnPitch onPitch = TeamOnPitch.startingWith(team);
+
+        assertThatThrownBy(() -> onPitch.withStyle(null)).isInstanceOf(NullPointerException.class);
     }
 
     @Test

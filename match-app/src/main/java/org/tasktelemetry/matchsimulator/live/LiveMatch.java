@@ -3,12 +3,19 @@ package org.tasktelemetry.matchsimulator.live;
 import java.util.List;
 import java.util.Objects;
 
+import org.tasktelemetry.matchsimulator.coach.MatchCoaches;
+import org.tasktelemetry.matchsimulator.coach.TieBreakDraw;
 import org.tasktelemetry.matchsimulator.engine.Match;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
+import org.tasktelemetry.matchsimulator.engine.MatchRandom;
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
+import org.tasktelemetry.matchsimulator.engine.intervention.Intervention;
 
 public final class LiveMatch {
+
+    private static final long SIDE_SEED_STEP = 0x9E3779B97F4A7C15L;
 
     private final MatchEngine engine;
 
@@ -16,27 +23,84 @@ public final class LiveMatch {
         this.engine = Objects.requireNonNull(engine, "engine must not be null");
     }
 
-    public List<MatchEvent> play(Team home, Team away, long seed, MatchObserver observer) {
+    public List<MatchEvent> play(PreparedMatch prepared, long seed, MatchObserver observer) {
+        Objects.requireNonNull(prepared, "prepared match must not be null");
         Objects.requireNonNull(observer, "observer must not be null");
-        Match match = engine.start(home, away, seed);
+        MatchCoaches coaches = prepared.coaches();
+        try {
+            openTheCoaches(prepared, seed);
+            return playToTheEnd(prepared, seed, observer);
+        } finally {
+            coaches.close();
+        }
+    }
+
+    private void openTheCoaches(PreparedMatch prepared, long seed) {
+        TieBreakDraw homeDraw = tieBreakDrawOf(seed, MatchSide.HOME);
+        TieBreakDraw awayDraw = tieBreakDrawOf(seed, MatchSide.AWAY);
+        prepared.coaches().open(prepared.homeDecision(), prepared.awayDecision(), homeDraw, awayDraw);
+    }
+
+    private TieBreakDraw tieBreakDrawOf(long seed, MatchSide side) {
+        long sideSeed = seed + (side.ordinal() + 1L) * SIDE_SEED_STEP;
+        MatchRandom random = new MatchRandom(sideSeed);
+        return random::nextDouble;
+    }
+
+    private List<MatchEvent> playToTheEnd(PreparedMatch prepared, long seed, MatchObserver observer) {
+        Match match = engine.start(prepared.home(), prepared.away(), seed);
+        MatchCoaches coaches = prepared.coaches();
         int deliveredCount = 0;
         while (!match.isFinished()) {
             match.step();
-            deliveredCount = deliverNewEvents(match, deliveredCount, observer);
+            deliveredCount = deliverAndLetCoachesIntervene(match, coaches, observer, deliveredCount);
         }
         observer.matchFinished();
         return match.events();
     }
 
-    private int deliverNewEvents(Match match, int deliveredCount, MatchObserver observer) {
+    private int deliverAndLetCoachesIntervene(Match match, MatchCoaches coaches, MatchObserver observer,
+            int deliveredCount) {
+        List<MatchEvent> newEvents = takeNewEvents(match, deliveredCount);
+        int countAfterDelivery = deliveredCount + newEvents.size();
+        deliverToObserver(newEvents, observer);
+        boolean requested = letCoachesIntervene(match, coaches, newEvents);
+        if (requested && endsThePlayOrReachesHalfTime(match, countAfterDelivery)) {
+            return deliverAndLetCoachesIntervene(match, coaches, observer, countAfterDelivery);
+        }
+        return countAfterDelivery;
+    }
+
+    private boolean endsThePlayOrReachesHalfTime(Match match, int deliveredCount) {
+        if (match.isFinished()) {
+            return true;
+        }
+        List<MatchEvent> executedEvents = takeNewEvents(match, deliveredCount);
+        return executedEvents.stream().anyMatch(event -> event.type() == EventType.FIRST_HALF_END);
+    }
+
+    private List<MatchEvent> takeNewEvents(Match match, int deliveredCount) {
         List<MatchEvent> allEvents = match.events();
         int totalCount = allEvents.size();
-        if (totalCount == deliveredCount) {
-            return deliveredCount;
-        }
         List<MatchEvent> newEvents = allEvents.subList(deliveredCount, totalCount);
-        List<MatchEvent> unmodifiableNewEvents = List.copyOf(newEvents);
-        observer.eventsHappened(unmodifiableNewEvents);
-        return totalCount;
+        return List.copyOf(newEvents);
+    }
+
+    private void deliverToObserver(List<MatchEvent> newEvents, MatchObserver observer) {
+        if (newEvents.isEmpty()) {
+            return;
+        }
+        observer.eventsHappened(newEvents);
+    }
+
+    private boolean letCoachesIntervene(Match match, MatchCoaches coaches, List<MatchEvent> newEvents) {
+        if (newEvents.isEmpty() || match.isFinished()) {
+            return false;
+        }
+        List<Intervention> requests = coaches.decide(newEvents);
+        for (Intervention request : requests) {
+            match.apply(request);
+        }
+        return !requests.isEmpty();
     }
 }

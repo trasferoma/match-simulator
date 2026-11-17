@@ -18,7 +18,9 @@ import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjurySubstitution;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupRepair;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.MinimumPlayersRule;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.SectorMoveRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.SubstitutionTimer;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.VoluntarySubstitutionRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ExpectedGoalsModel;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.ShotQualityScale;
@@ -72,10 +74,12 @@ public final class MatchEngine {
         InjuryResolver injuryResolver = new InjuryResolver(config.injury(), random, injurySubstitution,
                 minimumPlayers, lineupRepair);
         SubstitutionTimer substitutionTimer = new SubstitutionTimer(config.lineup(), random);
+        VoluntarySubstitutionRule voluntarySubstitution = new VoluntarySubstitutionRule(config.lineup());
+        SectorMoveRule sectorMove = new SectorMoveRule();
         StoppageTime stoppageTime = new StoppageTime(config.stoppage());
         return new ActionResolvers(possessionResolver, counterAttackResolver, setPieceResolver, crossResolver,
                 foulResolver, offsideRule, dismissalResolver, minimumPlayers, injuryResolver, substitutionTimer,
-                stoppageTime);
+                voluntarySubstitution, sectorMove, stoppageTime);
     }
 
     private ShotResolver newShotResolver(PitchLayout layout, MatchRandom random, Matchups matchups) {

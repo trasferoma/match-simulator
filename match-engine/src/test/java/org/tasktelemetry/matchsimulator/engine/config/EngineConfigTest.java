@@ -13,7 +13,7 @@ import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 
 class EngineConfigTest {
 
-    private static final double HOME_ADVANTAGE = 1.08;
+    private static final double HOME_ADVANTAGE = 1.075;
 
     private final ShotConfig shot = ShotConfig.defaults();
     private final SetPieceConfig setPiece = SetPieceConfig.defaults();

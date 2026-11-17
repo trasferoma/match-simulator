@@ -9,17 +9,18 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.io.TempDir;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
-import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.coach.squad.Squad;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
 
+import tools.jackson.databind.JsonNode;
 import tools.jackson.databind.node.ArrayNode;
 import tools.jackson.databind.node.ObjectNode;
 
 class TeamFileReaderTest {
 
-    private static final String STYLES = "equilibrato, offensivo, difensivo, possesso, contropiede";
     private static final String ROLES = "portiere, difensore, centrocampista, attaccante";
+    private static final String CATALOG = "5-3-2, 4-5-1, 4-4-2, 3-5-2, 4-3-3";
+    private static final String TACTICAL_READING = "coach.attributes.tacticalReading";
 
     @TempDir
     Path directory;
@@ -27,30 +28,31 @@ class TeamFileReaderTest {
     private final TeamFileReader reader = TeamFileReader.italian();
 
     @Test
-    void theHomeExampleIsReadWithStartersAndBenchInFileOrder() {
-        Team team = reader.read(TeamFileFixture.homeExample());
+    void theHomeExampleIsReadAsASquadWithItsCoachAndThePlayersInFileOrder() {
+        Squad squad = reader.read(TeamFileFixture.homeExample());
 
-        assertThat(team.name()).isEqualTo("Atletico Mare");
-        assertThat(team.style()).isEqualTo(PlayStyle.ATTACKING);
-        assertThat(team.starters()).hasSize(11);
-        assertThat(team.bench()).hasSize(7);
-        assertThat(team.starters().get(0).name()).isEqualTo("Marco Bianchi");
-        assertThat(team.starters().get(0).role()).isEqualTo(Role.GOALKEEPER);
-        assertThat(team.starters().get(0).attributes().goalkeeping()).isEqualTo(84);
-        assertThat(team.bench().get(0).role()).isEqualTo(Role.GOALKEEPER);
-        assertThat(team.bench().get(6).name()).isEqualTo("Emanuele Sala");
+        assertThat(squad.name()).isEqualTo("Atletico Mare");
+        assertThat(squad.coach().name()).isEqualTo("Giorgio Parodi");
+        assertThat(squad.coach().attributes().tacticalReading()).isEqualTo(65);
+        assertThat(squad.players()).hasSize(18);
+        assertThat(squad.players().get(0).name()).isEqualTo("Marco Bianchi");
+        assertThat(squad.players().get(0).role()).isEqualTo(Role.GOALKEEPER);
+        assertThat(squad.players().get(0).attributes().goalkeeping()).isEqualTo(84);
+        assertThat(squad.players().get(11).role()).isEqualTo(Role.GOALKEEPER);
+        assertThat(squad.players().get(17).name()).isEqualTo("Emanuele Sala");
     }
 
     @Test
-    void theAwayExampleIsReadWithItsOwnStyle() {
-        Team team = reader.read(TeamFileFixture.awayExample());
+    void theAwayExampleIsReadWithItsOwnCoach() {
+        Squad squad = reader.read(TeamFileFixture.awayExample());
 
-        assertThat(team.name()).isEqualTo("Sporting Collina");
-        assertThat(team.style()).isEqualTo(PlayStyle.COUNTER_ATTACK);
+        assertThat(squad.name()).isEqualTo("Sporting Collina");
+        assertThat(squad.coach().name()).isEqualTo("Roberto Basile");
+        assertThat(squad.coach().attributes().tacticalReading()).isEqualTo(40);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"name", "style", "starters", "bench"})
+    @ValueSource(strings = {"name", "coach", "players"})
     void aMissingTopLevelFieldIsRefusedNamingFileAndField(String field) {
         ObjectNode team = TeamFileFixture.validTeam();
         team.remove(field);
@@ -67,133 +69,193 @@ class TeamFileReaderTest {
     }
 
     @Test
+    void aMissingCoachNameIsRefusedNamingTheField() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        coachOf(team).remove("name");
+
+        assertRefused(team, "coach.name", "il campo manca");
+    }
+
+    @Test
+    void aBlankCoachNameIsRefusedNamingTheField() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        coachOf(team).put("name", " ");
+
+        assertRefused(team, "coach.name", "non può essere vuoto");
+    }
+
+    @Test
+    void missingCoachAttributesAreRefusedNamingTheField() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        coachOf(team).remove("attributes");
+
+        assertRefused(team, "coach.attributes", "il campo manca");
+    }
+
+    @Test
+    void aMissingTacticalReadingIsRefusedNamingTheField() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        coachAttributesOf(team).remove("tacticalReading");
+
+        assertRefused(team, TACTICAL_READING, "il campo manca");
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {0, 101, -5})
+    void aTacticalReadingOutOfScaleIsRefusedNamingTheFieldAndTheValue(int value) {
+        ObjectNode team = TeamFileFixture.validTeam();
+        coachAttributesOf(team).put("tacticalReading", value);
+
+        assertRefused(team, TACTICAL_READING, "la lettura tattica deve essere compresa tra 1 e 100",
+                "vale " + value);
+    }
+
+    @Test
+    void aTacticalReadingThatIsNotAnIntegerIsRefusedNamingTheField() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        coachAttributesOf(team).put("tacticalReading", 70.5);
+
+        assertRefused(team, TACTICAL_READING, "il tipo atteso");
+    }
+
+    @Test
+    void aTacticalReadingOnTheEdgesOfTheScaleIsAccepted() {
+        ObjectNode lowest = TeamFileFixture.validTeam();
+        coachAttributesOf(lowest).put("tacticalReading", 1);
+        ObjectNode highest = TeamFileFixture.validTeam();
+        coachAttributesOf(highest).put("tacticalReading", 100);
+
+        Squad lowestSquad = reader.read(TeamFileFixture.write(directory, lowest));
+        Squad highestSquad = reader.read(TeamFileFixture.write(directory, highest));
+
+        assertThat(lowestSquad.coach().attributes().tacticalReading()).isEqualTo(1);
+        assertThat(highestSquad.coach().attributes().tacticalReading()).isEqualTo(100);
+    }
+
+    @Test
     void aMissingPlayerNameIsRefusedNamingThePlayerField() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("bench").get(2)).remove("name");
+        playerOf(team, 14).remove("name");
 
-        assertRefused(team, "bench[2].name", "il campo manca");
+        assertRefused(team, "players[14].name", "il campo manca");
     }
 
     @Test
     void anUnknownRoleIsRefusedListingTheAllowedRoles() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(3)).put("role", "ala");
+        playerOf(team, 3).put("role", "ala");
 
-        assertRefused(team, "starters[3].role", "\"ala\"", ROLES);
+        assertRefused(team, "players[3].role", "\"ala\"", ROLES);
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"Portiere", "goalkeeper", "GOALKEEPER", ""})
+    @ValueSource(strings = {"Portiere", "goalkeeper", "GOALKEEPER"})
     void aRoleThatIsNotAnItalianLowercaseTermIsRefusedListingTheAllowedRoles(String role) {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(0)).put("role", role);
+        playerOf(team, 0).put("role", role);
 
-        assertThatThrownBy(() -> reader.read(TeamFileFixture.write(directory, team)))
-                .isInstanceOf(InvalidTeamFileException.class)
-                .hasMessageContaining("starters[0].role");
+        assertRefused(team, "players[0].role", "\"" + role + "\"", ROLES);
     }
 
     @Test
-    void aCapitalisedRoleNamesTheRoleFieldAndListsTheAllowedValues() {
+    void twoPlayersWithTheSameNameAreRefusedNamingThePlayer() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(0)).put("role", "Portiere");
+        playerOf(team, 12).put("name", "Marco Bianchi");
 
-        assertRefused(team, "starters[0].role", "\"Portiere\"", ROLES);
+        assertRefused(team, "players", "i nomi dei giocatori devono essere unici", "ripetuto: Marco Bianchi");
     }
 
     @Test
-    void anEnglishConstantAsRoleIsRefusedListingTheAllowedRoles() {
+    void aSquadWithoutGoalkeepersIsRefusedWithTheViolatedRule() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(0)).put("role", "goalkeeper");
+        playerOf(team, 0).put("role", "difensore");
+        playerOf(team, 11).put("role", "difensore");
 
-        assertRefused(team, "starters[0].role", "\"goalkeeper\"", ROLES);
+        assertRefused(team, "players", "almeno un portiere");
     }
 
     @Test
-    void aCapitalisedStyleIsRefusedListingTheAllowedStyles() {
+    void aSquadWithoutPlayersIsRefusedAsWithoutGoalkeepers() {
         ObjectNode team = TeamFileFixture.validTeam();
-        team.put("style", "Contropiede");
+        team.putArray("players");
 
-        assertRefused(team, "style", "\"Contropiede\"", STYLES);
+        assertRefused(team, "players", "almeno un portiere");
     }
 
     @Test
-    void anEnglishConstantAsStyleIsRefusedListingTheAllowedStyles() {
+    void aSquadWithoutAFeasibleFormationIsRefusedListingTheFormationsOfTheCatalog() {
         ObjectNode team = TeamFileFixture.validTeam();
-        team.put("style", "COUNTER_ATTACK");
-
-        assertRefused(team, "style", "\"COUNTER_ATTACK\"", STYLES);
-    }
-
-    @Test
-    void twoGoalkeepersAmongTheStartersAreRefusedWithTheViolatedRule() {
-        ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(1)).put("role", "portiere");
-
-        assertRefused(team, "starters", "esattamente un portiere", "ne ha 2");
-    }
-
-    @Test
-    void aDepartmentWithoutStartersIsRefusedWithTheViolatedRule() {
-        ObjectNode team = TeamFileFixture.validTeam();
-        for (int index = 1; index <= 4; index++) {
-            ((ObjectNode) team.get("starters").get(index)).put("role", "centrocampista");
+        ArrayNode players = (ArrayNode) team.get("players");
+        keepOnlyTheFirstTwelvePlayers(players);
+        String[] roles = {"portiere", "difensore", "difensore", "centrocampista", "centrocampista", "centrocampista",
+            "centrocampista", "centrocampista", "centrocampista", "centrocampista", "attaccante", "portiere"};
+        for (int index = 0; index < roles.length; index++) {
+            ((ObjectNode) players.get(index)).put("role", roles[index]);
         }
 
-        assertRefused(team, "starters", "almeno un difensore");
+        assertRefused(team, "players", "nessun modulo del catalogo", CATALOG);
     }
 
     @Test
-    void aNameRepeatedBetweenStartersAndBenchIsRefusedNamingThePlayer() {
+    void aSquadThatAllowsOnlyOneFormationOfTheCatalogIsAccepted() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("bench").get(0)).put("name", "Marco Bianchi");
+        ArrayNode players = (ArrayNode) team.get("players");
+        keepOnlyTheFirstTwelvePlayers(players);
+        String[] roles = {"portiere", "difensore", "difensore", "difensore", "difensore", "centrocampista",
+            "centrocampista", "centrocampista", "attaccante", "attaccante", "attaccante", "portiere"};
+        for (int index = 0; index < roles.length; index++) {
+            ((ObjectNode) players.get(index)).put("role", roles[index]);
+        }
 
-        assertRefused(team, "starters, bench", "ripetuto: Marco Bianchi");
+        Squad squad = reader.read(TeamFileFixture.write(directory, team));
+
+        assertThat(squad.players()).hasSize(12);
     }
 
     @Test
     void aMissingAttributeIsRefusedNamingThePlayerAndTheAttribute() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(4).get("attributes")).remove("pace");
+        attributesOf(team, 4).remove("pace");
 
-        assertRefused(team, "starters[4].attributes.pace", "il campo manca");
+        assertRefused(team, "players[4].attributes.pace", "il campo manca");
     }
 
     @ParameterizedTest
     @ValueSource(ints = {0, 101, -5})
     void anAttributeOutOfScaleIsRefusedNamingThePlayerAndTheAttribute(int value) {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("bench").get(1).get("attributes")).put("passing", value);
+        attributesOf(team, 12).put("passing", value);
 
-        assertRefused(team, "bench[1].attributes", "l'attributo passing", "compreso tra 1 e 100", "vale " + value);
+        assertRefused(team, "players[12].attributes", "l'attributo passing", "compreso tra 1 e 100",
+                "vale " + value);
     }
 
     @Test
     void anAttributeThatIsNotAnIntegerIsRefusedNamingThePlayerAndTheAttribute() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(2).get("attributes")).put("shooting", 70.5);
+        attributesOf(team, 2).put("shooting", 70.5);
 
-        assertRefused(team, "starters[2].attributes.shooting", "il tipo atteso");
+        assertRefused(team, "players[2].attributes.shooting", "il tipo atteso");
     }
 
     @Test
     void anAttributeTooBigForAnIntegerIsRefusedNamingThePlayerAndTheAttribute() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(0).get("attributes")).put("passing", 99_999_999_999L);
+        attributesOf(team, 0).put("passing", 99_999_999_999L);
 
-        assertRefused(team, "starters[0].attributes.passing", "il tipo atteso");
+        assertRefused(team, "players[0].attributes.passing", "il tipo atteso");
     }
 
     @Test
     void anAttributeWrittenAsTextIsRefusedNamingThePlayerAndTheAttribute() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(2).get("attributes")).put("shooting", "alto");
+        attributesOf(team, 2).put("shooting", "alto");
 
-        assertRefused(team, "starters[2].attributes.shooting", "il tipo atteso");
+        assertRefused(team, "players[2].attributes.shooting", "il tipo atteso");
     }
 
     @Test
-    void aBlankTeamNameIsRefusedNamingTheField() {
+    void aBlankSquadNameIsRefusedNamingTheField() {
         ObjectNode team = TeamFileFixture.validTeam();
         team.put("name", "  ");
 
@@ -201,16 +263,8 @@ class TeamFileReaderTest {
     }
 
     @Test
-    void aWrongNumberOfStartersIsRefusedWithTheViolatedRule() {
-        ObjectNode team = TeamFileFixture.validTeam();
-        ((ArrayNode) team.get("starters")).remove(10);
-
-        assertRefused(team, "starters", "esattamente 11 titolari", "ne ha 10");
-    }
-
-    @Test
     void aMalformedJsonFileIsRefusedNamingTheFile() {
-        Path file = TeamFileFixture.writeText(directory, "{\"name\": \"Atletico\", \"style\": ");
+        Path file = TeamFileFixture.writeText(directory, "{\"name\": \"Atletico\", \"coach\": ");
 
         assertThatThrownBy(() -> reader.read(file))
                 .isInstanceOfSatisfying(InvalidTeamFileException.class, exception -> {
@@ -243,11 +297,11 @@ class TeamFileReaderTest {
     }
 
     @Test
-    void aListOfStartersWrittenAsAnObjectIsRefusedNamingTheField() {
+    void aListOfPlayersWrittenAsAnObjectIsRefusedNamingTheField() {
         ObjectNode team = TeamFileFixture.validTeam();
-        team.putObject("starters");
+        team.putObject("players");
 
-        assertRefused(team, "starters", "il valore non ha il tipo atteso");
+        assertRefused(team, "players", "il valore non ha il tipo atteso");
     }
 
     @Test
@@ -260,6 +314,15 @@ class TeamFileReaderTest {
                 .hasMessageContaining("oggetto squadra");
     }
 
+    @ParameterizedTest
+    @ValueSource(strings = {"style", "starters", "bench"})
+    void theFieldsOfTheOldFormatAreRefusedAsUnknown(String field) {
+        ObjectNode team = TeamFileFixture.validTeam();
+        team.put(field, "offensivo");
+
+        assertRefused(team, field, "il campo non è previsto");
+    }
+
     @Test
     void anUnknownTeamFieldIsRefusedNamingIt() {
         ObjectNode team = TeamFileFixture.validTeam();
@@ -269,31 +332,61 @@ class TeamFileReaderTest {
     }
 
     @Test
-    void anUnknownPlayerFieldIsRefusedNamingItWithItsPath() {
+    void anUnknownCoachFieldIsRefusedNamingItWithItsPath() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(3)).put("ruolo", "ala");
+        coachOf(team).put("nickname", "Mister");
 
-        assertRefused(team, "starters[3].ruolo", "il campo non è previsto");
+        assertRefused(team, "coach.nickname", "il campo non è previsto");
     }
 
     @Test
-    void anUnknownBenchPlayerFieldIsRefusedNamingItWithItsPath() {
+    void anUnknownCoachAttributeIsRefusedNamingItWithItsPath() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("bench").get(2)).put("ruolo", "ala");
+        coachAttributesOf(team).put("charisma", 70);
 
-        assertRefused(team, "bench[2].ruolo", "il campo non è previsto");
+        assertRefused(team, "coach.attributes.charisma", "il campo non è previsto");
+    }
+
+    @Test
+    void anUnknownPlayerFieldIsRefusedNamingItWithItsPath() {
+        ObjectNode team = TeamFileFixture.validTeam();
+        playerOf(team, 3).put("ruolo", "ala");
+
+        assertRefused(team, "players[3].ruolo", "il campo non è previsto");
     }
 
     @Test
     void anUnknownAttributeIsRefusedNamingItWithItsPath() {
         ObjectNode team = TeamFileFixture.validTeam();
-        ((ObjectNode) team.get("starters").get(0).get("attributes")).put("speed", 70);
+        attributesOf(team, 0).put("speed", 70);
 
-        assertRefused(team, "starters[0].attributes.speed", "il campo non è previsto");
+        assertRefused(team, "players[0].attributes.speed", "il campo non è previsto");
+    }
+
+    private ObjectNode coachOf(ObjectNode team) {
+        return (ObjectNode) team.get("coach");
+    }
+
+    private ObjectNode coachAttributesOf(ObjectNode team) {
+        return (ObjectNode) coachOf(team).get("attributes");
+    }
+
+    private ObjectNode playerOf(ObjectNode team, int index) {
+        return (ObjectNode) team.get("players").get(index);
+    }
+
+    private ObjectNode attributesOf(ObjectNode team, int index) {
+        return (ObjectNode) playerOf(team, index).get("attributes");
+    }
+
+    private void keepOnlyTheFirstTwelvePlayers(ArrayNode players) {
+        for (int index = players.size() - 1; index >= 12; index--) {
+            players.remove(index);
+        }
     }
 
     private void assertRefused(ObjectNode team, String field, String... expectedFragments) {
-        Path file = TeamFileFixture.write(directory, team);
+        Path file = TeamFileFixture.write(directory, (JsonNode) team);
 
         assertThatThrownBy(() -> reader.read(file))
                 .isInstanceOfSatisfying(InvalidTeamFileException.class, exception -> {

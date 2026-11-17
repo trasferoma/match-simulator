@@ -40,7 +40,9 @@ probabilità che venga letta e applicata; un controllo che fallisce ferma sempre
 | D22 attribuzione StatsBomb | `CalibrationReportTest`: il report contiene «Data: StatsBomb» | 3 | fatto |
 | D24 fasce come probabilità | `CrossResolverTest` | 3 | fatto |
 | D25 ogni attributo letto da una regola | `PlayerAttributeInfluenceTest`: un caso per ognuno degli attributi | 2 | fatto |
-| D32 due moduli | struttura Maven: `pom.xml` radice con i moduli `match-engine` e `match-app` | 1 | fatto |
+| D32 tre moduli | struttura Maven: `pom.xml` radice con i moduli `match-engine`, `match-coach` e `match-app` | 1 | fatto |
+| D59 chi decide e chi esegue separati | modulo `match-coach` che dipende a runtime solo da `match-engine` e che il motore non vede; `CoachIsolationTest`: import solo da `java.*`, dal motore e dai package dell'allenatore, nessuna casualità | 1 e 2 | fatto |
+| D60 decisioni simultanee | `CoachSimultaneityTest` (scambiando l'ordine dei decisori la partita non cambia, anche con una richiesta in attesa); `LiveMatchCoachesTest` sull'ordine fisso del ciclo vero | 3 | fatto |
 | D33 Jackson solo in `match-app` | struttura Maven e `EngineIsolationTest` sul pom del motore | 1 e 2 | fatto |
 | D35 librerie di test solo nello scope test | `EngineIsolationTest` sul pom del motore | 2 | fatto |
 | D49 il motore vede solo le proprie costanti | modulo `match-engine` che non vede `match-app`; `TeamFileTermsTest` per la traduzione | 1 e 3 | fatto |

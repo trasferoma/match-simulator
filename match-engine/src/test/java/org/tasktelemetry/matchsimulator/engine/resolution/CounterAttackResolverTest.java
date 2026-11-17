@@ -88,6 +88,21 @@ class CounterAttackResolverTest {
     }
 
     @Test
+    void aRecoveryOpensACounterAttackWithTheStartProbabilityOfTheStyleInUseAndNotOfTheStartingOne() {
+        CounterAttackResolver resolver = resolverWith(config);
+        TeamOnPitch starting = TeamOnPitch.startingWith(TestTeams.team("Recoverers", PlayStyle.BALANCED, 50));
+        TeamOnPitch recoverers = starting.withStyle(PlayStyle.COUNTER_ATTACK);
+        ActionOutcome recovery = recoveryAt(MatchSide.AWAY, ZoneRole.DEFENCE, EventType.INTERCEPTION, recoverers);
+
+        long counterAttacks = IntStream.range(0, TRIALS)
+                .mapToObj(index -> resolver.openCounterAttackIfBallRecovered(recovery, recoverers))
+                .filter(outcome -> outcome.next().phase() == PlayPhase.COUNTER_ATTACK)
+                .count();
+
+        assertThat((double) counterAttacks / TRIALS).isCloseTo(0.112, within(ONE_POINT));
+    }
+
+    @Test
     void anOpenedCounterAttackChangesOnlyThePhaseOfTheRecovery() {
         CounterAttackResolver resolver = resolverWith(config);
         TeamOnPitch recoverers = TeamOnPitch.startingWith(TestTeams.team("Recoverers", PlayStyle.COUNTER_ATTACK, 50));

@@ -145,7 +145,7 @@ class PitchDrawingTest {
 
     @Test
     void theFieldIsDrawnWithTheNamesOfTheTeamsOnTheirSides() {
-        TeamNames names = new TeamNames("Sporting Collina", "Real Rivoli");
+        TeamNames names = new TeamNames("Sporting Collina", "Real Rivoli", "Rossi", "Verdi");
         MatchEvent pass = eventWithBall(EventType.PASS_COMPLETED, MatchSide.HOME, MatchSide.HOME,
                 ZoneRole.ATTACKING_THIRD);
 

@@ -34,4 +34,26 @@ public record MatchEvent(
             throw new IllegalArgumentException("event duration must not be negative, was " + durationSeconds);
         }
     }
+
+    public boolean isVoluntaryIntervention() {
+        return switch (type) {
+            case STYLE_CHANGED -> true;
+            case SUBSTITUTION, PLAYER_MOVED -> hasVoluntaryReason();
+            default -> false;
+        };
+    }
+
+    public double expectedGoals() {
+        return switch (detail) {
+            case EventDetail.Shot shot -> shot.profile().expectedGoals();
+            case EventDetail.Save save -> save.profile().expectedGoals();
+            case EventDetail.Goal goal -> goal.profile().expectedGoals();
+            default -> throw new IllegalStateException("a shot event must carry a shot profile, but its detail is "
+                    + detail);
+        };
+    }
+
+    private boolean hasVoluntaryReason() {
+        return detail instanceof EventDetail.LineupChange change && !change.reason().isForced();
+    }
 }

@@ -8,6 +8,7 @@ import org.junit.jupiter.api.Tag;
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.live.MatchPreparation;
 
 @Tag("calibration")
 class LeagueStrengthTest {
@@ -16,7 +17,8 @@ class LeagueStrengthTest {
     void theStrongestTeamWinsMoreMatchesThanTheWeakest() {
         BenchConfig config = BenchConfig.defaults();
         LeagueGenerator generator = new LeagueGenerator(config, RoleProfiles.defaults());
-        LeagueSimulation simulation = new LeagueSimulation(config, generator, EngineConfig.defaults());
+        MatchPreparation preparation = MatchPreparation.standard();
+        LeagueSimulation simulation = new LeagueSimulation(config, generator, preparation, EngineConfig.defaults());
         String strongest = generator.nameOf(config.teamCount() - 1);
         String weakest = generator.nameOf(0);
 

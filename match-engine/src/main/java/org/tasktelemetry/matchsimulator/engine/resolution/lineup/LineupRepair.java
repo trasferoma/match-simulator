@@ -4,6 +4,7 @@ import java.util.List;
 import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
@@ -21,31 +22,30 @@ public final class LineupRepair {
 
     public RepairedLineup repairAfterDismissal(TeamOnPitch team, Role dismissedRole, int lead) {
         if (dismissedRole != Role.GOALKEEPER) {
-            TeamOnPitch refilled = fillEmptiedSector(team);
-            return RepairedLineup.withoutSubstitution(refilled);
+            return fillEmptiedSector(team);
         }
         RepairedLineup covered = coverTheGoal(team, lead);
-        TeamOnPitch refilled = fillEmptiedSector(covered.team());
-        return new RepairedLineup(refilled, covered.substitutions());
+        RepairedLineup refilled = fillEmptiedSector(covered.team());
+        return covered.followedBy(refilled);
     }
 
-    public TeamOnPitch repairAfterInjury(TeamOnPitch team) {
-        TeamOnPitch withGoalkeeper = coverTheGoalIfUncovered(team);
-        return fillEmptiedSector(withGoalkeeper);
+    public RepairedLineup repairAfterInjury(TeamOnPitch team) {
+        RepairedLineup withGoalkeeper = coverTheGoalIfUncovered(team);
+        RepairedLineup refilled = fillEmptiedSector(withGoalkeeper.team());
+        return withGoalkeeper.followedBy(refilled);
     }
 
-    private TeamOnPitch coverTheGoalIfUncovered(TeamOnPitch team) {
+    private RepairedLineup coverTheGoalIfUncovered(TeamOnPitch team) {
         if (team.playersIn(Role.GOALKEEPER).isEmpty()) {
             return moveBestGoalkeeperBetweenThePosts(team);
         }
-        return team;
+        return RepairedLineup.withoutChanges(team);
     }
 
     private RepairedLineup coverTheGoal(TeamOnPitch team, int lead) {
         Optional<Player> reserve = reserveGoalkeeperWithSubstitutionsLeft(team);
         if (reserve.isEmpty()) {
-            TeamOnPitch withMakeshiftGoalkeeper = moveBestGoalkeeperBetweenThePosts(team);
-            return RepairedLineup.withoutSubstitution(withMakeshiftGoalkeeper);
+            return moveBestGoalkeeperBetweenThePosts(team);
         }
         Player reserveGoalkeeper = reserve.get();
         return bringInReserveGoalkeeper(team, reserveGoalkeeper, lead);
@@ -63,8 +63,9 @@ public final class LineupRepair {
     private RepairedLineup bringInReserveGoalkeeper(TeamOnPitch team, Player reserve, int lead) {
         Player leaving = chooseWhoLeavesForTheReserveGoalkeeper(team, lead);
         TeamOnPitch changed = team.withSubstitution(leaving, reserve, Role.GOALKEEPER);
-        Substitution substitution = new Substitution(leaving, reserve);
-        return new RepairedLineup(changed, List.of(substitution));
+        Substitution substitution = new Substitution(leaving, reserve, Role.GOALKEEPER,
+                ChangeReason.RESERVE_GOALKEEPER);
+        return RepairedLineup.substituting(changed, substitution);
     }
 
     private Player chooseWhoLeavesForTheReserveGoalkeeper(TeamOnPitch team, int lead) {
@@ -95,29 +96,33 @@ public final class LineupRepair {
         return mostNumerous;
     }
 
-    private TeamOnPitch moveBestGoalkeeperBetweenThePosts(TeamOnPitch team) {
+    private RepairedLineup moveBestGoalkeeperBetweenThePosts(TeamOnPitch team) {
         Player best = null;
         for (Player candidate : team.players()) {
             if (best == null || goalkeepingOf(candidate) > goalkeepingOf(best)) {
                 best = candidate;
             }
         }
-        return team.withRole(best, Role.GOALKEEPER);
+        TeamOnPitch withGoalkeeper = team.withRole(best, Role.GOALKEEPER);
+        PlayerMove move = new PlayerMove(best, Role.GOALKEEPER, ChangeReason.MAKESHIFT_GOALKEEPER);
+        return RepairedLineup.moving(withGoalkeeper, move);
     }
 
-    private TeamOnPitch fillEmptiedSector(TeamOnPitch team) {
+    private RepairedLineup fillEmptiedSector(TeamOnPitch team) {
         for (Role sector : SECTORS) {
             if (team.playersIn(sector).isEmpty()) {
                 return fillSector(team, sector);
             }
         }
-        return team;
+        return RepairedLineup.withoutChanges(team);
     }
 
-    private TeamOnPitch fillSector(TeamOnPitch team, Role emptySector) {
+    private RepairedLineup fillSector(TeamOnPitch team, Role emptySector) {
         Role donor = donorFor(team, emptySector);
         Player mover = highestAverageIn(team, donor);
-        return team.withRole(mover, emptySector);
+        TeamOnPitch refilled = team.withRole(mover, emptySector);
+        PlayerMove move = new PlayerMove(mover, emptySector, ChangeReason.EMPTIED_SECTOR);
+        return RepairedLineup.moving(refilled, move);
     }
 
     private Role donorFor(TeamOnPitch team, Role emptySector) {

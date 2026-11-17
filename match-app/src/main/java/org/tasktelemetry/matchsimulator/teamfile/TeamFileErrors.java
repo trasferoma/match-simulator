@@ -3,18 +3,18 @@ package org.tasktelemetry.matchsimulator.teamfile;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.tasktelemetry.matchsimulator.engine.team.Role;
+import org.tasktelemetry.matchsimulator.coach.squad.SquadRuleViolation;
 import org.tasktelemetry.matchsimulator.engine.team.TeamRuleViolation;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 final class TeamFileErrors {
 
-    private final UserMessages messages;
-    private final TeamFileTerms terms;
+    private static final String LIST_SEPARATOR = ", ";
 
-    TeamFileErrors(UserMessages messages, TeamFileTerms terms) {
+    private final UserMessages messages;
+
+    TeamFileErrors(UserMessages messages) {
         this.messages = messages;
-        this.terms = terms;
     }
 
     InvalidTeamFileException inFile(Path file, TeamFileProblem problem, Object... arguments) {
@@ -34,8 +34,13 @@ final class TeamFileErrors {
     }
 
     InvalidTeamFileException inField(Path file, String field, TeamRuleViolation violation) {
-        List<Object> arguments = translateArguments(violation.arguments());
-        Object[] reasonArguments = arguments.toArray();
+        Object[] reasonArguments = readableArguments(violation.arguments());
+        String reason = messages.text(violation.rule(), reasonArguments);
+        return inField(file, field, reason);
+    }
+
+    InvalidTeamFileException inField(Path file, String field, SquadRuleViolation violation) {
+        Object[] reasonArguments = readableArguments(violation.arguments());
         String reason = messages.text(violation.rule(), reasonArguments);
         return inField(file, field, reason);
     }
@@ -45,15 +50,18 @@ final class TeamFileErrors {
         return InvalidTeamFileException.forField(file, field, message);
     }
 
-    private List<Object> translateArguments(List<Object> arguments) {
+    private Object[] readableArguments(List<Object> arguments) {
         return arguments.stream()
-                .map(this::translateArgument)
-                .toList();
+                .map(this::readableArgument)
+                .toArray();
     }
 
-    private Object translateArgument(Object argument) {
-        if (argument instanceof Role role) {
-            return terms.termOf(role);
+    private Object readableArgument(Object argument) {
+        if (argument instanceof List<?> items) {
+            List<String> texts = items.stream()
+                    .map(String::valueOf)
+                    .toList();
+            return String.join(LIST_SEPARATOR, texts);
         }
         return argument;
     }

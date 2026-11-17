@@ -96,7 +96,7 @@ class CalibrationTargetsReaderTest {
         BenchConfig defaults = BenchConfig.defaults();
         BenchConfig config = new BenchConfig(defaults.teamCount(), defaults.weakestStrength(),
                 defaults.strongestStrength(), defaults.seasons(), defaults.baseSeed(), defaults.individualVariation(),
-                tolerance);
+                tolerance, defaults.coachTacticalReading());
         return new CalibrationTargetsReader(config);
     }
 

@@ -11,6 +11,7 @@ import java.util.function.Predicate;
 import java.util.function.ToDoubleFunction;
 import java.util.function.ToIntFunction;
 
+import org.tasktelemetry.matchsimulator.coach.config.TimingConfig;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.summary.ContourCounters;
@@ -22,6 +23,18 @@ public final class LeagueMetrics {
     private static final double PERCENT = 100.0;
     private static final double LOW_PERCENTILE = 0.10;
     private static final double HIGH_PERCENTILE = 0.90;
+    private static final double TEAMS_PER_MATCH = 2.0;
+
+    private final int finalPhaseStartMinute;
+
+    public LeagueMetrics() {
+        this(TimingConfig.defaults());
+    }
+
+    public LeagueMetrics(TimingConfig timing) {
+        Objects.requireNonNull(timing, "timing must not be null");
+        this.finalPhaseStartMinute = timing.finalPhaseStartMinute();
+    }
 
     public MeasuredLeague measure(List<PlayedMatch> matches) {
         Objects.requireNonNull(matches, "matches must not be null");
@@ -123,7 +136,39 @@ public final class LeagueMetrics {
         orientation.put("cambi a partita", substitutions);
         orientation.put("rigori a partita", penalties);
         orientation.put("partite sospese (%)", suspendedShare);
+        orientation.putAll(measureCoachOrientation(matches));
         return orientation;
+    }
+
+    private Map<String, Double> measureCoachOrientation(List<PlayedMatch> matches) {
+        Map<String, Double> orientation = new LinkedHashMap<>();
+        double voluntary = averageInterventionsPerTeam(matches, VoluntaryInterventions::total);
+        double styleChanges = averageInterventionsPerTeam(matches, VoluntaryInterventions::styleChanges);
+        double substitutions = averageInterventionsPerTeam(matches, VoluntaryInterventions::substitutions);
+        double moves = averageInterventionsPerTeam(matches, VoluntaryInterventions::moves);
+        double lateGoals = measureLateGoalsShare(matches);
+        orientation.put("cambi volontari per squadra", voluntary);
+        orientation.put("di cui cambi di stile", styleChanges);
+        orientation.put("di cui sostituzioni", substitutions);
+        orientation.put("di cui spostamenti", moves);
+        orientation.put("gol nel finale (%)", lateGoals);
+        return orientation;
+    }
+
+    private double averageInterventionsPerTeam(List<PlayedMatch> matches,
+            ToIntFunction<VoluntaryInterventions> count) {
+        return averageOf(matches, match -> count.applyAsInt(match.interventions()) / TEAMS_PER_MATCH);
+    }
+
+    private double measureLateGoalsShare(List<PlayedMatch> matches) {
+        long allGoals = matches.stream().mapToLong(PlayedMatch::fieldGoals).sum();
+        if (allGoals == 0) {
+            return 0.0;
+        }
+        long lateGoals = matches.stream()
+                .mapToLong(match -> match.fieldGoalsFromMinute(finalPhaseStartMinute))
+                .sum();
+        return PERCENT * lateGoals / allGoals;
     }
 
     private double averageContour(List<PlayedMatch> matches, ToIntFunction<ContourCounters> counter) {

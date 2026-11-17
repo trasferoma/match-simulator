@@ -3,7 +3,10 @@ package org.tasktelemetry.matchsimulator.engine.event;
 import java.util.Objects;
 
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public sealed interface EventDetail {
 
@@ -33,6 +36,14 @@ public sealed interface EventDetail {
 
     static EventDetail suspension(MatchSide responsibleSide, Score fieldScore, Score officialScore) {
         return new Suspension(responsibleSide, fieldScore, officialScore);
+    }
+
+    static EventDetail styleChange(PlayStyle from, PlayStyle to, ChangeReason reason) {
+        return new StyleChange(from, to, reason);
+    }
+
+    static EventDetail lineupChange(Role sector, ChangeReason reason, Deployment before, Deployment after) {
+        return new LineupChange(sector, reason, before, after);
     }
 
     record NoDetail() implements EventDetail {
@@ -83,6 +94,33 @@ public sealed interface EventDetail {
             Objects.requireNonNull(responsibleSide, "responsible side must not be null");
             Objects.requireNonNull(fieldScore, "field score must not be null");
             Objects.requireNonNull(officialScore, "official score must not be null");
+        }
+    }
+
+    record StyleChange(PlayStyle from, PlayStyle to, ChangeReason reason) implements EventDetail {
+
+        public StyleChange {
+            Objects.requireNonNull(from, "previous style must not be null");
+            Objects.requireNonNull(to, "new style must not be null");
+            Objects.requireNonNull(reason, "change reason must not be null");
+            if (from == to) {
+                throw new IllegalArgumentException("a style change must change the style, both were " + from);
+            }
+        }
+    }
+
+    record LineupChange(Role sector, ChangeReason reason, Deployment before, Deployment after)
+            implements EventDetail {
+
+        public LineupChange {
+            Objects.requireNonNull(sector, "sector must not be null");
+            Objects.requireNonNull(reason, "change reason must not be null");
+            Objects.requireNonNull(before, "deployment before the change must not be null");
+            Objects.requireNonNull(after, "deployment after the change must not be null");
+        }
+
+        public boolean changesDeployment() {
+            return !before.equals(after);
         }
     }
 }

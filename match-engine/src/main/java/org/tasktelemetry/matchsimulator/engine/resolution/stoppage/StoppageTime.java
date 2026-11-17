@@ -33,9 +33,25 @@ public final class StoppageTime {
     }
 
     private List<MatchEvent> eventsOf(List<MatchEvent> events, MatchPeriod period) {
-        return events.stream()
+        EventType opening = openingEventOf(period);
+        int firstIndexAfterTheOpening = firstIndexAfter(events, opening);
+        List<MatchEvent> afterTheOpening = events.subList(firstIndexAfterTheOpening, events.size());
+        return afterTheOpening.stream()
                 .filter(event -> event.time().period() == period)
                 .toList();
+    }
+
+    private EventType openingEventOf(MatchPeriod period) {
+        return period == MatchPeriod.SECOND_HALF ? EventType.SECOND_HALF_START : EventType.KICK_OFF;
+    }
+
+    private int firstIndexAfter(List<MatchEvent> events, EventType opening) {
+        for (int index = 0; index < events.size(); index++) {
+            if (events.get(index).type() == opening) {
+                return index + 1;
+            }
+        }
+        return 0;
     }
 
     private int lostSecondsIn(List<MatchEvent> periodEvents) {

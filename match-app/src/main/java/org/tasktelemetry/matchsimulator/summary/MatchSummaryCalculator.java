@@ -14,8 +14,6 @@ import org.tasktelemetry.matchsimulator.engine.team.Player;
 
 public final class MatchSummaryCalculator {
 
-    private static final Set<EventType> SHOT_TYPES = EnumSet.of(
-            EventType.GOAL, EventType.SHOT_SAVED, EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> CROSS_TYPES = EnumSet.of(EventType.CROSS_COMPLETED, EventType.CROSS_FAILED,
             EventType.CROSS_DEFLECTED_TO_CORNER);
     private static final Set<EventType> SHOT_ON_TARGET_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED);
@@ -30,7 +28,6 @@ public final class MatchSummaryCalculator {
     private static final Set<EventType> SUBSTITUTION_TYPES = EnumSet.of(EventType.SUBSTITUTION);
     private static final Set<EventType> OFFSIDE_TYPES = EnumSet.of(EventType.OFFSIDE);
     private static final Set<EventType> INJURY_TYPES = EnumSet.of(EventType.INJURY);
-    private static final Set<EventType> STOPPED_BALL_TYPES = EnumSet.of(EventType.INJURY, EventType.SUBSTITUTION);
 
     public MatchSummary summarize(List<MatchEvent> events) {
         Objects.requireNonNull(events, "events must not be null");
@@ -103,7 +100,7 @@ public final class MatchSummaryCalculator {
     }
 
     private int countShots(List<MatchEvent> sideEvents) {
-        return countOfTypes(sideEvents, SHOT_TYPES);
+        return (int) sideEvents.stream().filter(event -> event.type().isShot()).count();
     }
 
     private int countShotsOnTarget(List<MatchEvent> sideEvents) {
@@ -129,31 +126,15 @@ public final class MatchSummaryCalculator {
 
     private double sumExpectedGoals(List<MatchEvent> sideEvents) {
         return sideEvents.stream()
-                .filter(event -> SHOT_TYPES.contains(event.type()))
-                .mapToDouble(event -> expectedGoalsOf(event.detail()))
+                .filter(event -> event.type().isShot())
+                .mapToDouble(MatchEvent::expectedGoals)
                 .sum();
     }
 
     private int sumPossessionSeconds(List<MatchEvent> sideEvents) {
         return sideEvents.stream()
-                .filter(event -> !STOPPED_BALL_TYPES.contains(event.type()))
+                .filter(event -> event.type().countsForPossession())
                 .mapToInt(MatchEvent::durationSeconds)
                 .sum();
-    }
-
-    private double expectedGoalsOf(EventDetail shotDetail) {
-        return switch (shotDetail) {
-            case EventDetail.Shot shot -> shot.profile().expectedGoals();
-            case EventDetail.Save save -> save.profile().expectedGoals();
-            case EventDetail.Goal goal -> goal.profile().expectedGoals();
-            case EventDetail.NoDetail noDetail -> throw missingShotProfile(shotDetail);
-            case EventDetail.StoppageAnnounced announced -> throw missingShotProfile(shotDetail);
-            case EventDetail.Foul foul -> throw missingShotProfile(shotDetail);
-            case EventDetail.Suspension suspension -> throw missingShotProfile(shotDetail);
-        };
-    }
-
-    private IllegalStateException missingShotProfile(EventDetail detail) {
-        return new IllegalStateException("a shot event must carry a shot profile, but its detail is " + detail);
     }
 }

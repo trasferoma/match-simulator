@@ -7,12 +7,13 @@ import java.util.List;
 import java.util.Map;
 import java.util.Objects;
 
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> reassigned, List<Player> cautioned,
-        int substitutionsMade, List<Player> withdrawn) {
+        int substitutionsMade, List<Player> withdrawn, PlayStyle style) {
 
     public TeamOnPitch {
         Objects.requireNonNull(team, "team must not be null");
@@ -20,6 +21,7 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         Objects.requireNonNull(reassigned, "reassigned roles must not be null");
         Objects.requireNonNull(cautioned, "cautioned players must not be null");
         Objects.requireNonNull(withdrawn, "withdrawn players must not be null");
+        Objects.requireNonNull(style, "current style must not be null");
         if (substitutionsMade < 0) {
             throw new IllegalArgumentException("substitutions made must not be negative, was " + substitutionsMade);
         }
@@ -35,7 +37,7 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
 
     public TeamOnPitch(Team team, List<Player> players, Map<Player, Role> reassigned, List<Player> cautioned,
             int substitutionsMade) {
-        this(team, players, reassigned, cautioned, substitutionsMade, List.of());
+        this(team, players, reassigned, cautioned, substitutionsMade, List.of(), team.style());
     }
 
     public static TeamOnPitch startingWith(Team team) {
@@ -81,21 +83,25 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         List<Player> remainingCautioned = cautioned.stream().filter(other -> !other.equals(player)).toList();
         List<Player> nowWithdrawn = withdrawnWith(player);
         return new TeamOnPitch(team, remaining, remainingRoles, remainingCautioned, substitutionsMade,
-                nowWithdrawn);
+                nowWithdrawn, style);
     }
 
     public TeamOnPitch withRole(Player player, Role role) {
         requireOnPitch(player);
         Map<Player, Role> roles = new LinkedHashMap<>(reassigned);
         roles.put(player, role);
-        return new TeamOnPitch(team, players, roles, cautioned, substitutionsMade, withdrawn);
+        return new TeamOnPitch(team, players, roles, cautioned, substitutionsMade, withdrawn, style);
+    }
+
+    public TeamOnPitch withStyle(PlayStyle newStyle) {
+        return new TeamOnPitch(team, players, reassigned, cautioned, substitutionsMade, withdrawn, newStyle);
     }
 
     public TeamOnPitch withCautioned(Player player) {
         requireOnPitch(player);
         List<Player> nowCautioned = new ArrayList<>(cautioned);
         nowCautioned.add(player);
-        return new TeamOnPitch(team, players, reassigned, nowCautioned, substitutionsMade, withdrawn);
+        return new TeamOnPitch(team, players, reassigned, nowCautioned, substitutionsMade, withdrawn, style);
     }
 
     public TeamOnPitch withSubstitution(Player leaving, Player entering, Role enteringAs) {
@@ -107,7 +113,7 @@ public record TeamOnPitch(Team team, List<Player> players, Map<Player, Role> rea
         roles.put(entering, enteringAs);
         List<Player> remainingCautioned = cautioned.stream().filter(other -> !other.equals(leaving)).toList();
         List<Player> nowWithdrawn = withdrawnWith(leaving);
-        return new TeamOnPitch(team, lineup, roles, remainingCautioned, substitutionsMade + 1, nowWithdrawn);
+        return new TeamOnPitch(team, lineup, roles, remainingCautioned, substitutionsMade + 1, nowWithdrawn, style);
     }
 
     private List<Player> withdrawnWith(Player leaving) {

@@ -6,8 +6,10 @@ import java.util.Optional;
 import org.tasktelemetry.matchsimulator.engine.MatchRandom;
 import org.tasktelemetry.matchsimulator.engine.config.DurationRange;
 import org.tasktelemetry.matchsimulator.engine.config.InjuryConfig;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 public final class InjuryResolver {
 
@@ -65,7 +67,8 @@ public final class InjuryResolver {
 
     private LineupOutcome bringInReplacement(TeamOnPitch team, Player injured, Player replacement) {
         TeamOnPitch changed = injurySubstitution.substitute(team, injured, replacement);
-        Substitution substitution = new Substitution(injured, replacement);
+        Role sector = changed.roleOf(replacement);
+        Substitution substitution = new Substitution(injured, replacement, sector, ChangeReason.INJURY);
         List<Substitution> substitutions = List.of(substitution);
         return countThenRepair(changed, substitutions);
     }
@@ -74,8 +77,9 @@ public final class InjuryResolver {
         if (minimumPlayers.isBelowMinimum(team)) {
             return LineupOutcome.suspended(team);
         }
-        TeamOnPitch repaired = lineupRepair.repairAfterInjury(team);
-        RepairedLineup repairedLineup = new RepairedLineup(repaired, substitutions);
-        return LineupOutcome.continuing(repairedLineup);
+        RepairedLineup replaced = new RepairedLineup(team, substitutions, List.of());
+        RepairedLineup repair = lineupRepair.repairAfterInjury(team);
+        RepairedLineup combined = replaced.followedBy(repair);
+        return LineupOutcome.continuing(combined);
     }
 }

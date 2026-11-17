@@ -8,17 +8,32 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 public final class PhraseFiller {
 
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{([a-z]+)\\}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{([A-Za-z]+)\\}");
     private static final String PLAYER = "player";
     private static final String SECONDARY = "secondary";
     private static final String MINUTES = "minutes";
     private static final String TEAM = "team";
+    private static final String COACH = "coach";
+    private static final String SECTOR = "sector";
+    private static final String STYLE = "style";
+    private static final String PREVIOUS_STYLE = "previousStyle";
+    private static final String DEPLOYMENT = "deployment";
+    private static final String PREVIOUS_DEPLOYMENT = "previousDeployment";
     private static final String TEAM_PLACEHOLDER = "{team}";
     private static final String PLAYER_WITH_TEAM_FORMAT = "%s (%s)";
+
+    private final UserMessages messages;
+
+    public PhraseFiller(UserMessages messages) {
+        this.messages = messages;
+    }
 
     public String fill(String phrase, MatchEvent event, TeamNames teamNames) {
         return fillPart(phrase, phrase, event, teamNames);
@@ -42,6 +57,12 @@ public final class PhraseFiller {
             case SECONDARY -> secondaryWithTeamOf(phrase, event, teamNames);
             case MINUTES -> announcedMinutesOf(event);
             case TEAM -> findNamedTeamOf(event, teamNames);
+            case COACH -> findCoachOf(event, teamNames);
+            case SECTOR -> findSectorOf(event);
+            case STYLE -> findNewStyleOf(event);
+            case PREVIOUS_STYLE -> findPreviousStyleOf(event);
+            case DEPLOYMENT -> findDeploymentAfterTheChangeOf(event);
+            case PREVIOUS_DEPLOYMENT -> findDeploymentBeforeTheChangeOf(event);
             default -> Optional.empty();
         };
     }
@@ -94,6 +115,55 @@ public final class PhraseFiller {
         MatchSide side = namedSideOf(event);
         String teamName = teamNames.nameOf(side);
         return Optional.of(teamName);
+    }
+
+    private Optional<String> findCoachOf(MatchEvent event, TeamNames teamNames) {
+        MatchSide side = namedSideOf(event);
+        String coachName = teamNames.coachOf(side);
+        return Optional.of(coachName);
+    }
+
+    private Optional<String> findSectorOf(MatchEvent event) {
+        if (event.detail() instanceof EventDetail.LineupChange change) {
+            Role sector = change.sector();
+            String text = messages.text(sector);
+            return Optional.of(text);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> findNewStyleOf(MatchEvent event) {
+        if (event.detail() instanceof EventDetail.StyleChange change) {
+            PlayStyle style = change.to();
+            String text = messages.text(style);
+            return Optional.of(text);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> findPreviousStyleOf(MatchEvent event) {
+        if (event.detail() instanceof EventDetail.StyleChange change) {
+            PlayStyle style = change.from();
+            String text = messages.text(style);
+            return Optional.of(text);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> findDeploymentAfterTheChangeOf(MatchEvent event) {
+        if (event.detail() instanceof EventDetail.LineupChange change) {
+            String label = change.after().label();
+            return Optional.of(label);
+        }
+        return Optional.empty();
+    }
+
+    private Optional<String> findDeploymentBeforeTheChangeOf(MatchEvent event) {
+        if (event.detail() instanceof EventDetail.LineupChange change) {
+            String label = change.before().label();
+            return Optional.of(label);
+        }
+        return Optional.empty();
     }
 
     private MatchSide namedSideOf(MatchEvent event) {

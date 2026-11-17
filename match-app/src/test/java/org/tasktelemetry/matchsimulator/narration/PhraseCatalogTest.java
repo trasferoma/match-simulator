@@ -9,6 +9,7 @@ import java.util.Arrays;
 import java.util.EnumSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.Set;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -16,18 +17,21 @@ import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 
 class PhraseCatalogTest {
 
-    private static final Pattern PLACEHOLDER = Pattern.compile("\\{[a-z]+\\}");
+    private static final Pattern PLACEHOLDER = Pattern.compile("\\{[A-Za-z]+\\}");
     private static final Set<String> KNOWN_PLACEHOLDERS = Set.of("{player}", "{secondary}", "{minutes}",
-            "{team}");
-    private static final Set<EventType> NAMING_THE_TEAM = EnumSet.of(EventType.GOAL, EventType.MATCH_SUSPENDED);
+            "{team}", "{coach}", "{sector}", "{style}", "{previousStyle}", "{deployment}", "{previousDeployment}");
+    private static final Set<EventType> NAMING_THE_TEAM = EnumSet.of(EventType.GOAL, EventType.MATCH_SUSPENDED,
+            EventType.STYLE_CHANGED, EventType.SUBSTITUTION, EventType.PLAYER_MOVED);
 
     private static final Map<ShotQuality, List<String>> DANGER_LEXICON = Map.of(
             ShotQuality.ATTEMPT, List.of("tentativ", "azzard", "velleit"),
@@ -66,9 +70,9 @@ class PhraseCatalogTest {
 
     @Test
     void everyKeyOfTheCatalogIsUsedByTheNarration() {
-        Set<String> usedKeys = Stream.concat(
-                ProducibleEvents.all().stream().map(keys::keyOf),
-                Arrays.stream(GoalHighlight.values()).map(keys::keyOf))
+        Stream<String> eventKeys = ProducibleEvents.all().stream().map(keys::keyOf);
+        Stream<String> highlightKeys = Arrays.stream(GoalHighlight.values()).map(keys::keyOf);
+        Set<String> usedKeys = Stream.concat(Stream.concat(eventKeys, highlightKeys), deploymentChangeKeys().stream())
                 .collect(Collectors.toSet());
 
         assertThat(catalog.keys()).containsExactlyInAnyOrderElementsOf(usedKeys);
@@ -117,7 +121,7 @@ class PhraseCatalogTest {
     }
 
     @Test
-    void everyPhraseOfAGoalAndOfTheSuspensionHasThePlaceholderOfTheTeam() {
+    void everyPhraseOfAGoalTheSuspensionAndTheInterventionsHasThePlaceholderOfTheTeam() {
         Set<String> keysNamingTheTeam = keysNamingTheTeam();
 
         assertThat(keysNamingTheTeam).isNotEmpty();
@@ -128,13 +132,97 @@ class PhraseCatalogTest {
     }
 
     @Test
-    void theTeamPlaceholderAppearsOnlyInTheGoalAndTheSuspension() {
+    void theTeamPlaceholderAppearsOnlyInTheGoalTheSuspensionAndTheInterventions() {
         Set<String> keysNamingTheTeam = keysNamingTheTeam();
 
         for (String key : catalog.keys()) {
             boolean carriesTeam = catalog.variantsOf(key).stream().anyMatch(phrase -> phrase.contains("{team}"));
 
             assertThat(carriesTeam).as(key).isEqualTo(keysNamingTheTeam.contains(key));
+        }
+    }
+
+    @Test
+    void everyValidCombinationOfInterventionAndReasonHasItsKeyAndNoOtherCombinationHasOne() {
+        Set<String> expectedKeys = InterventionReasons.types().stream()
+                .flatMap(type -> InterventionReasons.validFor(type).stream().map(reason -> expectedKey(type, reason)))
+                .collect(Collectors.toSet());
+        Set<String> interventionKeys = catalog.keys().stream()
+                .filter(this::isKeyOfAnIntervention)
+                .collect(Collectors.toSet());
+
+        assertThat(interventionKeys).isEqualTo(expectedKeys);
+    }
+
+    @Test
+    void everyPhraseOfAnInterventionNamesTheTeamAndTheCoach() {
+        for (MatchEvent event : interventionEvents()) {
+            String key = keys.keyOf(event);
+
+            assertThat(catalog.variantsOf(key)).as(key).isNotEmpty()
+                    .allSatisfy(phrase -> assertThat(phrase).contains("{team}", "{coach}"));
+        }
+    }
+
+    @Test
+    void theCoachPlaceholderAppearsOnlyInTheInterventions() {
+        Set<String> interventionKeys = interventionEvents().stream()
+                .map(keys::keyOf)
+                .collect(Collectors.toSet());
+
+        for (String key : catalog.keys()) {
+            boolean carriesCoach = catalog.variantsOf(key).stream().anyMatch(phrase -> phrase.contains("{coach}"));
+
+            assertThat(carriesCoach).as(key).isEqualTo(interventionKeys.contains(key));
+        }
+    }
+
+    @Test
+    void theStylePlaceholdersAreInTheStyleChangesAndNowhereElse() {
+        for (String key : catalog.keys()) {
+            boolean isStyleChange = key.startsWith(EventType.STYLE_CHANGED.name());
+
+            assertThat(catalog.variantsOf(key)).as(key).allSatisfy(phrase -> {
+                assertThat(phrase.contains("{style}")).as(phrase).isEqualTo(isStyleChange);
+                assertThat(phrase.contains("{previousStyle}")).as(phrase).isEqualTo(isStyleChange);
+            });
+        }
+    }
+
+    @Test
+    void theSectorPlaceholderIsInTheLineupChangesExceptWhenTheReasonAlreadyMeansTheGoal() {
+        for (MatchEvent event : interventionEvents()) {
+            ChangeReason reason = reasonOf(event);
+            boolean isLineupChange = event.type() != EventType.STYLE_CHANGED;
+            boolean namesTheSector = isLineupChange && !InterventionReasons.impliesTheGoalkeepingSector(reason);
+            String key = keys.keyOf(event);
+
+            assertThat(catalog.variantsOf(key)).as(key).allSatisfy(
+                    phrase -> assertThat(phrase.contains("{sector}")).as(phrase).isEqualTo(namesTheSector));
+        }
+    }
+
+    @Test
+    void theDeploymentChangeHasAPhraseThatSaysFromWhichModuleToWhich() {
+        Set<String> deploymentChangeKeys = deploymentChangeKeys();
+
+        assertThat(deploymentChangeKeys).hasSize(1);
+        for (String key : deploymentChangeKeys) {
+            assertThat(catalog.variantsOf(key)).as(key).isNotEmpty().allSatisfy(phrase -> assertThat(phrase)
+                    .contains("{previousDeployment}", "{deployment}")
+                    .doesNotContain("{player}", "{secondary}", "{team}", "{coach}"));
+        }
+    }
+
+    @Test
+    void theDeploymentPlaceholdersAppearOnlyInThePhraseOfTheDeploymentChange() {
+        Set<String> deploymentChangeKeys = deploymentChangeKeys();
+
+        for (String key : catalog.keys()) {
+            boolean carriesDeployment = catalog.variantsOf(key).stream()
+                    .anyMatch(phrase -> phrase.contains("{deployment}") || phrase.contains("{previousDeployment}"));
+
+            assertThat(carriesDeployment).as(key).isEqualTo(deploymentChangeKeys.contains(key));
         }
     }
 
@@ -217,6 +305,36 @@ class PhraseCatalogTest {
         assertThatThrownBy(() -> new PhraseCatalog(Map.of("A.KEY", List.of())))
                 .isInstanceOf(IllegalArgumentException.class)
                 .hasMessageContaining("A.KEY");
+    }
+
+    private Set<String> deploymentChangeKeys() {
+        return ProducibleEvents.all().stream()
+                .map(keys::deploymentChangeKeyOf)
+                .flatMap(Optional::stream)
+                .collect(Collectors.toSet());
+    }
+
+    private List<MatchEvent> interventionEvents() {
+        return ProducibleEvents.all().stream()
+                .filter(event -> InterventionReasons.types().contains(event.type()))
+                .toList();
+    }
+
+    private ChangeReason reasonOf(MatchEvent event) {
+        return switch (event.detail()) {
+            case EventDetail.StyleChange change -> change.reason();
+            case EventDetail.LineupChange change -> change.reason();
+            default -> throw new IllegalArgumentException("not an intervention: " + event);
+        };
+    }
+
+    private String expectedKey(EventType type, ChangeReason reason) {
+        String withReason = type.name() + "." + reason.name();
+        return type == EventType.SUBSTITUTION ? withReason + ".WITH_SECONDARY" : withReason;
+    }
+
+    private boolean isKeyOfAnIntervention(String key) {
+        return InterventionReasons.types().stream().anyMatch(type -> key.startsWith(type.name() + "."));
     }
 
     private Set<String> keysNamingTheTeam() {

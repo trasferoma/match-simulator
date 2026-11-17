@@ -18,6 +18,7 @@ import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 class NarratorRepeatedEventsTest {
 
@@ -129,7 +130,7 @@ class NarratorRepeatedEventsTest {
 
     private List<String> sentencesOf(List<MatchEvent> events, PhraseCatalog catalog) {
         Narrator narrator = new Narrator(catalog, picker, new NarratedEventFilter(), new PhraseKeys(),
-                new PhraseFiller(), new PitchDrawing());
+                new PhraseFiller(UserMessages.italian()), new PitchDrawing());
         List<List<String>> blocks = narrator.narrate(events, TEAM_NAMES, ChronicleMode.FULL);
         return blocks.stream()
                 .map(block -> block.get(SENTENCE_LINE))

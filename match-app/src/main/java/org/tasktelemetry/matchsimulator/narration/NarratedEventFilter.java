@@ -20,7 +20,7 @@ public final class NarratedEventFilter {
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> INCIDENT_TYPES = EnumSet.of(EventType.OFFSIDE, EventType.INJURY,
-            EventType.SUBSTITUTION);
+            EventType.SUBSTITUTION, EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
     private static final Set<EventType> FREE_KICK_TYPES = EnumSet.of(EventType.FREE_KICK,
             EventType.FREE_KICK_CROSS);
     private static final Set<EventType> PLAYED_BY_THE_OPPOSING_SIDE_TYPES = EnumSet.of(EventType.INTERCEPTION,

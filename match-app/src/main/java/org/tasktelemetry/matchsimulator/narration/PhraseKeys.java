@@ -1,5 +1,7 @@
 package org.tasktelemetry.matchsimulator.narration;
 
+import java.util.Optional;
+
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
@@ -12,6 +14,7 @@ public final class PhraseKeys {
     private static final String WITH_SECONDARY = "WITH_SECONDARY";
     private static final String GOAL_CONTEXT = "GOAL_CONTEXT";
     private static final String NO_SEGMENT = "";
+    private static final String DEPLOYMENT_CHANGE = "LINEUP_CHANGE.DEPLOYMENT";
 
     public String keyOf(MatchEvent event) {
         String type = event.type().name();
@@ -24,11 +27,20 @@ public final class PhraseKeys {
         return GOAL_CONTEXT + SEPARATOR + highlight.name();
     }
 
+    public Optional<String> deploymentChangeKeyOf(MatchEvent event) {
+        if (event.detail() instanceof EventDetail.LineupChange change && change.changesDeployment()) {
+            return Optional.of(DEPLOYMENT_CHANGE);
+        }
+        return Optional.empty();
+    }
+
     private String detailSegmentsOf(EventDetail detail) {
         return switch (detail) {
             case EventDetail.NoDetail noDetail -> NO_SEGMENT;
             case EventDetail.StoppageAnnounced announced -> NO_SEGMENT;
             case EventDetail.Suspension suspension -> NO_SEGMENT;
+            case EventDetail.StyleChange styleChange -> segment(styleChange.reason().name());
+            case EventDetail.LineupChange lineupChange -> segment(lineupChange.reason().name());
             case EventDetail.Shot shot -> shotSegmentOf(shot.profile());
             case EventDetail.Save save -> saveSegmentOf(save);
             case EventDetail.Goal goal -> goalSegmentOf(goal.profile());

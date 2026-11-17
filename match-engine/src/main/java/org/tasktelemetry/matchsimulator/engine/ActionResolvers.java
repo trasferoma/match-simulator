@@ -5,7 +5,9 @@ import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolv
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.MinimumPlayersRule;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.SectorMoveRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.SubstitutionTimer;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.VoluntarySubstitutionRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.shot.CrossResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.FoulResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.stoppage.OffsideRule;
@@ -23,5 +25,7 @@ record ActionResolvers(
         MinimumPlayersRule minimumPlayers,
         InjuryResolver injury,
         SubstitutionTimer substitutionTimer,
+        VoluntarySubstitutionRule voluntarySubstitution,
+        SectorMoveRule sectorMove,
         StoppageTime stoppage) {
 }

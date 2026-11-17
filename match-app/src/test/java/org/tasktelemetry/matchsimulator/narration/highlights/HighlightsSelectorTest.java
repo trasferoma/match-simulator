@@ -24,6 +24,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -34,15 +35,22 @@ import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.narration.NarratedEventFilter;
 import org.tasktelemetry.matchsimulator.narration.NarrationEvents;
 
 class HighlightsSelectorTest {
 
+    private static final Deployment DEPLOYMENT = new Deployment(4, 4, 2);
+
     private static final String DEFAULT_FILE = "/narration/highlights.properties";
     private static final EventDetail NO_DETAIL = EventDetail.none();
+    private static final EventDetail SUBSTITUTION_DETAIL = EventDetail.lineupChange(Role.MIDFIELDER,
+            ChangeReason.INJURY, DEPLOYMENT, DEPLOYMENT);
 
     private final HighlightsConfigReader reader = new HighlightsConfigReader();
     private final NarrationEvents fixture = new NarrationEvents();
@@ -90,7 +98,7 @@ class HighlightsSelectorTest {
     void thePreparationStopsAtAnEventAlreadyTold() {
         addHomePasses(2);
         fixture.add(EventType.SUBSTITUTION, MatchSide.HOME, ZoneRole.MIDFIELD,
-                NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH), NO_DETAIL);
+                NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH), SUBSTITUTION_DETAIL);
         addHomePasses(1);
         addHomeShot(EventType.SHOT_OFF_TARGET);
         List<MatchEvent> events = fixture.list();
@@ -246,6 +254,25 @@ class HighlightsSelectorTest {
         List<HighlightSegment> segments = select(config);
 
         assertThat(segments).containsExactly(stop(false, events));
+    }
+
+    @Test
+    void aStyleChangeASubstitutionAndAMoveAreEachAStopWithOneEvent() {
+        EventDetail styleChange = EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.ATTACKING,
+                ChangeReason.CHASE_GAME);
+        fixture.add(EventType.STYLE_CHANGED, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), styleChange);
+        addHomePasses(1);
+        addSubstitution(Participants.of(HOME_MIDFIELDER, MatchSide.HOME, HOME_BENCH, MatchSide.HOME));
+        addHomePasses(1);
+        EventDetail move = EventDetail.lineupChange(Role.DEFENDER, ChangeReason.EMPTIED_SECTOR, DEPLOYMENT, DEPLOYMENT);
+        fixture.add(EventType.PLAYER_MOVED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(HOME_MIDFIELDER), move);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(stop(false, events.subList(0, 1)), frame(events.get(1)),
+                stop(false, events.subList(2, 3)), frame(events.get(3)), stop(false, events.subList(4, 5)));
     }
 
     @Test
@@ -585,6 +612,6 @@ class HighlightsSelectorTest {
 
     private void addSubstitution(Participants participants) {
         MatchSide side = participants.primarySide().orElseThrow();
-        fixture.add(EventType.SUBSTITUTION, side, ZoneRole.MIDFIELD, participants, NO_DETAIL);
+        fixture.add(EventType.SUBSTITUTION, side, ZoneRole.MIDFIELD, participants, SUBSTITUTION_DETAIL);
     }
 }

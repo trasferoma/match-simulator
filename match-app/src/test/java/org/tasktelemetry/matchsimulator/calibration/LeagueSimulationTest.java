@@ -6,10 +6,11 @@ import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.live.MatchPreparation;
 
 class LeagueSimulationTest {
 
-    private final BenchConfig smallLeague = new BenchConfig(4, 55, 80, 2, 42L, 3, 3.0);
+    private final BenchConfig smallLeague = new BenchConfig(4, 55, 80, 2, 42L, 3, 3.0, 50);
 
     @Test
     void everyTeamPlaysEveryOtherTeamAtHomeAndAwayInEverySeason() {
@@ -29,7 +30,7 @@ class LeagueSimulationTest {
 
     @Test
     void anotherBaseSeedGivesAnotherLeague() {
-        BenchConfig otherSeed = new BenchConfig(4, 55, 80, 2, 43L, 3, 3.0);
+        BenchConfig otherSeed = new BenchConfig(4, 55, 80, 2, 43L, 3, 3.0, 50);
 
         List<PlayedMatch> first = simulation(smallLeague).simulate();
         List<PlayedMatch> second = simulation(otherSeed).simulate();
@@ -39,6 +40,7 @@ class LeagueSimulationTest {
 
     private LeagueSimulation simulation(BenchConfig config) {
         LeagueGenerator generator = new LeagueGenerator(config, RoleProfiles.defaults());
-        return new LeagueSimulation(config, generator, EngineConfig.defaults());
+        MatchPreparation preparation = MatchPreparation.standard();
+        return new LeagueSimulation(config, generator, preparation, EngineConfig.defaults());
     }
 }

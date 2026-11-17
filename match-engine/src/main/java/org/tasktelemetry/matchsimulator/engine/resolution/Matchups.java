@@ -129,7 +129,7 @@ public final class Matchups {
     }
 
     private StyleEffect styleOf(TeamOnPitch team) {
-        return playStyles.effectOf(team.team().style());
+        return playStyles.effectOf(team.style());
     }
 
     private double attackStrength(StyleEffect style, ZoneRole zoneRole) {

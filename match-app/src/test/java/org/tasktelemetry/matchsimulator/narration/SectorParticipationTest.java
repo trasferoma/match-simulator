@@ -18,7 +18,7 @@ import org.tasktelemetry.matchsimulator.engine.state.PlayPhase;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
-import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
+import org.tasktelemetry.matchsimulator.live.PreparedMatch;
 
 class SectorParticipationTest {
 
@@ -48,8 +48,9 @@ class SectorParticipationTest {
         Path homeFile = ReferenceChronicle.homeTeamFile();
         Path awayFile = ReferenceChronicle.awayTeamFile();
         List<MatchEvent> events = playSeeds(homeFile, awayFile);
-        Team home = TeamFileReader.italian().read(homeFile);
-        Team away = TeamFileReader.italian().read(awayFile);
+        PreparedMatch prepared = ReferenceChronicle.prepare(homeFile, awayFile);
+        Team home = prepared.home();
+        Team away = prepared.away();
 
         long midfielderCarriesInTheAttackingThird = events.stream()
                 .filter(event -> event.zoneRole() == ZoneRole.ATTACKING_THIRD)
@@ -90,9 +91,9 @@ class SectorParticipationTest {
     }
 
     private List<Player> startersOf(Path homeFile, Path awayFile) {
-        TeamFileReader reader = TeamFileReader.italian();
-        List<Player> homeStarters = reader.read(homeFile).starters();
-        List<Player> awayStarters = reader.read(awayFile).starters();
+        PreparedMatch prepared = ReferenceChronicle.prepare(homeFile, awayFile);
+        List<Player> homeStarters = prepared.home().starters();
+        List<Player> awayStarters = prepared.away().starters();
         return Stream.concat(homeStarters.stream(), awayStarters.stream()).toList();
     }
 }

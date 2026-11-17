@@ -16,6 +16,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.EnumSource;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FoulSeverity;
@@ -26,13 +27,24 @@ import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotProfile;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 
 class NarratedEventFilterTest {
 
+    private static final Deployment DEPLOYMENT = new Deployment(4, 4, 2);
+
     private static final EventDetail NO_DETAIL = EventDetail.none();
+    private static final EventDetail SUBSTITUTION_DETAIL = EventDetail.lineupChange(Role.MIDFIELDER,
+            ChangeReason.INJURY, DEPLOYMENT, DEPLOYMENT);
+    private static final EventDetail STYLE_DETAIL = EventDetail.styleChange(PlayStyle.BALANCED,
+            PlayStyle.DEFENSIVE, ChangeReason.PROTECT_LEAD);
+    private static final EventDetail MOVE_DETAIL = EventDetail.lineupChange(Role.DEFENDER,
+            ChangeReason.EMPTIED_SECTOR, DEPLOYMENT, DEPLOYMENT);
 
     private final NarratedEventFilter filter = new NarratedEventFilter();
     private final NarrationEvents fixture = new NarrationEvents();
@@ -227,7 +239,10 @@ class NarratedEventFilterTest {
                 NarrationEvents.participantsOf(HOME_FORWARD, HOME_MIDFIELDER), NO_DETAIL);
         included(EventType.INJURY, MatchSide.AWAY, AWAY_DEFENDER);
         included(EventType.SUBSTITUTION, MatchSide.HOME, ZoneRole.MIDFIELD,
-                NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH), NO_DETAIL);
+                NarrationEvents.participantsOf(HOME_MIDFIELDER, HOME_BENCH), SUBSTITUTION_DETAIL);
+        included(EventType.PLAYER_MOVED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(HOME_MIDFIELDER), MOVE_DETAIL);
+        included(EventType.STYLE_CHANGED, MatchSide.AWAY, ZoneRole.MIDFIELD, Participants.nobody(), STYLE_DETAIL);
     }
 
     private void addEndOfTheHalvesAndSuspension() {

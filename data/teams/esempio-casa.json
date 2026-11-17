@@ -1,7 +1,12 @@
 {
   "name": "Atletico Mare",
-  "style": "offensivo",
-  "starters": [
+  "coach": {
+    "name": "Giorgio Parodi",
+    "attributes": {
+      "tacticalReading": 65
+    }
+  },
+  "players": [
     {
       "name": "Marco Bianchi",
       "role": "portiere",
@@ -155,9 +160,7 @@
         "aerial": 69,
         "goalkeeping": 32
       }
-    }
-  ],
-  "bench": [
+    },
     {
       "name": "Giorgio Neri",
       "role": "portiere",

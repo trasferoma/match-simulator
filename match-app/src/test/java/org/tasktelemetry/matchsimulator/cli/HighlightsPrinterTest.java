@@ -36,8 +36,9 @@ class HighlightsPrinterTest {
     private static final Duration CHANCE_LINE = Duration.ofMillis(33);
     private static final Duration AFTER_GOAL = Duration.ofMillis(44);
     private static final Duration RESUME = Duration.ofMillis(55);
-    private static final HighlightsConfig CONFIG = configWithPauses(11, 22, 33, 44, 55);
-    private static final HighlightsConfig SLOWER_CONFIG = configWithPauses(1100, 2200, 3300, 4400, 5500);
+    private static final Duration LINEUPS = Duration.ofMillis(66);
+    private static final HighlightsConfig CONFIG = configWithPauses(11, 22, 33, 44, 55, 66);
+    private static final HighlightsConfig SLOWER_CONFIG = configWithPauses(1100, 2200, 3300, 4400, 5500, 6600);
 
     @Test
     void framesAreRedrawnInPlaceAndTheShorterOnesCoverTheLongerPreviousRow() {
@@ -321,6 +322,34 @@ class HighlightsPrinterTest {
         assertThat(run.pauses()).containsExactly(FRAME, EVENT_LINE, RESUME, FRAME);
     }
 
+    @Test
+    void onATerminalThePauseAfterTheLineupsIsMadeOnceWithEverythingAlreadyWritten() {
+        Run run = Run.started(CONFIG, true);
+
+        run.pauseAfterLineups(false);
+
+        assertThat(run.pauses()).containsExactly(LINEUPS);
+        assertThat(run.pendingBytesAtEachPause()).containsExactly(0);
+    }
+
+    @Test
+    void withoutATerminalThereIsNoPauseAfterTheLineups() {
+        Run run = Run.started(CONFIG, false);
+
+        run.pauseAfterLineups(false);
+
+        assertThat(run.pauses()).isEmpty();
+    }
+
+    @Test
+    void forcingTheAnimationMakesThePauseAfterTheLineupsEvenWithoutATerminal() {
+        Run run = Run.startedForced(CONFIG);
+
+        run.pauseAfterLineups(true);
+
+        assertThat(run.pauses()).containsExactly(LINEUPS);
+    }
+
     private static List<NarratedSegment> goalAndFollowingSegments() {
         return List.of(
                 frame("frame one"),
@@ -359,12 +388,12 @@ class HighlightsPrinterTest {
     }
 
     private static HighlightsConfig configWithPauses(long frame, long eventLine, long chanceLine, long afterGoal,
-            long resume) {
+            long resume, long lineups) {
         HighlightsConfig defaults = new HighlightsConfigReader().readDefault();
         return new HighlightsConfig(defaults.treatments(), defaults.alsoStopsInZones(),
                 defaults.maxPreparationLines(), defaults.consequenceWindow(), Duration.ofMillis(frame),
                 Duration.ofMillis(eventLine), Duration.ofMillis(chanceLine), Duration.ofMillis(afterGoal),
-                Duration.ofMillis(resume));
+                Duration.ofMillis(resume), Duration.ofMillis(lineups));
     }
 
     private static Scoreboard scoreboard() {
@@ -379,6 +408,7 @@ class HighlightsPrinterTest {
         private final PauseProbe pause = new PauseProbe(stream);
         private final MatchPrinter matchPrinter;
         private final HighlightsListener session;
+        private final HighlightsPrinter printer;
 
         Run(HighlightsConfig config, boolean interactiveTerminal, List<NarratedSegment> segments) {
             this(config, interactiveTerminal, false);
@@ -395,12 +425,20 @@ class HighlightsPrinterTest {
             return new Run(config, interactiveTerminal, false);
         }
 
+        static Run startedForced(HighlightsConfig config) {
+            return new Run(config, false, true);
+        }
+
         private Run(HighlightsConfig config, boolean interactiveTerminal, boolean forceAnimation) {
             PrintStream out = new PrintStream(stream, false, StandardCharsets.UTF_8);
             BufferedReader noInput = new BufferedReader(new StringReader(""));
             matchPrinter = new MatchPrinter(UserMessages.italian(), out, new EnterKeyReader(noInput));
-            HighlightsPrinter printer = new HighlightsPrinter(out, pause, config, interactiveTerminal);
+            printer = new HighlightsPrinter(out, pause, config, interactiveTerminal);
             session = printer.openSession(forceAnimation);
+        }
+
+        void pauseAfterLineups(boolean forceAnimation) {
+            printer.pauseAfterLineups(forceAnimation);
         }
 
         void deliver(NarratedSegment segment) {

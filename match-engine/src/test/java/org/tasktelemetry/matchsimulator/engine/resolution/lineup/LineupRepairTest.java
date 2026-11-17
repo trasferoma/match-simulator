@@ -9,6 +9,7 @@ import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.config.LineupConfig;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.state.TeamOnPitch;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
@@ -292,7 +293,7 @@ class LineupRepairTest {
         Team team = shape(4, 4, 2, false);
         TeamOnPitch afterTheInjury = pitch(team, "M4");
 
-        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury).team();
 
         assertThat(repaired.players()).containsExactlyElementsOf(afterTheInjury.players());
         assertThat(repaired.reassigned()).isEmpty();
@@ -303,7 +304,7 @@ class LineupRepairTest {
         Team team = shapeWithGoalkeepingSpecialist();
         TeamOnPitch afterTheInjury = pitch(team, "GK");
 
-        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury).team();
 
         Player specialist = find(team, "M1");
         assertThat(repaired.goalkeeper()).isEqualTo(specialist);
@@ -321,7 +322,7 @@ class LineupRepairTest {
         Team team = new Team("T", PlayStyle.BALANCED, starters, List.of());
         TeamOnPitch afterTheInjury = pitch(team, "GK");
 
-        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury).team();
 
         assertThat(repaired.goalkeeper()).isEqualTo(find(team, "D1"));
         assertThat(repaired.playersIn(Role.DEFENDER)).containsExactly(find(team, "M4"));
@@ -333,10 +334,60 @@ class LineupRepairTest {
         Team team = shape(1, 7, 2, false);
         TeamOnPitch afterTheInjury = pitch(team, "D1");
 
-        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury);
+        TeamOnPitch repaired = repair.repairAfterInjury(afterTheInjury).team();
 
         assertThat(repaired.playersIn(Role.DEFENDER)).containsExactly(find(team, "M7"));
         assertThat(repaired.playersIn(Role.MIDFIELDER)).hasSize(6);
+    }
+
+    @Test
+    void theReserveGoalkeeperSubstitutionCarriesTheGoalSectorAndTheReserveGoalkeeperReason() {
+        Team team = shape(4, 4, 2, true);
+
+        RepairedLineup repaired = repair.repairAfterDismissal(pitch(team, "GK"), Role.GOALKEEPER, LEVEL);
+
+        Substitution substitution = repaired.substitutions().get(0);
+        assertThat(substitution.sector()).isEqualTo(Role.GOALKEEPER);
+        assertThat(substitution.reason()).isEqualTo(ChangeReason.RESERVE_GOALKEEPER);
+        assertThat(repaired.moves()).isEmpty();
+    }
+
+    @Test
+    void anOutfielderInGoalIsReportedAsAMakeshiftGoalkeeperMove() {
+        Team team = shapeWithGoalkeepingSpecialist();
+
+        RepairedLineup repaired = repair.repairAfterDismissal(pitch(team, "GK"), Role.GOALKEEPER, LEVEL);
+
+        assertThat(repaired.moves()).containsExactly(
+                new PlayerMove(find(team, "M1"), Role.GOALKEEPER, ChangeReason.MAKESHIFT_GOALKEEPER));
+    }
+
+    @Test
+    void aRefilledSectorIsReportedAsAnEmptiedSectorMove() {
+        Team team = shape(4, 4, 2, true);
+
+        RepairedLineup repaired = repair.repairAfterDismissal(pitch(team, "D1", "D2", "D3", "D4"), Role.DEFENDER,
+                LEVEL);
+
+        assertThat(repaired.moves()).containsExactly(
+                new PlayerMove(find(team, "M4"), Role.DEFENDER, ChangeReason.EMPTIED_SECTOR));
+    }
+
+    @Test
+    void afterTheInjuryOfTheGoalkeeperTheMovesAreReportedInTheOrderOfTheRepair() {
+        List<Player> starters = new ArrayList<>();
+        starters.add(player("GK", Role.GOALKEEPER, 65));
+        starters.add(new Player("D1", Role.DEFENDER, new PlayerAttributes(60, 60, 60, 60, 60, 60, 60, 95)));
+        starters.addAll(outfield("M", Role.MIDFIELDER, 4, 50));
+        starters.addAll(outfield("F", Role.FORWARD, 5, 70));
+        Team team = new Team("T", PlayStyle.BALANCED, starters, List.of());
+
+        RepairedLineup repaired = repair.repairAfterInjury(pitch(team, "GK"));
+
+        assertThat(repaired.substitutions()).isEmpty();
+        assertThat(repaired.moves()).containsExactly(
+                new PlayerMove(find(team, "D1"), Role.GOALKEEPER, ChangeReason.MAKESHIFT_GOALKEEPER),
+                new PlayerMove(find(team, "M4"), Role.DEFENDER, ChangeReason.EMPTIED_SECTOR));
     }
 
     @Test

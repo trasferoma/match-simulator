@@ -44,7 +44,7 @@ d'ingresso, formato, cosa contiene e cosa no).
 
 ## Comandi
 
-Maven a due moduli: `match-engine` (motore) e `match-app` (file, cronaca, banco, riga di comando). Tutti i comandi si lanciano dalla radice del repository.
+Maven a tre moduli: `match-engine` (motore), `match-coach` (allenatore automatico, dipende solo dal motore) e `match-app` (file, cronaca, banco, riga di comando). Tutti i comandi si lanciano dalla radice del repository.
 
 **JDK 21 obbligatorio.** Il Java predefinito della macchina è il 17: la build si ferma subito all'enforcer con un messaggio che lo spiega. Per il comando si imposta `JAVA_HOME` sul JDK 21, senza toccare l'ambiente permanente (in bash):
 
@@ -60,6 +60,7 @@ Negli esempi sotto si omette il prefisso `JAVA_HOME=...`, ma serve in ogni coman
 | Test del banco di taratura (solo il tag `calibration`, lenti) | `mvn verify -Pcalibration` |
 | Riga di comando | `java -jar match-app/target/match-app-1.0-SNAPSHOT.jar <squadra-casa> <squadra-ospite> [--seed 42] [--full] [--stepByStep] [--highlights] [--animate]` (esempio: `data/teams/esempio-casa.json data/teams/esempio-ospite.json`) |
 | Banco di taratura (dalla Fase 7) | `java -cp match-app/target/match-app-1.0-SNAPSHOT.jar org.tasktelemetry.matchsimulator.calibration.CalibrationBench [cartella-dati]` |
+| Effetto di stili e moduli (confronto appaiato contro equilibrato 4-4-2, allenatori fermi; circa 25 s con i default) | `java -cp match-app/target/match-app-1.0-SNAPSHOT.jar org.tasktelemetry.matchsimulator.calibration.tactics.TacticsBench [campioni] [forza] [seme]` |
 
 - Il tag `calibration` si esclude tramite la proprietà `test.excludedGroups`, sovrascrivibile da riga di comando (`-Dtest.excludedGroups=...`).
 - Riga di comando: le opzioni valgono in qualunque posizione; `--stepByStep` mostra un evento della cronaca a ogni Invio; `--highlights` anima il campo su una riga e si ferma sugli eventi da raccontare (cosa ferma l'animazione e le pause stanno in `match-app/src/main/resources/narration/highlights.properties`, effettivo dopo `mvn package`), non si combina con `--full` né con `--stepByStep` e, se l'uscita non è un terminale interattivo (file, Git Bash, console di IntelliJ), stampa solo le fermate senza animazione né pause, salvo con `--animate`, che forza l'animazione (solo insieme a `--highlights`); senza `--seed` il seme si genera e si stampa in fondo. Codici di uscita: 0 riuscita, 1 file squadra mancante o non valido, 2 argomenti errati.
@@ -78,6 +79,7 @@ Negli esempi sotto si omette il prefisso `JAVA_HOME=...`, ma serve in ogni coman
 - Ogni zona coinvolge tutti i reparti con una presenza di configurazione: il giocatore si estrae pesato sulla presenza del suo reparto, la forza del duello combina la media della zona e il giocatore, e chi ha più uomini del 4-4-2 di riferimento ha un fattore di superiorità numerica.
 - Ogni tiro ha un xG (probabilità di gol); è gol se l'estrazione cade sotto l'xG.
 - Il tempo avanza della durata di ogni azione, in secondi.
+- Ogni squadra ha un allenatore automatico: dalla rosa sceglie modulo, titolari, panchina e stile; in partita legge solo gli eventi e chiede interventi (stile, sostituzione, spostamento di reparto) che il motore valida ed esegue come eventi con il motivo.
 
 ## Principi da rispettare
 

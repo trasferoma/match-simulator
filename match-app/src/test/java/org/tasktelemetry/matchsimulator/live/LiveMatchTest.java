@@ -6,34 +6,21 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import java.util.ArrayList;
 import java.util.List;
 
-import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.narration.ReferenceChronicle;
-import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
 
 class LiveMatchTest {
 
     private static final long SEED = ReferenceChronicle.SEED;
 
-    private static Team home;
-    private static Team away;
-
-    @BeforeAll
-    static void readTeams() {
-        TeamFileReader reader = TeamFileReader.italian();
-        home = reader.read(ReferenceChronicle.homeTeamFile());
-        away = reader.read(ReferenceChronicle.awayTeamFile());
-    }
-
     @Test
     void deliveriesConcatenateToTheEventsOfTheWholeMatch() {
         RecordingObserver observer = new RecordingObserver();
 
-        List<MatchEvent> returned = newLiveMatch().play(home, away, SEED, observer);
+        List<MatchEvent> returned = newLiveMatch().play(preparedMatch(), SEED, observer);
 
         List<MatchEvent> expected = ReferenceChronicle.play(
                 ReferenceChronicle.homeTeamFile(), ReferenceChronicle.awayTeamFile(), SEED);
@@ -45,7 +32,7 @@ class LiveMatchTest {
     void noDeliveryIsEmptyAndDeliveredListsCannotBeModified() {
         RecordingObserver observer = new RecordingObserver();
 
-        newLiveMatch().play(home, away, SEED, observer);
+        newLiveMatch().play(preparedMatch(), SEED, observer);
 
         assertThat(observer.deliveries()).isNotEmpty().allSatisfy(delivery -> {
             assertThat(delivery).isNotEmpty();
@@ -58,7 +45,7 @@ class LiveMatchTest {
     void matchFinishedArrivesOnceAndAfterTheLastDelivery() {
         RecordingObserver observer = new RecordingObserver();
 
-        newLiveMatch().play(home, away, SEED, observer);
+        newLiveMatch().play(preparedMatch(), SEED, observer);
 
         assertThat(observer.calls()).last().isEqualTo(RecordingObserver.FINISHED);
         assertThat(observer.calls()).containsOnlyOnce(RecordingObserver.FINISHED);
@@ -75,10 +62,46 @@ class LiveMatchTest {
             }
         };
 
-        assertThatThrownBy(() -> newLiveMatch().play(home, away, SEED, observer)).isSameAs(failure);
+        assertThatThrownBy(() -> newLiveMatch().play(preparedMatch(), SEED, observer)).isSameAs(failure);
 
         assertThat(observer.deliveries()).hasSize(1);
         assertThat(observer.calls()).doesNotContain(RecordingObserver.FINISHED);
+    }
+
+    @Test
+    void theSamePreparedMatchWithTheSameCoachObjectsPlayedTwiceGivesTheSameMatch() {
+        PreparedMatch prepared = preparedMatch();
+        LiveMatch liveMatch = newLiveMatch();
+
+        List<MatchEvent> first = liveMatch.play(prepared, SEED, new RecordingObserver());
+        List<MatchEvent> second = liveMatch.play(prepared, SEED, new RecordingObserver());
+
+        assertThat(first).isNotEmpty().anyMatch(MatchEvent::isVoluntaryIntervention);
+        assertThat(second).isEqualTo(first);
+    }
+
+    @Test
+    void theCoachesAreClosedAtTheEndEvenWhenTheObserverFails() {
+        PreparedMatch prepared = preparedMatch();
+        RecordingObserver failing = new RecordingObserver() {
+            @Override
+            public void eventsHappened(List<MatchEvent> newEvents) {
+                throw new IllegalStateException("observer failed");
+            }
+        };
+
+        assertThatThrownBy(() -> newLiveMatch().play(prepared, SEED, failing))
+                .isInstanceOf(IllegalStateException.class);
+
+        assertThatThrownBy(() -> prepared.coaches().decide(List.of()))
+                .isInstanceOf(IllegalStateException.class)
+                .hasMessageContaining("no match open");
+        List<MatchEvent> afterwards = newLiveMatch().play(prepared, SEED, new RecordingObserver());
+        assertThat(afterwards).isNotEmpty();
+    }
+
+    private PreparedMatch preparedMatch() {
+        return ReferenceChronicle.prepare(ReferenceChronicle.homeTeamFile(), ReferenceChronicle.awayTeamFile());
     }
 
     private LiveMatch newLiveMatch() {

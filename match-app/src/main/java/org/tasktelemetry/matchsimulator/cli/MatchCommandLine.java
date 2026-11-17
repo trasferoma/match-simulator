@@ -9,7 +9,8 @@ import java.util.List;
 import java.util.function.LongSupplier;
 import java.util.random.RandomGenerator;
 
-import org.tasktelemetry.matchsimulator.engine.team.Team;
+import org.tasktelemetry.matchsimulator.live.MatchPreparation;
+import org.tasktelemetry.matchsimulator.live.PreparedMatch;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfig;
 import org.tasktelemetry.matchsimulator.narration.highlights.HighlightsConfigReader;
@@ -24,16 +25,16 @@ public final class MatchCommandLine {
     static final int EXIT_USAGE_ERROR = 2;
 
     private final ErrorReporter errorReporter;
-    private final TeamFileReader reader;
+    private final MatchSetup setup;
     private final MatchRunner runner;
     private final MatchPrinter printer;
     private final HighlightsPrinter highlightsPrinter;
     private final LongSupplier seedSource;
 
-    MatchCommandLine(ErrorReporter errorReporter, TeamFileReader reader, MatchRunner runner,
+    MatchCommandLine(ErrorReporter errorReporter, MatchSetup setup, MatchRunner runner,
             MatchPrinter printer, HighlightsPrinter highlightsPrinter, LongSupplier seedSource) {
         this.errorReporter = errorReporter;
-        this.reader = reader;
+        this.setup = setup;
         this.runner = runner;
         this.printer = printer;
         this.highlightsPrinter = highlightsPrinter;
@@ -61,6 +62,8 @@ public final class MatchCommandLine {
         PrintStream encodedErr = encoded(err, outputCharset);
         UserMessages messages = UserMessages.italian();
         TeamFileReader reader = TeamFileReader.italian();
+        MatchPreparation preparation = MatchPreparation.standard();
+        MatchSetup setup = new MatchSetup(reader, preparation);
         HighlightsConfig highlightsConfig = new HighlightsConfigReader().readDefault();
         MatchRunner runner = MatchRunner.standard(highlightsConfig);
         EnterKeyReader enterKeyReader = EnterKeyReader.standard(in);
@@ -70,7 +73,7 @@ public final class MatchCommandLine {
         RandomGenerator random = RandomGenerator.getDefault();
         LongSupplier seedSource = random::nextLong;
         ErrorReporter errorReporter = new ErrorReporter(encodedErr, messages);
-        return new MatchCommandLine(errorReporter, reader, runner, printer, highlightsPrinter, seedSource);
+        return new MatchCommandLine(errorReporter, setup, runner, printer, highlightsPrinter, seedSource);
     }
 
     int run(String... arguments) {
@@ -86,25 +89,26 @@ public final class MatchCommandLine {
     }
 
     private int playAndPrint(CommandLineArguments arguments) {
-        Team home = reader.read(arguments.homeFile());
-        Team away = reader.read(arguments.awayFile());
+        PreparedMatch match = setup.prepare(arguments.homeFile(), arguments.awayFile());
         long seed = arguments.seed().orElseGet(seedSource::getAsLong);
+        printer.printLineups(match);
         if (arguments.highlights()) {
-            playAndPrintHighlights(home, away, seed, arguments);
+            playAndPrintHighlights(match, seed, arguments);
         } else {
-            playAndPrintChronicle(home, away, seed, arguments);
+            playAndPrintChronicle(match, seed, arguments);
         }
         return EXIT_SUCCESS;
     }
 
-    private void playAndPrintHighlights(Team home, Team away, long seed, CommandLineArguments arguments) {
+    private void playAndPrintHighlights(PreparedMatch match, long seed, CommandLineArguments arguments) {
+        highlightsPrinter.pauseAfterLineups(arguments.animate());
         HighlightsListener session = highlightsPrinter.openSession(arguments.animate());
-        Scoreboard scoreboard = runner.playLiveHighlights(home, away, seed, session);
+        Scoreboard scoreboard = runner.playLiveHighlights(match, seed, session);
         printer.printScoreboard(scoreboard);
     }
 
-    private void playAndPrintChronicle(Team home, Team away, long seed, CommandLineArguments arguments) {
-        MatchReport report = runner.play(home, away, seed, arguments.chronicleMode());
+    private void playAndPrintChronicle(PreparedMatch match, long seed, CommandLineArguments arguments) {
+        MatchReport report = runner.play(match, seed, arguments.chronicleMode());
         printChronicle(report, arguments);
     }
 

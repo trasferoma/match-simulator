@@ -17,10 +17,11 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 class PhraseFillerTest {
 
-    private final PhraseFiller filler = new PhraseFiller();
+    private final PhraseFiller filler = new PhraseFiller(UserMessages.italian());
     private final NarrationEvents fixture = new NarrationEvents();
 
     @Test
@@ -130,9 +131,9 @@ class PhraseFillerTest {
     void anUnknownPlaceholderIsAnError() {
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
 
-        assertThatThrownBy(() -> filler.fill("{player} e {coach}", pass, TEAM_NAMES))
+        assertThatThrownBy(() -> filler.fill("{player} e {referee}", pass, TEAM_NAMES))
                 .isInstanceOf(IllegalStateException.class)
-                .hasMessageContaining("{coach}");
+                .hasMessageContaining("{referee}");
     }
 
     @Test

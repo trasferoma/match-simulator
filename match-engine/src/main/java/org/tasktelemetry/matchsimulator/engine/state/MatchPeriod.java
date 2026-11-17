@@ -16,6 +16,10 @@ public enum MatchPeriod {
         return this == FIRST_HALF || this == SECOND_HALF;
     }
 
+    public boolean isInProgress() {
+        return isPlayed() || this == HALF_TIME;
+    }
+
     public boolean isOver() {
         return this == FINISHED || this == SUSPENDED;
     }

@@ -22,6 +22,10 @@
             <artifactId>match-engine</artifactId>
         </dependency>
         <dependency>
+            <groupId>org.tasktelemetry</groupId>
+            <artifactId>match-coach</artifactId>
+        </dependency>
+        <dependency>
             <groupId>tools.jackson.core</groupId>
             <artifactId>jackson-databind</artifactId>
         </dependency>

@@ -9,6 +9,7 @@ import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.state.Score;
+import org.tasktelemetry.matchsimulator.message.UserMessages;
 
 public final class Narrator {
 
@@ -37,7 +38,8 @@ public final class Narrator {
         PhraseVariantPicker picker = new PhraseVariantPicker();
         NarratedEventFilter filter = new NarratedEventFilter();
         PhraseKeys keys = new PhraseKeys();
-        PhraseFiller filler = new PhraseFiller();
+        UserMessages messages = UserMessages.italian();
+        PhraseFiller filler = new PhraseFiller(messages);
         PitchDrawing pitchDrawing = new PitchDrawing();
         return new Narrator(catalog, picker, filter, keys, filler, pitchDrawing);
     }
@@ -138,7 +140,17 @@ public final class Narrator {
         List<String> variants = catalog.variantsOf(key);
         RepeatedRun run = findRepeatedRun(event, key, context);
         int index = picker.variantIndexAfterRepetitions(run.first(), run.repetitions(), variants.size());
-        return variants.get(index);
+        String eventVariant = variants.get(index);
+        return appendDeploymentChange(eventVariant, event);
+    }
+
+    private String appendDeploymentChange(String eventVariant, MatchEvent event) {
+        Optional<String> deploymentKey = keys.deploymentChangeKeyOf(event);
+        if (deploymentKey.isEmpty()) {
+            return eventVariant;
+        }
+        String deploymentVariant = chooseVariant(deploymentKey.get(), event);
+        return eventVariant + WORD_SEPARATOR + deploymentVariant;
     }
 
     private RepeatedRun findRepeatedRun(MatchEvent event, String key, NarrationContext context) {

@@ -205,7 +205,7 @@ public final class PossessionActionResolver {
     }
 
     private boolean decidesToCross(TeamOnPitch attackers) {
-        PlayStyle style = attackers.team().style();
+        PlayStyle style = attackers.style();
         double probability = crossResolver.crossProbability(style);
         return random.occurs(probability);
     }

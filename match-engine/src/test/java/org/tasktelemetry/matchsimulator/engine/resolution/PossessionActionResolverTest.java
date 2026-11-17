@@ -210,6 +210,27 @@ void theCrossIsChosenWithThePropensityOfTheStyleOfTheAttackersNotOfTheDefenders(
     assertThat((double) crosses / TRIALS).isCloseTo(expected, within(0.01));
 }
 
+@Test
+void theCrossIsChosenWithThePropensityOfTheStyleInUseAndNotOfTheStartingOne() {
+    PitchLayout layout = PitchLayout.standard();
+    Zone attackingThird = zoneWithRole(layout, MatchSide.HOME, ZoneRole.ATTACKING_THIRD);
+    MatchState state = new MatchState(MatchSide.HOME, attackingThird, PlayPhase.BUILD_UP);
+    TeamOnPitch starting = TeamOnPitch.startingWith(TestTeams.team("Attackers", PlayStyle.POSSESSION, 50));
+    TeamOnPitch attackers = starting.withStyle(PlayStyle.ATTACKING);
+    TeamOnPitch defenders = TeamOnPitch.startingWith(TestTeams.team("Defenders", PlayStyle.POSSESSION, 50));
+    EngineConfig config = EngineConfig.defaults();
+    double expected = config.cross().crossProbability()
+            * config.playStyles().effectOf(PlayStyle.ATTACKING).crossPropensity();
+    PossessionActionResolver resolver = resolverFor(config, layout, SEED);
+
+    long crosses = IntStream.range(0, TRIALS)
+            .mapToObj(index -> resolver.resolve(state, Score.goalless(), attackers, defenders))
+            .filter(outcome -> CROSS_TYPES.contains(outcome.type()))
+            .count();
+
+    assertThat((double) crosses / TRIALS).isCloseTo(expected, within(0.01));
+}
+
 @ParameterizedTest
 @EnumSource(value = ZoneRole.class, names = "ATTACKING_THIRD", mode = EnumSource.Mode.EXCLUDE)
 void outsideTheAttackingThirdNoCrossIsAttempted(ZoneRole role) {

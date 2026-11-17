@@ -3,11 +3,14 @@ package org.tasktelemetry.matchsimulator.narration;
 import java.nio.file.Path;
 import java.util.List;
 
-import org.tasktelemetry.matchsimulator.engine.Match;
+import org.tasktelemetry.matchsimulator.coach.squad.Squad;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
+import org.tasktelemetry.matchsimulator.live.LiveMatch;
+import org.tasktelemetry.matchsimulator.live.MatchPreparation;
+import org.tasktelemetry.matchsimulator.live.PreparedMatch;
+import org.tasktelemetry.matchsimulator.live.SilentObserver;
 import org.tasktelemetry.matchsimulator.teamfile.TeamFileReader;
 
 public final class ReferenceChronicle {
@@ -29,15 +32,17 @@ public final class ReferenceChronicle {
         return teamsDirectory().resolve(AWAY_FILE);
     }
 
-    public static List<MatchEvent> play(Path homeFile, Path awayFile, long seed) {
+    public static PreparedMatch prepare(Path homeFile, Path awayFile) {
         TeamFileReader reader = TeamFileReader.italian();
-        Team home = reader.read(homeFile);
-        Team away = reader.read(awayFile);
-        Match match = new MatchEngine(EngineConfig.defaults()).start(home, away, seed);
-        while (!match.isFinished()) {
-            match.step();
-        }
-        return match.events();
+        Squad home = reader.read(homeFile);
+        Squad away = reader.read(awayFile);
+        return MatchPreparation.standard().prepare(home, away);
+    }
+
+    public static List<MatchEvent> play(Path homeFile, Path awayFile, long seed) {
+        PreparedMatch prepared = prepare(homeFile, awayFile);
+        LiveMatch liveMatch = new LiveMatch(new MatchEngine(EngineConfig.defaults()));
+        return liveMatch.play(prepared, seed, new SilentObserver());
     }
 
     static List<String> lines(Path homeFile, Path awayFile, long seed, ChronicleMode mode) {

@@ -49,6 +49,22 @@ class CalibrationReportTest {
     }
 
     @Test
+    void theCoachOrientationIsPrintedWithoutABand() {
+        orientation.put("cambi volontari per squadra", 1.75);
+        orientation.put("di cui cambi di stile", 0.5);
+        orientation.put("gol nel finale (%)", 19.5);
+        CalibrationReport report = reportWithGoalsAboveTheBand();
+
+        String text = report.render();
+
+        assertThat(lineOf(text, "cambi volontari per squadra")).contains("1,75");
+        assertThat(lineOf(text, "di cui cambi di stile")).contains("0,50");
+        assertThat(lineOf(text, "gol nel finale (%)")).contains("19,50");
+        assertThat(report.results()).extracting(BandedResult::label)
+                .doesNotContain("cambi volontari per squadra", "gol nel finale (%)");
+    }
+
+    @Test
     void theStatsBombAttributionIsPrinted() {
         CalibrationReport report = reportWithGoalsAboveTheBand();
 

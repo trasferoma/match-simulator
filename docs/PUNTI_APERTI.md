@@ -106,18 +106,59 @@ Nelle intestazioni, «SPEC v1» è la specifica della prima versione, `spec-moto
 
 ## Cronaca in diretta
 
-### La cronaca resta qualche evento indietro rispetto alla partita
-- **Oggi:** un blocco della cronaca highlights esce solo quando è deciso, cioè quando dopo il suo ultimo evento ne
-  sono accaduti almeno `lookAhead() + 1` (5 con la configurazione di default). Un intervento deciso guardando la
-  cronaca (sostituzione, cambio di modulo) agirà su una partita già un po' più avanti di quella raccontata.
-- **Da decidere:** quando si progettano gli interventi, se questo ritardo va bene, se l'intervento deve valere dal
-  momento raccontato o da quello reale, o se la partita va fermata finché la cronaca non la raggiunge.
-- **Dal:** 2026-11-15.
-
 ### La cronaca in diretta non è pensata per un motore in un altro thread
 - **Oggi:** `LiveMatch` chiama l'osservatore dal thread che gioca la partita, e `LiveHighlights` tiene stato
   modificabile senza sincronizzazione; le pause del terminale fermano il motore dentro la consegna. Va bene finché
   motore e stampa stanno nello stesso thread.
 - **Da decidere:** con un front-end grafico, se il motore va in un thread suo e come si consegnano i blocchi al thread
   dell'interfaccia (coda, consegna sempre dallo stesso thread).
+- **Dal:** 2026-11-15.
+
+## Allenatore automatico
+
+### Gli eventi registrati all'intervallo portano zona e palla dell'ultima azione del primo tempo
+- **Oggi:** gli interventi eseguiti all'intervallo (e i loro eventi) riportano `zoneRole`, `ball` e `phase` dell'ultimo
+  stato del primo tempo; la cronaca non li usa per questi eventi, ma un lettore che li prendesse alla lettera
+  vedrebbe la palla in una zona di gioco a partita ferma.
+- **Alternative:** uno stato neutro per gli eventi a palla ferma fra i tempi; lasciare com'è.
+- **Dal:** 2026-11-15.
+
+### Un test della diretta cerca un caso raro scorrendo i semi
+- **Oggi:** `LiveMatchClosingInterventionTest` cerca fra i primi 300 semi una partita chiusa da una sostituzione
+  voluta; dopo la ritaratura del vantaggio del campo i primi 80 non la producevano più. Una nuova taratura può farla
+  sparire di nuovo.
+- **Alternative:** costruire il caso con un allenatore e una partita fissati a mano; lasciare la ricerca.
+- **Dal:** 2026-11-16.
+
+## Front-end per il cellulare
+
+### Con che cosa si prova la partita dal cellulare
+- **Oggi:** c'è solo la riga di comando; il punto d'aggancio per un front-end nuovo è l'osservatore della partita in
+  diretta. Il telefono di prova è un Pixel 7 (Android).
+- **Alternative:** app Android installata via cavo USB, che contiene motore e cronaca e funziona senza rete
+  (proposta); pagina web servita dal PC con il server HTTP del JDK e aperta dal telefono sulla stessa Wi-Fi; motore
+  compilato in JavaScript (rischio sulla riproducibilità); bot Telegram.
+- **Da decidere:** confermare l'app Android; per l'app servono l'Android SDK (oggi non installato) e un progetto
+  Gradle accanto ai moduli Maven.
+- **Dal:** 2026-11-15.
+
+### Il motore usa un generatore casuale che Android potrebbe non avere
+- **Oggi:** `MatchRandom` crea il generatore con `RandomGeneratorFactory.of("L64X128MixRandom")`. Su Android
+  `RandomGeneratorFactory` esiste solo da Android 15 (API 35) e non è confermato che l'algoritmo sia registrato; la
+  stessa chiamata pesa sulla riproducibilità se un JDK cambiasse l'implementazione. Anche `getFirst()`/`getLast()`
+  richiedono Android 15. `exp` e `pow` usano già `StrictMath`, identico su ogni piattaforma.
+- **Alternative:** scrivere l'algoritmo nel motore (circa 30 righe, dall'articolo originale, non dal sorgente del
+  JDK) con un test che confronti la sequenza con quella del JDK per lo stesso seme; richiedere Android 15 e verificare
+  sul telefono che l'algoritmo ci sia.
+- **Da decidere:** solo se si fa l'app Android.
+- **Dal:** 2026-11-15.
+
+### Tecnologia dell'interfaccia
+- **Oggi:** nessuna interfaccia grafica. L'interfaccia avrà parecchie interazioni (sostituzioni, cambi di modulo,
+  più schermate), quindi lo stato condiviso fra le parti della pagina conta.
+- **Alternative:** Vue 3 + TypeScript + Vite, con Pinia per lo stato, mostrato in una WebView dell'app e provabile
+  nel browser del PC con un ponte finto verso Java (proposta); Svelte; React; Preact + htm senza build (adatto solo a
+  un'interfaccia piccola); Jetpack Compose in Kotlin (solo Android, un linguaggio in più).
+- **Da decidere:** la scelta, e l'approvazione delle dipendenze esterne (Vue, Pinia, Vite, toolchain npm) da
+  registrare in [DECISIONI.md](DECISIONI.md); come si concatenano le build Maven, npm e Gradle.
 - **Dal:** 2026-11-15.

@@ -11,11 +11,12 @@ import org.tasktelemetry.matchsimulator.engine.event.EventType;
 class BallDepictionTest {
 
     @Test
-    void theEventsPlayedWithTheBallStoppedAreTheInjuryTheMatchFlowAndTheSubstitutions() {
+    void theEventsPlayedWithTheBallStoppedAreTheInjuryTheMatchFlowTheSubstitutionsTheStyleChangesAndTheMoves() {
         Set<EventType> stoppedInZone = typesWith(BallDepiction.STOPPED_IN_EVENT_ZONE);
 
         assertThat(stoppedInZone).containsExactlyInAnyOrder(EventType.INJURY, EventType.STOPPAGE_ANNOUNCED,
-                EventType.FIRST_HALF_END, EventType.MATCH_END, EventType.MATCH_SUSPENDED, EventType.SUBSTITUTION);
+                EventType.FIRST_HALF_END, EventType.MATCH_END, EventType.MATCH_SUSPENDED, EventType.SUBSTITUTION,
+                EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
     }
 
     @Test
@@ -26,7 +27,7 @@ class BallDepictionTest {
                 EventType.PASS_COMPLETED, EventType.GOAL, EventType.SHOT_SAVED, EventType.CORNER_KICK,
                 EventType.FREE_KICK, EventType.OFFSIDE_FREE_KICK, EventType.CROSS_FAILED, EventType.FOUL,
                 EventType.YELLOW_CARD, EventType.SECOND_YELLOW_CARD, EventType.RED_CARD, EventType.OFFSIDE);
-        assertThat(inPlay).hasSize(EventType.values().length - 6);
+        assertThat(inPlay).hasSize(EventType.values().length - 8);
     }
 
     private Set<EventType> typesWith(BallDepiction depiction) {

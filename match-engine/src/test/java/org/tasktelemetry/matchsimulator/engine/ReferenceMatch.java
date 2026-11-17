@@ -14,10 +14,18 @@ final class ReferenceMatch {
     private ReferenceMatch() {
     }
 
-    static List<MatchEvent> play(long seed) {
+    static Match start(long seed) {
+        return start(seed, EngineConfig.defaults());
+    }
+
+    static Match start(long seed, EngineConfig config) {
         Team home = TestTeams.team("Home", PlayStyle.ATTACKING, 65);
         Team away = TestTeams.team("Away", PlayStyle.DEFENSIVE, 55);
-        Match match = new MatchEngine(EngineConfig.defaults()).start(home, away, seed);
+        return new MatchEngine(config).start(home, away, seed);
+    }
+
+    static List<MatchEvent> play(long seed) {
+        Match match = start(seed);
         while (!match.isFinished()) {
             match.step();
         }

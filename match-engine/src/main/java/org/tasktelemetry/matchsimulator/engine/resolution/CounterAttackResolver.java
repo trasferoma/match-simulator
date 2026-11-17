@@ -101,7 +101,7 @@ public final class CounterAttackResolver {
 
     private boolean decidesToCounterAttack(MatchState recovered, TeamOnPitch recoverers) {
         ZoneRole recoveryZoneRole = layout.roleOf(recovered.zone(), recovered.possession());
-        double probability = startProbability(recoveryZoneRole, recoverers.team().style());
+        double probability = startProbability(recoveryZoneRole, recoverers.style());
         return random.occurs(probability);
     }
 

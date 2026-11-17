@@ -79,8 +79,9 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
 - **D14. Ogni tattica ha un effetto in un solo punto e in una sola direzione; lo stile neutro moltiplica per 1;
   ogni stile ha un costo oltre al beneficio.** Perché: non si sommano effetti opposti nascosti, una squadra con lo
   stile neutro gioca come senza stile, e ogni tattica si prova da sola. Fonte: analisi §4.3.
-- **D32. Due moduli Maven:** `match-engine`, il motore senza dipendenze di runtime, e `match-app`, che lo usa.
-  Perché: l'isolamento del motore (D8) lo garantisce il compilatore. Fonte: SPEC, Vincoli.
+- **D32. Tre moduli Maven:** `match-engine`, il motore senza dipendenze di runtime; `match-coach`, l'allenatore
+  automatico, che dipende solo dal motore; `match-app`, che li usa. Perché: l'isolamento del motore (D8) e quello
+  dell'allenatore (D59) li garantisce il compilatore. Fonte: SPEC, Vincoli; specifica «allenatore automatico».
 - **D49. Il motore vede solo le proprie costanti;** i valori dei file d'ingresso si traducono nel modulo che legge
   il file. Perché: il formato dei file delle squadre, compresi i termini in italiano, può cambiare senza toccare il
   motore (D8). Fonte: SPEC, "Riga di comando".
@@ -90,6 +91,14 @@ Nelle fonti, «SPEC» è la specifica della prima versione, `C:\build\git\spec\m
   raccontare; un front-end nuovo si collega allo stesso punto, senza toccare motore e partita. Perché: tra un passo e
   l'altro della partita c'è il posto per gli interventi futuri (sostituzioni, cambi di modulo), e la cronaca resta un
   modulo sostituibile. Fonte: specifica «cronaca in diretta»; `LiveMatch`, `MatchObserver`, `LiveHighlights`.
+- **D59. Chi decide e chi esegue sono separati:** l'allenatore decide in un modulo suo, che dipende solo dal motore
+  e legge solo gli eventi; il motore esegue, valida e registra ogni intervento come evento con il motivo. Perché: il
+  motore resta l'unica autorità sulle regole e un decisore nuovo (un allenatore umano, un front-end) si aggiunge senza
+  toccarlo. Fonte: specifica «allenatore automatico»; `Coach`, `Match.apply`.
+- **D60. Le decisioni prese nello stesso momento sono simultanee:** nessun risultato dipende dall'ordine in cui si
+  interrogano i decisori; le richieste si raccolgono tutte prima di eseguirle, in un ordine fisso. Perché: estende D12
+  ai decisori; chi decide per secondo non deve vedere la mossa del primo. Fonte: specifica «allenatore automatico»; `MatchCoaches`,
+  `LiveMatch`.
 
 ### Tecnologia
 

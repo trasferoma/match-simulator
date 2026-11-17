@@ -7,6 +7,7 @@ import java.util.List;
 import java.util.Objects;
 
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.live.MatchPreparation;
 
 public final class CalibrationBench {
 
@@ -27,7 +28,8 @@ public final class CalibrationBench {
         LeagueGenerator generator = new LeagueGenerator(config, RoleProfiles.defaults());
         EngineConfig engineConfig = EngineConfig.defaults();
         CalibrationTargetsReader reader = new CalibrationTargetsReader(config);
-        LeagueSimulation simulation = new LeagueSimulation(config, generator, engineConfig);
+        MatchPreparation preparation = MatchPreparation.standard();
+        LeagueSimulation simulation = new LeagueSimulation(config, generator, preparation, engineConfig);
         LeagueMetrics metrics = new LeagueMetrics();
         return new CalibrationBench(reader, simulation, metrics);
     }

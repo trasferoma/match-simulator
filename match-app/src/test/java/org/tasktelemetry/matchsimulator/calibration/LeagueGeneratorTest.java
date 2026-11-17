@@ -5,13 +5,16 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
 import java.util.List;
 import java.util.stream.IntStream;
-import java.util.stream.Stream;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
+import org.tasktelemetry.matchsimulator.coach.config.FormationCatalog;
+import org.tasktelemetry.matchsimulator.coach.lineup.FeasibleFormations;
+import org.tasktelemetry.matchsimulator.coach.squad.CoachProfile;
+import org.tasktelemetry.matchsimulator.coach.squad.Squad;
 import org.tasktelemetry.matchsimulator.engine.team.Player;
 import org.tasktelemetry.matchsimulator.engine.team.PlayerAttributes;
 import org.tasktelemetry.matchsimulator.engine.team.Role;
-import org.tasktelemetry.matchsimulator.engine.team.Team;
 
 class LeagueGeneratorTest {
 
@@ -30,30 +33,50 @@ class LeagueGeneratorTest {
     }
 
     @Test
-    void everyTeamHasTheFourFourTwoCompositionWithSevenOnTheBench() {
-        List<Team> teams = generator.generate(7L);
+    void everySquadHasEighteenPlayersWithTwoGoalkeepersSixDefendersSixMidfieldersAndFourForwards() {
+        List<Squad> squads = generator.generate(7L);
 
-        assertThat(teams).hasSize(20);
-        for (Team team : teams) {
-            assertThat(countOf(team.starters(), Role.GOALKEEPER)).isEqualTo(1);
-            assertThat(countOf(team.starters(), Role.DEFENDER)).isEqualTo(4);
-            assertThat(countOf(team.starters(), Role.MIDFIELDER)).isEqualTo(4);
-            assertThat(countOf(team.starters(), Role.FORWARD)).isEqualTo(2);
-            assertThat(team.bench()).hasSize(7);
-            assertThat(countOf(team.bench(), Role.GOALKEEPER)).isEqualTo(1);
-            assertThat(countOf(team.bench(), Role.DEFENDER)).isEqualTo(2);
-            assertThat(countOf(team.bench(), Role.MIDFIELDER)).isEqualTo(2);
-            assertThat(countOf(team.bench(), Role.FORWARD)).isEqualTo(2);
+        assertThat(squads).hasSize(20);
+        for (Squad squad : squads) {
+            assertThat(squad.players()).hasSize(18);
+            assertThat(countOf(squad.players(), Role.GOALKEEPER)).isEqualTo(2);
+            assertThat(countOf(squad.players(), Role.DEFENDER)).isEqualTo(6);
+            assertThat(countOf(squad.players(), Role.MIDFIELDER)).isEqualTo(6);
+            assertThat(countOf(squad.players(), Role.FORWARD)).isEqualTo(4);
         }
     }
 
     @Test
-    void theStylesRotateAmongTheFiveStyles() {
-        List<Team> teams = generator.generate(7L);
+    void everyFormationOfTheCatalogIsFeasibleWithEverySquad() {
+        FormationCatalog catalog = CoachConfig.defaults().formations();
+        FeasibleFormations feasibleFormations = new FeasibleFormations(catalog);
 
-        assertThat(teams.get(0).style()).isEqualTo(teams.get(5).style());
-        assertThat(teams.get(0).style()).isNotEqualTo(teams.get(1).style());
-        assertThat(teams.stream().map(Team::style).distinct().count()).isEqualTo(5);
+        for (Squad squad : generator.generate(7L)) {
+            assertThat(feasibleFormations.amongPlayers(squad.players())).isEqualTo(catalog.formations());
+        }
+    }
+
+    @Test
+    void everySquadHasACoachWithTheNeutralTacticalReadingAndAGeneratedName() {
+        List<Squad> squads = generator.generate(7L);
+
+        assertThat(config.coachTacticalReading()).isEqualTo(50);
+        for (int index = 0; index < squads.size(); index++) {
+            CoachProfile coach = squads.get(index).coach();
+            assertThat(coach.attributes().tacticalReading()).isEqualTo(config.coachTacticalReading());
+            assertThat(coach.name()).isEqualTo(generator.coachNameOf(index));
+        }
+        assertThat(squads.stream().map(squad -> squad.coach().name()).distinct().count()).isEqualTo(20);
+    }
+
+    @Test
+    void theTacticalReadingOfTheCoachesComesFromTheConfiguration() {
+        BenchConfig sharpCoaches = new BenchConfig(4, 55, 80, 2, 42L, 3, 3.0, 80);
+        LeagueGenerator sharpGenerator = new LeagueGenerator(sharpCoaches, profiles);
+
+        List<Squad> squads = sharpGenerator.generate(7L);
+
+        assertThat(squads).allSatisfy(squad -> assertThat(squad.coach().attributes().tacticalReading()).isEqualTo(80));
     }
 
     @Test
@@ -77,21 +100,21 @@ class LeagueGeneratorTest {
     @Test
     void everyAttributeStaysWithinTheVariationAroundStrengthPlusOffset() {
         for (long seed = 1; seed <= 20; seed++) {
-            List<Team> teams = generator.generate(seed);
-            for (int index = 0; index < teams.size(); index++) {
-                assertVariationWithinBound(teams.get(index), generator.strengthOf(index));
+            List<Squad> squads = generator.generate(seed);
+            for (int index = 0; index < squads.size(); index++) {
+                assertVariationWithinBound(squads.get(index), generator.strengthOf(index));
             }
         }
     }
 
     @Test
     void everyAttributeIsInTheScaleWithoutAnyClippingAtTheWeakestAndStrongestStrength() {
-        List<Team> teams = generator.generate(11L);
-        Team weakest = teams.get(0);
-        Team strongest = teams.get(teams.size() - 1);
+        List<Squad> squads = generator.generate(11L);
+        Squad weakest = squads.get(0);
+        Squad strongest = squads.get(squads.size() - 1);
 
-        for (Team team : List.of(weakest, strongest)) {
-            for (Player player : squadOf(team)) {
+        for (Squad squad : List.of(weakest, strongest)) {
+            for (Player player : squad.players()) {
                 assertThat(attributeValues(player.attributes()))
                         .allMatch(value -> value >= PlayerAttributes.MIN_VALUE && value <= PlayerAttributes.MAX_VALUE);
             }
@@ -106,9 +129,9 @@ class LeagueGeneratorTest {
         assertThat(generator.generate(5L)).isNotEqualTo(generator.generate(6L));
     }
 
-    private void assertVariationWithinBound(Team team, int strength) {
+    private void assertVariationWithinBound(Squad squad, int strength) {
         int bound = config.individualVariation();
-        for (Player player : squadOf(team)) {
+        for (Player player : squad.players()) {
             AttributeOffsets offsets = profiles.offsetsOf(player.role());
             List<Integer> centres = attributeValues(offsets, strength);
             List<Integer> values = attributeValues(player.attributes());
@@ -128,10 +151,6 @@ class LeagueGeneratorTest {
     private List<Integer> attributeValues(PlayerAttributes attributes) {
         return List.of(attributes.passing(), attributes.dribbling(), attributes.shooting(), attributes.tackling(),
                 attributes.positioning(), attributes.pace(), attributes.aerial(), attributes.goalkeeping());
-    }
-
-    private List<Player> squadOf(Team team) {
-        return Stream.concat(team.starters().stream(), team.bench().stream()).toList();
     }
 
     private long countOf(List<Player> players, Role role) {
