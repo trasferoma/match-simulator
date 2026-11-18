@@ -29,7 +29,7 @@ class HighlightsConfigReaderTest {
             EventType.KICK_OFF_AFTER_GOAL, EventType.STOPPAGE_ANNOUNCED, EventType.FIRST_HALF_END,
             EventType.MATCH_END, EventType.MATCH_SUSPENDED, EventType.YELLOW_CARD, EventType.SECOND_YELLOW_CARD,
             EventType.RED_CARD, EventType.INJURY, EventType.SUBSTITUTION,
-            EventType.STYLE_CHANGED, EventType.PLAYER_MOVED, EventType.PLAYER_TIRED);
+            EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
     private static final Set<EventType> LINKED = EnumSet.of(EventType.CORNER_KICK, EventType.OFFSIDE);
 
     private final HighlightsConfigReader reader = new HighlightsConfigReader();
@@ -103,6 +103,12 @@ class HighlightsConfigReaderTest {
     }
 
     @Test
+    void theExhaustionTreatmentIsAllowedOnlyOnTheTiredPlayer() {
+        assertRejected(Map.of("event.TACKLE", "ONE_LINE_IF_EXHAUSTED"), Set.of(), "event.TACKLE",
+                "ONE_LINE_IF_EXHAUSTED");
+    }
+
+    @Test
     void aMissingZonesKeyForALinkedTypeIsRejected() {
         assertRejected(Map.of(), Set.of("alsoStopsInZones.OFFSIDE"), "alsoStopsInZones.OFFSIDE", "missing");
     }
@@ -172,6 +178,9 @@ class HighlightsConfigReaderTest {
         }
         if (LINKED.contains(type)) {
             return HighlightTreatment.ONE_LINE_IF_LINKED_TO_CHANCE;
+        }
+        if (type == EventType.PLAYER_TIRED) {
+            return HighlightTreatment.ONE_LINE_IF_EXHAUSTED;
         }
         return HighlightTreatment.ANIMATION_ONLY;
     }

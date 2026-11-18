@@ -10,6 +10,7 @@ import java.util.stream.IntStream;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
+import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
 
@@ -21,7 +22,7 @@ public final class NarratedEventFilter {
     private static final Set<EventType> SHOT_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
             EventType.SHOT_OFF_TARGET, EventType.SHOT_BLOCKED);
     private static final Set<EventType> INCIDENT_TYPES = EnumSet.of(EventType.OFFSIDE, EventType.INJURY,
-            EventType.SUBSTITUTION, EventType.STYLE_CHANGED, EventType.PLAYER_MOVED, EventType.PLAYER_TIRED);
+            EventType.SUBSTITUTION, EventType.STYLE_CHANGED, EventType.PLAYER_MOVED);
     private static final Set<EventType> FREE_KICK_TYPES = EnumSet.of(EventType.FREE_KICK,
             EventType.FREE_KICK_CROSS);
     private static final Set<EventType> PLAYED_BY_THE_OPPOSING_SIDE_TYPES = EnumSet.of(EventType.INTERCEPTION,
@@ -108,8 +109,14 @@ public final class NarratedEventFilter {
         boolean isMatchFlow = MATCH_FLOW_TYPES.contains(type);
         boolean isShot = SHOT_TYPES.contains(type);
         boolean isIncident = INCIDENT_TYPES.contains(type) || type.isCard();
-        return isMatchFlow || isShot || isIncident || isDangerousSetPiece(event)
+        return isMatchFlow || isShot || isIncident || isEvidentFatigue(event) || isDangerousSetPiece(event)
                 || isFoulWithConsequences(events, index);
+    }
+
+    public boolean isEvidentFatigue(MatchEvent event) {
+        boolean isTiredPlayer = event.type() == EventType.PLAYER_TIRED;
+        return isTiredPlayer && event.detail() instanceof EventDetail.Fatigue detail
+                && detail.band() == FatigueBand.EXHAUSTED;
     }
 
     private boolean isDangerousSetPiece(MatchEvent event) {

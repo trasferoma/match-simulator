@@ -351,6 +351,19 @@ class HighlightsSelectorTest {
     }
 
     @Test
+    void aPlayerWhoIsOnlyTiredStaysInTheAnimationWhileAnExhaustedOneStopsIt() {
+        addHomePasses(1);
+        fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.EXHAUSTED);
+        List<MatchEvent> events = fixture.list();
+
+        List<HighlightSegment> segments = selectWithDefaults();
+
+        assertThat(segments).containsExactly(frame(events.get(0)), frame(events.get(1)),
+                stop(false, events.subList(2, 3)));
+    }
+
+    @Test
     void aOneLineEventIsOneStopWithOneEvent() {
         addHomePasses(1);
         addMatchFlow(EventType.STOPPAGE_ANNOUNCED, MatchSide.HOME);
@@ -726,7 +739,7 @@ class HighlightsSelectorTest {
     }
 
     private void addTired(Player player) {
-        fixture.addTired(NarrationEvents.sideOf(player), player, FatigueBand.TIRED);
+        fixture.addTired(NarrationEvents.sideOf(player), player, FatigueBand.EXHAUSTED);
     }
 
     private void addMatchFlow(EventType type, MatchSide side) {

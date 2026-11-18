@@ -63,8 +63,16 @@ public final class HighlightsSelector {
             case CHANCE -> findIndicesOfChance(events, index, toldIndices);
             case ONE_LINE -> findIndicesOfOneLineEvent(events, index);
             case ONE_LINE_IF_LINKED_TO_CHANCE -> findIndicesOfLinkedEvent(events, index);
+            case ONE_LINE_IF_EXHAUSTED -> findIndicesOfExhaustionEvent(event, index);
             case ANIMATION_ONLY -> Set.of();
         };
+    }
+
+    private Set<Integer> findIndicesOfExhaustionEvent(MatchEvent event, int index) {
+        if (filter.isEvidentFatigue(event)) {
+            return Set.of(index);
+        }
+        return Set.of();
     }
 
     private Set<Integer> findIndicesOfChance(List<MatchEvent> events, int shotIndex, Set<Integer> toldIndices) {

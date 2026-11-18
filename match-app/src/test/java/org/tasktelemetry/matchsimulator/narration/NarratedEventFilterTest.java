@@ -149,19 +149,38 @@ class NarratedEventFilterTest {
     }
 
     @Test
-    void aTiredPlayerIsNarratedInTheDefaultChronicleWhileTheRecoveryIsNotAndBothAreInTheFullOne() {
-        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+    void anExhaustedPlayerIsNarratedInTheDefaultChronicleWhileTheRecoveryIsNotAndBothAreInTheFullOne() {
+        MatchEvent exhausted = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.EXHAUSTED);
         MatchEvent recovered = fixture.addRecovered(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.FRESH);
 
-        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(tired);
-        assertThat(filter.select(fixture.list(), ChronicleMode.FULL)).containsExactly(tired, recovered);
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(exhausted);
+        assertThat(filter.select(fixture.list(), ChronicleMode.FULL)).containsExactly(exhausted, recovered);
+    }
+
+    @Test
+    void aPlayerWhoIsOnlyTiredIsLeftOutOfTheDefaultChronicleAndIsInTheFullOne() {
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+
+        assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).isEmpty();
+        assertThat(filter.select(fixture.list(), ChronicleMode.FULL)).containsExactly(tired);
+    }
+
+    @Test
+    void theFatigueIsEvidentOnlyForAnExhaustedPlayer() {
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        MatchEvent exhausted = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.EXHAUSTED);
+        MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
+
+        assertThat(filter.isEvidentFatigue(tired)).isFalse();
+        assertThat(filter.isEvidentFatigue(exhausted)).isTrue();
+        assertThat(filter.isEvidentFatigue(pass)).isFalse();
     }
 
     @Test
     void theEventsBeforeAShotKeepTheirPlaceWhenATiredPlayerOfTheOtherSideIsInTheMiddle() {
         MatchEvent tooFar = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_DEFENDER);
         MatchEvent pass = fixture.add(EventType.PASS_COMPLETED, MatchSide.HOME, HOME_MIDFIELDER);
-        MatchEvent tired = fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.TIRED);
+        MatchEvent tired = fixture.addTired(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.EXHAUSTED);
         MatchEvent dribble = fixture.add(EventType.DRIBBLE_COMPLETED, MatchSide.HOME, HOME_FORWARD);
         MatchEvent recovered = fixture.addRecovered(MatchSide.AWAY, AWAY_DEFENDER, FatigueBand.FRESH);
         MatchEvent shot = shotEvent(EventType.SHOT_OFF_TARGET, MatchSide.HOME, HOME_FORWARD);
@@ -184,7 +203,7 @@ class NarratedEventFilterTest {
     @Test
     void aFoulFollowedByACardForAnotherPlayerAfterATiredPlayerIsStillNotNarrated() {
         lightFoulBy(AWAY_DEFENDER);
-        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.EXHAUSTED);
         MatchEvent card = fixture.add(EventType.YELLOW_CARD, MatchSide.AWAY, AWAY_FORWARD);
 
         assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(tired, card);
@@ -193,7 +212,7 @@ class NarratedEventFilterTest {
     @Test
     void aFoulFollowedOnlyByATiredPlayerIsNotNarrated() {
         lightFoulBy(AWAY_DEFENDER);
-        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.TIRED);
+        MatchEvent tired = fixture.addTired(MatchSide.HOME, HOME_MIDFIELDER, FatigueBand.EXHAUSTED);
 
         assertThat(filter.select(fixture.list(), ChronicleMode.DEFAULT)).containsExactly(tired);
     }

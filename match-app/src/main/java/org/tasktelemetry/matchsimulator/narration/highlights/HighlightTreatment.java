@@ -9,6 +9,7 @@ public enum HighlightTreatment {
     CHANCE,
     ONE_LINE,
     ONE_LINE_IF_LINKED_TO_CHANCE,
+    ONE_LINE_IF_EXHAUSTED,
     ANIMATION_ONLY;
 
     private static final Set<EventType> CHANCE_TYPES = EnumSet.of(EventType.GOAL, EventType.SHOT_SAVED,
@@ -19,6 +20,7 @@ public enum HighlightTreatment {
         return switch (this) {
             case CHANCE -> CHANCE_TYPES.contains(type);
             case ONE_LINE_IF_LINKED_TO_CHANCE -> LINKABLE_TYPES.contains(type);
+            case ONE_LINE_IF_EXHAUSTED -> type == EventType.PLAYER_TIRED;
             case ONE_LINE, ANIMATION_ONLY -> true;
         };
     }
