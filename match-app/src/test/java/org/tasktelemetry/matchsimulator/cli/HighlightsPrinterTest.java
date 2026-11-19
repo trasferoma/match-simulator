@@ -350,6 +350,67 @@ class HighlightsPrinterTest {
         assertThat(run.pauses()).containsExactly(LINEUPS);
     }
 
+    @Test
+    void onTwoRowsThePauseGoesToANewLineAfterTheLastDrawnRowAndTheNextDrawingDoesNotGoUp() {
+        Run run = Run.started(CONFIG, true);
+
+        run.deliver(frame("aaaa"));
+        run.deliver(stop("bbbb", false, line("told", LinePause.EVENT_LINE)));
+        run.pauseTheChronicle();
+        run.deliver(frame("cc"));
+
+        String beforeThePause = "\raaaa" + NL + REDRAW + "bbbb" + NL + REDRAW + "bbbb" + NL + "told" + NL;
+        String afterTheResume = "\rcc" + NL;
+        assertThat(run.written()).isEqualTo(beforeThePause + afterTheResume);
+        assertThat(run.written()).doesNotContain(NL + REDRAW + "cc");
+    }
+
+    @Test
+    void onASingleRowThePauseGoesToANewLineAndTheNextDrawingStartsWithCarriageReturnOnly() {
+        Run run = Run.startedForced(CONFIG);
+
+        run.deliver(frame("aaaaaaaa"));
+        run.pauseTheChronicle();
+        run.deliver(frame("bb"));
+
+        assertThat(run.written()).isEqualTo("\raaaaaaaa" + NL + "\rbb");
+        assertThat(run.written()).doesNotContain(CURSOR_UP);
+    }
+
+    @Test
+    void thePauseOfTheChronicleWithNothingDrawnDoesNotGoToANewLine() {
+        Run twoRows = Run.started(CONFIG, true);
+        Run singleRow = Run.startedForced(CONFIG);
+
+        twoRows.pauseTheChronicle();
+        singleRow.pauseTheChronicle();
+
+        assertThat(twoRows.written()).isEmpty();
+        assertThat(singleRow.written()).isEmpty();
+    }
+
+    @Test
+    void afterThePauseOfTheChronicleTheFirstSegmentDoesNotWaitForThePauseOfTheLastOneDrawnBefore() {
+        Run run = Run.started(CONFIG, true);
+
+        run.deliver(frame("a"));
+        run.pauseTheChronicle();
+        run.deliver(frame("b"));
+
+        assertThat(run.pauses()).isEmpty();
+    }
+
+    @Test
+    void theSessionWithOnlyTheStopsWritesNothingWhenTheChronicleIsPaused() {
+        Run run = Run.started(CONFIG, false);
+
+        run.deliver(stop("field", false, line("told", LinePause.EVENT_LINE)));
+        run.pauseTheChronicle();
+        run.deliver(stop("field two", false, line("told two", LinePause.EVENT_LINE)));
+
+        assertThat(run.written()).isEqualTo("field" + NL + "told" + NL + NL + "field two" + NL + "told two" + NL);
+    }
+
     private static List<NarratedSegment> goalAndFollowingSegments() {
         return List.of(
                 frame("frame one"),
@@ -409,6 +470,7 @@ class HighlightsPrinterTest {
         private final MatchPrinter matchPrinter;
         private final HighlightsListener session;
         private final HighlightsPrinter printer;
+        private final PrintStream printStream;
 
         Run(HighlightsConfig config, boolean interactiveTerminal, List<NarratedSegment> segments) {
             this(config, interactiveTerminal, false);
@@ -431,6 +493,7 @@ class HighlightsPrinterTest {
 
         private Run(HighlightsConfig config, boolean interactiveTerminal, boolean forceAnimation) {
             PrintStream out = new PrintStream(stream, false, StandardCharsets.UTF_8);
+            printStream = out;
             BufferedReader noInput = new BufferedReader(new StringReader(""));
             matchPrinter = new MatchPrinter(UserMessages.italian(), out, new EnterKeyReader(noInput));
             printer = new HighlightsPrinter(out, pause, config, interactiveTerminal);
@@ -443,6 +506,15 @@ class HighlightsPrinterTest {
 
         void deliver(NarratedSegment segment) {
             session.segmentNarrated(segment);
+        }
+
+        void pauseTheChronicle() {
+            session.chroniclePaused();
+        }
+
+        String written() {
+            printStream.flush();
+            return stream.delivered();
         }
 
         private void printTheChronicle(List<NarratedSegment> segments) {

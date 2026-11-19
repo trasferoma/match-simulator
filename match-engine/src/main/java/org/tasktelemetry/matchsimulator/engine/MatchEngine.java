@@ -17,6 +17,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.EnergyDrain;
 import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatiguePenalty;
 import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.HalfTimeRecovery;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.FormationChangeRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjurySubstitution;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupRepair;
@@ -80,12 +81,13 @@ public final class MatchEngine {
         SubstitutionTimer substitutionTimer = new SubstitutionTimer(config.lineup(), random);
         VoluntarySubstitutionRule voluntarySubstitution = new VoluntarySubstitutionRule(config.lineup());
         SectorMoveRule sectorMove = new SectorMoveRule();
+        FormationChangeRule formationChange = new FormationChangeRule();
         StoppageTime stoppageTime = new StoppageTime(config.stoppage());
         EnergyDrain energyDrain = new EnergyDrain(config.fatigue(), config.playStyles());
         HalfTimeRecovery halfTimeRecovery = new HalfTimeRecovery(config.fatigue());
         return new ActionResolvers(possessionResolver, counterAttackResolver, setPieceResolver, crossResolver,
                 foulResolver, offsideRule, dismissalResolver, minimumPlayers, injuryResolver, substitutionTimer,
-                voluntarySubstitution, sectorMove, stoppageTime, energyDrain, halfTimeRecovery);
+                voluntarySubstitution, sectorMove, formationChange, stoppageTime, energyDrain, halfTimeRecovery);
     }
 
     private ShotResolver newShotResolver(PitchLayout layout, MatchRandom random, Matchups matchups) {

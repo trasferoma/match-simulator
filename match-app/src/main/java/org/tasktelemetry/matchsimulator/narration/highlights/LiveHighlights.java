@@ -11,13 +11,16 @@ import org.tasktelemetry.matchsimulator.narration.TeamNames;
 
 public final class LiveHighlights implements MatchObserver {
 
+    private static final int NOTHING_NARRATED = -1;
+
     private final HighlightsSelector selector;
     private final HighlightsNarrator narrator;
     private final TeamNames teamNames;
     private final MatchSetups openingSetups;
     private final HighlightsListener listener;
     private final List<MatchEvent> happenedEvents = new ArrayList<>();
-    private int deliveredSegmentCount;
+    private int lastNarratedPosition = NOTHING_NARRATED;
+    private int selectionStart;
 
     public LiveHighlights(HighlightsSelector selector, HighlightsNarrator narrator, TeamNames teamNames,
             MatchSetups openingSetups, HighlightsListener listener) {
@@ -32,17 +35,29 @@ public final class LiveHighlights implements MatchObserver {
     public void eventsHappened(List<MatchEvent> newEvents) {
         rememberHappened(newEvents);
         List<MatchEvent> eventsSoFar = findHappenedSoFar();
-        List<HighlightSegment> selected = selectHighlights(eventsSoFar);
-        List<HighlightSegment> decided = findDecided(selected, eventsSoFar);
+        List<MatchEvent> selectable = findSelectable(eventsSoFar);
+        List<HighlightSegment> selected = selectHighlights(selectable);
+        List<HighlightSegment> decided = findDecided(selected, selectable);
         deliverTheNotDelivered(decided, eventsSoFar);
     }
 
     @Override
     public void matchFinished() {
-        List<MatchEvent> allEvents = findHappenedSoFar();
-        List<HighlightSegment> selected = selectHighlights(allEvents);
-        deliverTheNotDelivered(selected, allEvents);
+        narrateEverythingHappened();
         announceChronicleFinished();
+    }
+
+    public void catchUpForPause() {
+        narrateEverythingHappened();
+        startSelectingAfterTheLastNarrated();
+        announceChroniclePaused();
+    }
+
+    private void narrateEverythingHappened() {
+        List<MatchEvent> allEvents = findHappenedSoFar();
+        List<MatchEvent> selectable = findSelectable(allEvents);
+        List<HighlightSegment> selected = selectHighlights(selectable);
+        deliverTheNotDelivered(selected, allEvents);
     }
 
     private void rememberHappened(List<MatchEvent> newEvents) {
@@ -53,16 +68,28 @@ public final class LiveHighlights implements MatchObserver {
         return List.copyOf(happenedEvents);
     }
 
+    private List<MatchEvent> findSelectable(List<MatchEvent> eventsSoFar) {
+        return eventsSoFar.subList(selectionStart, eventsSoFar.size());
+    }
+
     private List<HighlightSegment> selectHighlights(List<MatchEvent> events) {
         return selector.select(events);
+    }
+
+    private void startSelectingAfterTheLastNarrated() {
+        selectionStart = lastNarratedPosition + 1;
     }
 
     private void announceChronicleFinished() {
         listener.chronicleFinished();
     }
 
-    private List<HighlightSegment> findDecided(List<HighlightSegment> segments, List<MatchEvent> happened) {
-        int lastDecidedPosition = selector.findLastDecidedPosition(happened);
+    private void announceChroniclePaused() {
+        listener.chroniclePaused();
+    }
+
+    private List<HighlightSegment> findDecided(List<HighlightSegment> segments, List<MatchEvent> selectable) {
+        int lastDecidedPosition = selector.findLastDecidedPosition(selectable);
         List<HighlightSegment> decided = new ArrayList<>();
         int endPosition = -1;
         for (HighlightSegment segment : segments) {
@@ -76,9 +103,27 @@ public final class LiveHighlights implements MatchObserver {
     }
 
     private void deliverTheNotDelivered(List<HighlightSegment> decided, List<MatchEvent> eventsSoFar) {
-        List<HighlightSegment> notDelivered = decided.subList(deliveredSegmentCount, decided.size());
+        List<HighlightSegment> notDelivered = dropAlreadyNarrated(decided);
         List<NarratedSegment> narrated = narrator.narrate(notDelivered, eventsSoFar, teamNames, openingSetups);
-        deliveredSegmentCount = decided.size();
+        lastNarratedPosition = selectionStart + countEvents(decided) - 1;
         narrated.forEach(listener::segmentNarrated);
+    }
+
+    private List<HighlightSegment> dropAlreadyNarrated(List<HighlightSegment> segments) {
+        List<HighlightSegment> notNarrated = new ArrayList<>();
+        int endPosition = selectionStart - 1;
+        for (HighlightSegment segment : segments) {
+            endPosition += segment.events().size();
+            if (endPosition > lastNarratedPosition) {
+                notNarrated.add(segment);
+            }
+        }
+        return notNarrated;
+    }
+
+    private int countEvents(List<HighlightSegment> segments) {
+        return segments.stream()
+                .mapToInt(segment -> segment.events().size())
+                .sum();
     }
 }

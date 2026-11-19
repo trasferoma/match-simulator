@@ -7,6 +7,7 @@ import java.util.Map;
 import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.coach.ScenarioEvents;
+import org.tasktelemetry.matchsimulator.coach.ScenarioMoments;
 import org.tasktelemetry.matchsimulator.coach.ScenarioTeams;
 import org.tasktelemetry.matchsimulator.coach.config.AssessmentBand;
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
@@ -43,7 +44,7 @@ final class CoachRun {
         this.executionSecond = executionSecond;
         styles.put(side, own.style());
         styles.put(side.opposite(), opponent.style());
-        coach.decide(List.of(events.kickOff()));
+        coach.decide(List.of(events.kickOff()), ScenarioMoments.deadBall());
     }
 
     static CoachRun of(PlayStyle ownStyle, AssessmentBand band, PlayStyle opponentStyle) {
@@ -97,7 +98,8 @@ final class CoachRun {
         MatchEvent last = delivery.get(delivery.size() - 1);
         minute = last.time().minute();
         delivery.forEach(this::followStyle);
-        Optional<Intervention> decision = coach.decide(delivery);
+        List<Intervention> requests = coach.decide(delivery, ScenarioMoments.deadBall());
+        Optional<Intervention> decision = requests.stream().findFirst();
         decision.ifPresent(this::execute);
         return decision;
     }
@@ -136,6 +138,8 @@ final class CoachRun {
             case Intervention.StyleChange change -> executeStyleChange(change);
             case Intervention.VoluntarySubstitution substitution -> executeSubstitution(substitution);
             case Intervention.SectorMove move -> executeMove(move);
+            case Intervention.FormationChange change ->
+                    throw new IllegalStateException("the automatic coach never asks for a formation change");
         };
         executedAtTheNextDelivery.add(executed);
     }

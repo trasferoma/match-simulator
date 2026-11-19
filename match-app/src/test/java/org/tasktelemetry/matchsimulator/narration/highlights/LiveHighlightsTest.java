@@ -3,6 +3,7 @@ package org.tasktelemetry.matchsimulator.narration.highlights;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_DEFENDER;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.AWAY_GOALKEEPER;
+import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_BENCH;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_FORWARD;
 import static org.tasktelemetry.matchsimulator.narration.NarrationEvents.HOME_MIDFIELDER;
 
@@ -17,6 +18,7 @@ import org.junit.jupiter.params.provider.ValueSource;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
+import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.event.EventDetail;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.FatigueBand;
@@ -25,7 +27,10 @@ import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.event.SaveQuality;
 import org.tasktelemetry.matchsimulator.engine.event.ShotKind;
 import org.tasktelemetry.matchsimulator.engine.event.ShotQuality;
+import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.ZoneRole;
+import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.live.LiveMatch;
 import org.tasktelemetry.matchsimulator.live.MatchObserver;
 import org.tasktelemetry.matchsimulator.live.PreparedMatch;
@@ -39,6 +44,7 @@ class LiveHighlightsTest {
 
     private static final String SEGMENT = "segment";
     private static final String FINISHED = "finished";
+    private static final String PAUSED = "paused";
 
     private final HighlightsSelector selector = new HighlightsSelector(
             new HighlightsConfigReader().readDefault(), new NarratedEventFilter());
@@ -150,6 +156,105 @@ class LiveHighlightsTest {
         assertThat(listener.calls().indexOf(SEGMENT)).isLessThan(listener.calls().indexOf(FINISHED));
     }
 
+    @ParameterizedTest
+    @ValueSource(longs = {1, 2, 3, 4, 5, 6, 7, 8})
+    void withoutAPauseEachDeliveryHasExactlyTheDecidedSegmentsOfTheWholeSelection(long seed) {
+        PreparedMatch prepared = prepareReferenceMatch();
+        ObserverSpy spy = new ObserverSpy(newLiveHighlights(prepared.names(), prepared.openingSetups()), listener);
+
+        List<MatchEvent> events = newLiveMatch().play(prepared, seed, spy);
+
+        List<Integer> expectedCounts = spy.happenedCounts().stream()
+                .map(happenedCount -> countDecidedByTheSelectionOfTheFirst(events, happenedCount))
+                .toList();
+        assertThat(spy.segmentCounts()).isEqualTo(expectedCounts);
+        assertThat(listener.segments()).isEqualTo(narratedAtTheEnd(events, prepared.names(), prepared.openingSetups()));
+    }
+
+    @Test
+    void theCatchUpNarratesEverythingHappenedWithoutWaitingAndTheMatchGoesOnFromThere() {
+        fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
+        addHomePasses(10);
+        List<MatchEvent> beforeThePause = fixture.list();
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
+        deliverOneAtATime(live, beforeThePause);
+
+        live.catchUpForPause();
+
+        List<NarratedSegment> expected = narratedAtTheEnd(beforeThePause, NarrationEvents.TEAM_NAMES,
+                NarrationEvents.OPENING_SETUPS);
+        assertThat(expected).hasSize(11);
+        assertThat(listener.segments()).isEqualTo(expected);
+        assertThat(listener.calls()).last().isEqualTo(PAUSED);
+        assertThat(listener.calls()).doesNotContain(FINISHED);
+    }
+
+    @Test
+    void aChanceAfterThePauseDoesNotPullTheEventsAlreadyNarratedAsPreparation() {
+        fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
+        addHomePasses(10);
+        List<MatchEvent> beforeThePause = fixture.list();
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
+        deliverOneAtATime(live, beforeThePause);
+        live.catchUpForPause();
+        addHomePasses(1);
+        addHomeShot();
+        addAwayPasses(8);
+        List<MatchEvent> events = fixture.list();
+
+        deliverOneAtATime(live, events.subList(beforeThePause.size(), events.size()));
+        live.matchFinished();
+
+        assertThat(countNarratedItems(listener.segments())).isEqualTo(events.size());
+        List<NarratedSegment.Stop> chances = findChanceStops(listener.segments());
+        assertThat(chances).hasSize(1);
+        assertThat(chances.get(0).lines()).hasSize(2);
+        assertThat(listener.calls()).containsOnlyOnce(FINISHED);
+    }
+
+    @ParameterizedTest
+    @ValueSource(ints = {1, 3, 7, 25, 90})
+    void noEventIsNarratedTwiceOrLostWhateverTheMomentsOfThePauses(int deliveriesBetweenPauses) {
+        PreparedMatch prepared = prepareReferenceMatch();
+        LiveHighlights live = newLiveHighlights(prepared.names(), prepared.openingSetups());
+        PausingObserver pausing = new PausingObserver(live, deliveriesBetweenPauses);
+
+        List<MatchEvent> events = newLiveMatch().play(prepared, ReferenceChronicle.SEED, pausing);
+
+        List<NarratedSegment> withoutPauses = narratedAtTheEnd(events, prepared.names(), prepared.openingSetups());
+        assertThat(countNarratedItems(listener.segments())).isEqualTo(countNarratedItems(withoutPauses));
+        assertThat(listener.calls().stream().filter(PAUSED::equals)).isNotEmpty();
+        assertThat(listener.calls()).last().isEqualTo(FINISHED);
+    }
+
+    @Test
+    void theInterventionsOfTheManagerDeliveredLiveAreAmongTheNarratedSegments() {
+        Deployment deployment = new Deployment(4, 4, 2);
+        EventDetail style = EventDetail.styleChange(PlayStyle.BALANCED, PlayStyle.ATTACKING,
+                ChangeReason.MANAGER_DECISION);
+        EventDetail lineup = EventDetail.lineupChange(Role.MIDFIELDER, ChangeReason.MANAGER_DECISION, deployment,
+                deployment);
+        Participants substituted = Participants.of(HOME_MIDFIELDER, MatchSide.HOME, HOME_BENCH, MatchSide.HOME);
+        fixture.add(EventType.STYLE_CHANGED, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), style);
+        addHomePasses(1);
+        fixture.add(EventType.SUBSTITUTION, MatchSide.HOME, ZoneRole.MIDFIELD, substituted, lineup);
+        addHomePasses(1);
+        fixture.add(EventType.PLAYER_MOVED, MatchSide.HOME, ZoneRole.MIDFIELD,
+                NarrationEvents.participantsOf(HOME_MIDFIELDER), lineup);
+        addHomePasses(8);
+        LiveHighlights live = newLiveHighlights(NarrationEvents.TEAM_NAMES, NarrationEvents.OPENING_SETUPS);
+
+        deliverOneAtATime(live, fixture.list());
+
+        List<NarratedSegment.Stop> stops = listener.segments().stream()
+                .filter(NarratedSegment.Stop.class::isInstance)
+                .map(NarratedSegment.Stop.class::cast)
+                .toList();
+        assertThat(stops).hasSize(3);
+        assertThat(stops).allSatisfy(stop -> assertThat(stop.lines()).hasSize(1));
+        assertThat(stops).allSatisfy(stop -> assertThat(stop.lines().get(0).text()).isNotBlank());
+    }
+
     private void addExampleSequence() {
         fixture.add(EventType.KICK_OFF, MatchSide.HOME, ZoneRole.MIDFIELD, Participants.nobody(), EventDetail.none());
         addHomePasses(5);
@@ -203,6 +308,42 @@ class LiveHighlightsTest {
             }
         }
         return decidedCount;
+    }
+
+    private int countDecidedByTheSelectionOfTheFirst(List<MatchEvent> events, int happenedCount) {
+        List<MatchEvent> happened = events.subList(0, happenedCount);
+        List<HighlightSegment> segments = selector.select(happened);
+        int lastDecidedPosition = selector.findLastDecidedPosition(happened);
+        int decidedCount = 0;
+        int endPosition = -1;
+        for (HighlightSegment segment : segments) {
+            endPosition += segment.events().size();
+            if (endPosition <= lastDecidedPosition) {
+                decidedCount++;
+            }
+        }
+        return decidedCount;
+    }
+
+    private int countNarratedItems(List<NarratedSegment> segments) {
+        return segments.stream()
+                .mapToInt(this::countItemsOf)
+                .sum();
+    }
+
+    private int countItemsOf(NarratedSegment segment) {
+        return switch (segment) {
+            case NarratedSegment.Frame frame -> 1;
+            case NarratedSegment.Stop stop -> stop.lines().size();
+        };
+    }
+
+    private List<NarratedSegment.Stop> findChanceStops(List<NarratedSegment> segments) {
+        return segments.stream()
+                .filter(NarratedSegment.Stop.class::isInstance)
+                .map(NarratedSegment.Stop.class::cast)
+                .filter(NarratedSegment.Stop::containsChance)
+                .toList();
     }
 
     private List<NarratedSegment> narratedAtTheEnd(List<MatchEvent> events, TeamNames teamNames,
@@ -260,6 +401,32 @@ class LiveHighlightsTest {
         }
     }
 
+    private static class PausingObserver implements MatchObserver {
+
+        private final LiveHighlights live;
+        private final int deliveriesBetweenPauses;
+        private int deliveries;
+
+        PausingObserver(LiveHighlights live, int deliveriesBetweenPauses) {
+            this.live = live;
+            this.deliveriesBetweenPauses = deliveriesBetweenPauses;
+        }
+
+        @Override
+        public void eventsHappened(List<MatchEvent> newEvents) {
+            live.eventsHappened(newEvents);
+            deliveries++;
+            if (deliveries % deliveriesBetweenPauses == 0) {
+                live.catchUpForPause();
+            }
+        }
+
+        @Override
+        public void matchFinished() {
+            live.matchFinished();
+        }
+    }
+
     private static class RecordingListener implements HighlightsListener {
 
         private final List<NarratedSegment> segments = new ArrayList<>();
@@ -281,6 +448,11 @@ class LiveHighlightsTest {
         @Override
         public void chronicleFinished() {
             calls.add(FINISHED);
+        }
+
+        @Override
+        public void chroniclePaused() {
+            calls.add(PAUSED);
         }
 
         List<NarratedSegment> segments() {

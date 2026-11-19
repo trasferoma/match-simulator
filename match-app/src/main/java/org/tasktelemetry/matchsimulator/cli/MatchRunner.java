@@ -64,10 +64,18 @@ final class MatchRunner {
     }
 
     Scoreboard playLiveHighlights(PreparedMatch match, long seed, HighlightsListener listener) {
+        LiveHighlights liveHighlights = createLiveHighlights(match, listener);
+        return playLive(match, seed, liveHighlights);
+    }
+
+    LiveHighlights createLiveHighlights(PreparedMatch match, HighlightsListener listener) {
         TeamNames teamNames = match.names();
         MatchSetups openingSetups = match.openingSetups();
-        LiveHighlights liveHighlights = new LiveHighlights(highlightsSelector, highlightsNarrator, teamNames,
-                openingSetups, listener);
+        return new LiveHighlights(highlightsSelector, highlightsNarrator, teamNames, openingSetups, listener);
+    }
+
+    Scoreboard playLive(PreparedMatch match, long seed, LiveHighlights liveHighlights) {
+        TeamNames teamNames = match.names();
         List<MatchEvent> events = liveMatch.play(match, seed, liveHighlights);
         MatchSummary summary = summaryCalculator.summarize(events);
         return new Scoreboard(teamNames.home(), teamNames.away(), summary, seed);

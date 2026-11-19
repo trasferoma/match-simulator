@@ -2,9 +2,11 @@ package org.tasktelemetry.matchsimulator.live;
 
 import java.util.Objects;
 
+import org.tasktelemetry.matchsimulator.coach.Coach;
 import org.tasktelemetry.matchsimulator.coach.MatchCoaches;
 import org.tasktelemetry.matchsimulator.coach.config.Formation;
 import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.Deployment;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.narration.MatchSetups;
@@ -27,6 +29,11 @@ public record PreparedMatch(PreMatchDecision homeDecision, PreMatchDecision away
 
     public Team away() {
         return awayDecision.team();
+    }
+
+    public PreparedMatch withCoach(MatchSide side, Coach coach) {
+        MatchCoaches replaced = coaches.replacing(side, coach);
+        return new PreparedMatch(homeDecision, awayDecision, names, replaced);
     }
 
     public MatchSetups openingSetups() {

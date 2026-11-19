@@ -1,5 +1,6 @@
 package org.tasktelemetry.matchsimulator.engine.intervention;
 
+import java.util.List;
 import java.util.Objects;
 
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
@@ -49,6 +50,40 @@ public sealed interface Intervention {
             Objects.requireNonNull(sector, "sector must not be null");
             Objects.requireNonNull(reason, "reason must not be null");
             requireVoluntary(reason);
+        }
+    }
+
+    record FormationChange(MatchSide side, List<SectorShift> shifts, ChangeReason reason) implements Intervention {
+
+        public FormationChange {
+            Objects.requireNonNull(side, "side must not be null");
+            Objects.requireNonNull(shifts, "shifts must not be null");
+            Objects.requireNonNull(reason, "reason must not be null");
+            requireVoluntary(reason);
+            shifts = List.copyOf(shifts);
+            requireAtLeastOne(shifts);
+            requireDistinctPlayers(shifts);
+        }
+
+        private static void requireAtLeastOne(List<SectorShift> shifts) {
+            if (shifts.isEmpty()) {
+                throw new IllegalArgumentException("a formation change needs at least one shift");
+            }
+        }
+
+        private static void requireDistinctPlayers(List<SectorShift> shifts) {
+            long distinctPlayers = shifts.stream().map(SectorShift::player).distinct().count();
+            if (distinctPlayers != shifts.size()) {
+                throw new IllegalArgumentException("a formation change cannot shift the same player twice");
+            }
+        }
+    }
+
+    record SectorShift(Player player, Role sector) {
+
+        public SectorShift {
+            Objects.requireNonNull(player, "player must not be null");
+            Objects.requireNonNull(sector, "sector must not be null");
         }
     }
 }

@@ -1,0 +1,13 @@
+package org.tasktelemetry.matchsimulator.cli.dugout;
+
+enum DugoutProblem {
+    UNKNOWN_COMMAND,
+    WRONG_ARGUMENTS,
+    NOT_A_NUMBER,
+    NUMBER_NOT_IN_ROSTER,
+    UNKNOWN_STYLE,
+    MALFORMED_FORMATION,
+    FORMATION_NOT_AVAILABLE,
+    FORMATION_ALREADY_IN_PLACE,
+    NO_OTHER_FORMATION_AVAILABLE
+}

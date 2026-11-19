@@ -3,7 +3,9 @@ package org.tasktelemetry.matchsimulator.engine.intervention;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
@@ -95,6 +97,62 @@ class InterventionTest {
                 .isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> new Intervention.VoluntarySubstitution(MatchSide.HOME, leaving, entering, null))
                 .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void aFormationChangeRefusesAnEmptyListOfShifts() {
+        assertThatThrownBy(() -> new Intervention.FormationChange(MatchSide.HOME, List.of(),
+                ChangeReason.MANAGER_DECISION)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @Test
+    void aFormationChangeRefusesTheSamePlayerShiftedTwice() {
+        Player player = player("A");
+        List<Intervention.SectorShift> shifts = List.of(new Intervention.SectorShift(player, Role.FORWARD),
+                new Intervention.SectorShift(player, Role.DEFENDER));
+
+        assertThatThrownBy(() -> new Intervention.FormationChange(MatchSide.HOME, shifts,
+                ChangeReason.MANAGER_DECISION)).isInstanceOf(IllegalArgumentException.class);
+    }
+
+    @ParameterizedTest
+    @EnumSource(value = ChangeReason.class, names = {"INJURY", "RESERVE_GOALKEEPER", "EMPTIED_SECTOR",
+            "MAKESHIFT_GOALKEEPER"})
+    void aForcedReasonIsNotAllowedOnAFormationChange(ChangeReason forced) {
+        List<Intervention.SectorShift> shifts = List.of(new Intervention.SectorShift(player("A"), Role.FORWARD));
+
+        assertThatThrownBy(() -> new Intervention.FormationChange(MatchSide.HOME, shifts, forced))
+                .isInstanceOf(IllegalArgumentException.class).hasMessageContaining(forced.name());
+    }
+
+    @Test
+    void aFormationChangeAndAShiftRefuseMissingValues() {
+        Player player = player("A");
+        List<Intervention.SectorShift> shifts = List.of(new Intervention.SectorShift(player, Role.FORWARD));
+        ChangeReason reason = ChangeReason.MANAGER_DECISION;
+
+        assertThatThrownBy(() -> new Intervention.FormationChange(null, shifts, reason))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new Intervention.FormationChange(MatchSide.HOME, null, reason))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new Intervention.FormationChange(MatchSide.HOME, shifts, null))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new Intervention.SectorShift(null, Role.FORWARD))
+                .isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> new Intervention.SectorShift(player, null))
+                .isInstanceOf(NullPointerException.class);
+    }
+
+    @Test
+    void aFormationChangeKeepsACopyOfItsShifts() {
+        List<Intervention.SectorShift> shifts = new ArrayList<>();
+        shifts.add(new Intervention.SectorShift(player("A"), Role.FORWARD));
+        Intervention.FormationChange change = new Intervention.FormationChange(MatchSide.HOME, shifts,
+                ChangeReason.MANAGER_DECISION);
+
+        shifts.clear();
+
+        assertThat(change.shifts()).hasSize(1);
     }
 
     private Player player(String name) {

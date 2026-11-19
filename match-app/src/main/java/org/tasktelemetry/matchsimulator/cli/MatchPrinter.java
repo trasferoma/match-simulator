@@ -53,13 +53,23 @@ final class MatchPrinter {
     }
 
     void printScoreboard(Scoreboard scoreboard) {
+        printScoreboardWithSeed(scoreboard);
+        out.flush();
+    }
+
+    void printScoreboardOfControlledMatch(Scoreboard scoreboard) {
+        printScoreboardWithSeed(scoreboard);
+        printLine(ReportLabel.SEED_NOT_ENOUGH);
+        out.flush();
+    }
+
+    private void printScoreboardWithSeed(Scoreboard scoreboard) {
         printBlankLine();
         printTitle();
         printResult(scoreboard);
         printScorers(scoreboard);
         printStatistics(scoreboard);
         printSeed(scoreboard);
-        out.flush();
     }
 
     private void printChronicle(MatchReport report) {

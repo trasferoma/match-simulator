@@ -2,7 +2,6 @@ package org.tasktelemetry.matchsimulator.coach;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
 import org.tasktelemetry.matchsimulator.coach.decision.AutomaticCoach;
@@ -101,22 +100,22 @@ public final class CoachedMatch {
             if (newEvents.isEmpty() || match.isFinished()) {
                 continue;
             }
-            List<Intervention> requests = askCoaches(coaches, newEvents, askTheAwayCoachFirst);
+            MatchMoment moment = new MatchMoment(match.isBallLive(), match::previewInterventions);
+            List<Intervention> requests = askCoaches(coaches, newEvents, moment, askTheAwayCoachFirst);
             pendingRequests += applyInOrder(match, requests);
         }
         return new Outcome(match.events(), pendingRequests);
     }
 
-    private List<Intervention> askCoaches(MatchCoaches coaches, List<MatchEvent> newEvents,
+    private List<Intervention> askCoaches(MatchCoaches coaches, List<MatchEvent> newEvents, MatchMoment moment,
             boolean askTheAwayCoachFirst) {
         if (!askTheAwayCoachFirst) {
-            return coaches.decide(newEvents);
+            return coaches.decide(newEvents, moment);
         }
-        Optional<Intervention> awayRequest = coaches.away().decide(newEvents);
-        Optional<Intervention> homeRequest = coaches.home().decide(newEvents);
-        List<Intervention> requests = new ArrayList<>();
-        homeRequest.ifPresent(requests::add);
-        awayRequest.ifPresent(requests::add);
+        List<Intervention> awayRequests = coaches.away().decide(newEvents, moment);
+        List<Intervention> homeRequests = coaches.home().decide(newEvents, moment);
+        List<Intervention> requests = new ArrayList<>(homeRequests);
+        requests.addAll(awayRequests);
         return requests;
     }
 

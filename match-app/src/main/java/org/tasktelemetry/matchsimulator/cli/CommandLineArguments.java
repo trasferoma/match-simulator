@@ -7,6 +7,7 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Optional;
 
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.narration.ChronicleMode;
 
 final class CommandLineArguments {
@@ -16,6 +17,9 @@ final class CommandLineArguments {
     private static final String STEP_BY_STEP_OPTION = "--stepByStep";
     private static final String HIGHLIGHTS_OPTION = "--highlights";
     private static final String ANIMATE_OPTION = "--animate";
+    private static final String CONTROL_OPTION = "--control";
+    private static final String HOME_SIDE_VALUE = "casa";
+    private static final String AWAY_SIDE_VALUE = "ospite";
     private static final String OPTION_PREFIX = "--";
     private static final int TEAM_FILE_COUNT = 2;
 
@@ -26,9 +30,10 @@ final class CommandLineArguments {
     private final boolean stepByStep;
     private final boolean highlights;
     private final boolean animate;
+    private final MatchSide controlledSide;
 
     private CommandLineArguments(Path homeFile, Path awayFile, ChronicleMode chronicleMode, Long seed,
-            boolean stepByStep, boolean highlights, boolean animate) {
+            boolean stepByStep, boolean highlights, boolean animate, MatchSide controlledSide) {
         this.homeFile = homeFile;
         this.awayFile = awayFile;
         this.chronicleMode = chronicleMode;
@@ -36,6 +41,7 @@ final class CommandLineArguments {
         this.stepByStep = stepByStep;
         this.highlights = highlights;
         this.animate = animate;
+        this.controlledSide = controlledSide;
     }
 
     static CommandLineArguments parse(List<String> arguments) {
@@ -45,6 +51,7 @@ final class CommandLineArguments {
         boolean stepByStep = false;
         boolean highlights = false;
         boolean animate = false;
+        MatchSide controlledSide = null;
         Iterator<String> remaining = arguments.iterator();
         while (remaining.hasNext()) {
             String argument = remaining.next();
@@ -63,6 +70,9 @@ final class CommandLineArguments {
             } else if (argument.equals(ANIMATE_OPTION)) {
                 requireNotRepeated(animate, ANIMATE_OPTION);
                 animate = true;
+            } else if (argument.equals(CONTROL_OPTION)) {
+                requireNotRepeated(controlledSide != null, CONTROL_OPTION);
+                controlledSide = readControlledSide(remaining);
             } else if (argument.startsWith(OPTION_PREFIX)) {
                 throw new InvalidCommandLineException(CommandLineProblem.UNKNOWN_OPTION, argument);
             } else {
@@ -72,11 +82,12 @@ final class CommandLineArguments {
         requireTwoTeamFiles(files);
         requireHighlightsAlone(highlights, full || stepByStep);
         requireHighlightsForAnimation(animate, highlights);
+        requireHighlightsForControl(controlledSide, highlights);
         Path homeFile = readPath(files.get(0));
         Path awayFile = readPath(files.get(1));
         ChronicleMode chronicleMode = chronicleModeOf(full);
         return new CommandLineArguments(homeFile, awayFile, chronicleMode, seed, stepByStep, highlights,
-                animate);
+                animate, controlledSide);
     }
 
     Path homeFile() {
@@ -107,6 +118,10 @@ final class CommandLineArguments {
         return animate;
     }
 
+    Optional<MatchSide> controlledSide() {
+        return Optional.ofNullable(controlledSide);
+    }
+
     private static ChronicleMode chronicleModeOf(boolean full) {
         if (full) {
             return ChronicleMode.FULL;
@@ -132,6 +147,12 @@ final class CommandLineArguments {
         }
     }
 
+    private static void requireHighlightsForControl(MatchSide controlledSide, boolean highlights) {
+        if (controlledSide != null && !highlights) {
+            throw new InvalidCommandLineException(CommandLineProblem.CONTROL_WITHOUT_HIGHLIGHTS);
+        }
+    }
+
     private static void requireTwoTeamFiles(List<String> files) {
         if (files.size() != TEAM_FILE_COUNT) {
             throw new InvalidCommandLineException(CommandLineProblem.WRONG_FILE_COUNT, files.size());
@@ -144,6 +165,18 @@ final class CommandLineArguments {
         } catch (InvalidPathException exception) {
             throw new InvalidCommandLineException(CommandLineProblem.INVALID_FILE_PATH, text);
         }
+    }
+
+    private static MatchSide readControlledSide(Iterator<String> remaining) {
+        if (!remaining.hasNext()) {
+            throw new InvalidCommandLineException(CommandLineProblem.CONTROL_MISSING_VALUE);
+        }
+        String text = remaining.next();
+        return switch (text) {
+            case HOME_SIDE_VALUE -> MatchSide.HOME;
+            case AWAY_SIDE_VALUE -> MatchSide.AWAY;
+            default -> throw new InvalidCommandLineException(CommandLineProblem.CONTROL_UNKNOWN_SIDE, text);
+        };
     }
 
     private static long readSeed(Iterator<String> remaining) {

@@ -6,6 +6,7 @@ import java.util.Optional;
 import java.util.Set;
 
 import org.tasktelemetry.matchsimulator.coach.Coach;
+import org.tasktelemetry.matchsimulator.coach.MatchMoment;
 import org.tasktelemetry.matchsimulator.coach.TieBreakDraw;
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
 import org.tasktelemetry.matchsimulator.coach.config.StylePrudenceScale;
@@ -93,12 +94,12 @@ public final class AutomaticCoach implements Coach {
     }
 
     @Override
-    public Optional<Intervention> decide(List<MatchEvent> newEvents) {
+    public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment matchMoment) {
         Objects.requireNonNull(newEvents, "new events must not be null");
         MatchNotes before = requireOpenMatch();
         notes = readNewEvents(before, newEvents);
         Optional<DecisionMoment> moment = findDecisionMoment(before, newEvents);
-        return moment.flatMap(this::decideAt);
+        return moment.flatMap(this::decideAt).stream().toList();
     }
 
     @Override

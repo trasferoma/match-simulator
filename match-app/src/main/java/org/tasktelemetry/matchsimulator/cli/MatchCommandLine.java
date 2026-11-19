@@ -6,9 +6,11 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.nio.charset.StandardCharsets;
 import java.util.List;
+import java.util.Optional;
 import java.util.function.LongSupplier;
 import java.util.random.RandomGenerator;
 
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.live.MatchPreparation;
 import org.tasktelemetry.matchsimulator.live.PreparedMatch;
 import org.tasktelemetry.matchsimulator.message.UserMessages;
@@ -27,15 +29,18 @@ public final class MatchCommandLine {
     private final ErrorReporter errorReporter;
     private final MatchSetup setup;
     private final MatchRunner runner;
+    private final ControlledMatchRunner controlledRunner;
     private final MatchPrinter printer;
     private final HighlightsPrinter highlightsPrinter;
     private final LongSupplier seedSource;
 
     MatchCommandLine(ErrorReporter errorReporter, MatchSetup setup, MatchRunner runner,
-            MatchPrinter printer, HighlightsPrinter highlightsPrinter, LongSupplier seedSource) {
+            ControlledMatchRunner controlledRunner, MatchPrinter printer, HighlightsPrinter highlightsPrinter,
+            LongSupplier seedSource) {
         this.errorReporter = errorReporter;
         this.setup = setup;
         this.runner = runner;
+        this.controlledRunner = controlledRunner;
         this.printer = printer;
         this.highlightsPrinter = highlightsPrinter;
         this.seedSource = seedSource;
@@ -66,6 +71,8 @@ public final class MatchCommandLine {
         MatchSetup setup = new MatchSetup(reader, preparation);
         HighlightsConfig highlightsConfig = new HighlightsConfigReader().readDefault();
         MatchRunner runner = MatchRunner.standard(highlightsConfig);
+        ControlledMatchRunner controlledRunner =
+                new ControlledMatchRunner(runner, preparation, messages, encodedOut, in);
         EnterKeyReader enterKeyReader = EnterKeyReader.standard(in);
         MatchPrinter printer = new MatchPrinter(messages, encodedOut, enterKeyReader);
         HighlightsPrinter highlightsPrinter =
@@ -73,7 +80,8 @@ public final class MatchCommandLine {
         RandomGenerator random = RandomGenerator.getDefault();
         LongSupplier seedSource = random::nextLong;
         ErrorReporter errorReporter = new ErrorReporter(encodedErr, messages);
-        return new MatchCommandLine(errorReporter, setup, runner, printer, highlightsPrinter, seedSource);
+        return new MatchCommandLine(errorReporter, setup, runner, controlledRunner, printer, highlightsPrinter,
+                seedSource);
     }
 
     int run(String... arguments) {
@@ -89,6 +97,7 @@ public final class MatchCommandLine {
     }
 
     private int playAndPrint(CommandLineArguments arguments) {
+        requireAnimatedSessionForControl(arguments);
         PreparedMatch match = setup.prepare(arguments.homeFile(), arguments.awayFile());
         long seed = arguments.seed().orElseGet(seedSource::getAsLong);
         printer.printLineups(match);
@@ -103,8 +112,27 @@ public final class MatchCommandLine {
     private void playAndPrintHighlights(PreparedMatch match, long seed, CommandLineArguments arguments) {
         highlightsPrinter.pauseAfterLineups(arguments.animate());
         HighlightsListener session = highlightsPrinter.openSession(arguments.animate());
+        Optional<MatchSide> controlledSide = arguments.controlledSide();
+        if (controlledSide.isPresent()) {
+            playAndPrintControlledHighlights(match, controlledSide.get(), seed, session);
+            return;
+        }
         Scoreboard scoreboard = runner.playLiveHighlights(match, seed, session);
         printer.printScoreboard(scoreboard);
+    }
+
+    private void playAndPrintControlledHighlights(PreparedMatch match, MatchSide controlledSide, long seed,
+            HighlightsListener session) {
+        Scoreboard scoreboard = controlledRunner.play(match, controlledSide, seed, session);
+        printer.printScoreboardOfControlledMatch(scoreboard);
+    }
+
+    private void requireAnimatedSessionForControl(CommandLineArguments arguments) {
+        boolean controlled = arguments.controlledSide().isPresent();
+        boolean animated = highlightsPrinter.isAnimated(arguments.animate());
+        if (controlled && !animated) {
+            throw new InvalidCommandLineException(CommandLineProblem.CONTROL_WITHOUT_ANIMATION);
+        }
     }
 
     private void playAndPrintChronicle(PreparedMatch match, long seed, CommandLineArguments arguments) {

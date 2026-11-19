@@ -7,6 +7,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.coach.MatchMoment;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
 import org.tasktelemetry.matchsimulator.engine.config.EngineConfig;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
@@ -93,7 +94,7 @@ class LiveMatchTest {
         assertThatThrownBy(() -> newLiveMatch().play(prepared, SEED, failing))
                 .isInstanceOf(IllegalStateException.class);
 
-        assertThatThrownBy(() -> prepared.coaches().decide(List.of()))
+        assertThatThrownBy(() -> prepared.coaches().decide(List.of(), new MatchMoment(false, requests -> List.of())))
                 .isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no match open");
         List<MatchEvent> afterwards = newLiveMatch().play(prepared, SEED, new RecordingObserver());

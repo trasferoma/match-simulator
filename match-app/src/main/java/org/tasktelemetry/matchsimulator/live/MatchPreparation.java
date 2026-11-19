@@ -6,6 +6,8 @@ import org.tasktelemetry.matchsimulator.coach.Coach;
 import org.tasktelemetry.matchsimulator.coach.MatchCoaches;
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
 import org.tasktelemetry.matchsimulator.coach.decision.AutomaticCoach;
+import org.tasktelemetry.matchsimulator.coach.human.DugoutSession;
+import org.tasktelemetry.matchsimulator.coach.human.HumanCoach;
 import org.tasktelemetry.matchsimulator.coach.lineup.LineupChoice;
 import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
 import org.tasktelemetry.matchsimulator.coach.squad.Squad;
@@ -36,6 +38,12 @@ public final class MatchPreparation {
         MatchCoaches coaches = hireCoaches(home, away);
         TeamNames names = nameParticipants(home, away);
         return new PreparedMatch(homeDecision, awayDecision, names, coaches);
+    }
+
+    public PreparedMatch handControlTo(PreparedMatch prepared, MatchSide side, DugoutSession session) {
+        Objects.requireNonNull(prepared, "prepared match must not be null");
+        Coach humanCoach = new HumanCoach(coachConfig, session);
+        return prepared.withCoach(side, humanCoach);
     }
 
     private MatchCoaches hireCoaches(Squad home, Squad away) {

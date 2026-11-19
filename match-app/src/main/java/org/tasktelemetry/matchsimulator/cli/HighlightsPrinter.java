@@ -48,7 +48,7 @@ final class HighlightsPrinter {
         }
     }
 
-    private boolean isAnimated(boolean forceAnimation) {
+    boolean isAnimated(boolean forceAnimation) {
         return interactiveTerminal || forceAnimation;
     }
 
@@ -73,6 +73,12 @@ final class HighlightsPrinter {
         @Override
         public void chronicleFinished() {
             rows.finish();
+        }
+
+        @Override
+        public void chroniclePaused() {
+            rows.finish();
+            pendingPause = null;
         }
 
         private void waitForPendingPause() {
@@ -119,6 +125,10 @@ final class HighlightsPrinter {
 
         @Override
         public void chronicleFinished() {
+        }
+
+        @Override
+        public void chroniclePaused() {
         }
 
         private void printStop(NarratedSegment.Stop stop) {
@@ -176,6 +186,13 @@ final class HighlightsPrinter {
             if (drawn) {
                 out.println();
             }
+            forgetWhatWasDrawn();
+        }
+
+        private void forgetWhatWasDrawn() {
+            fieldWidth = 0;
+            messageWidth = 0;
+            drawn = false;
         }
     }
 
@@ -197,6 +214,12 @@ final class HighlightsPrinter {
             if (drawn) {
                 out.println();
             }
+            forgetWhatWasDrawn();
+        }
+
+        private void forgetWhatWasDrawn() {
+            rowWidth = 0;
+            drawn = false;
         }
     }
 

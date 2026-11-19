@@ -12,6 +12,7 @@ public enum ChangeReason {
     AVOID_SECOND_YELLOW(false),
     REPLACE_TIRED_PLAYER(false),
     ANSWER_FRESH_ATTACKERS(false),
+    MANAGER_DECISION(false),
     INJURY(true),
     RESERVE_GOALKEEPER(true),
     EMPTIED_SECTOR(true),

@@ -11,6 +11,7 @@ import java.util.Map;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.coach.CoachedMatch;
+import org.tasktelemetry.matchsimulator.coach.ScenarioMoments;
 import org.tasktelemetry.matchsimulator.coach.ScenarioTeams;
 import org.tasktelemetry.matchsimulator.coach.config.AssessmentBand;
 import org.tasktelemetry.matchsimulator.coach.config.CoachConfig;
@@ -146,7 +147,7 @@ class CoachRulesTest {
         assertThatThrownBy(() -> coach.open(HOME, null, away, ScenarioTeams.ALWAYS_THE_FIRST)).isInstanceOf(NullPointerException.class);
         assertThatThrownBy(() -> coach.open(HOME, preMatch, null, ScenarioTeams.ALWAYS_THE_FIRST)).isInstanceOf(NullPointerException.class);
         coach.open(HOME, preMatch, away, ScenarioTeams.ALWAYS_THE_FIRST);
-        assertThatThrownBy(() -> coach.decide(null)).isInstanceOf(NullPointerException.class);
+        assertThatThrownBy(() -> coach.decide(null, ScenarioMoments.deadBall())).isInstanceOf(NullPointerException.class);
     }
 
     @Test
@@ -157,11 +158,11 @@ class CoachRulesTest {
         List<org.tasktelemetry.matchsimulator.engine.event.MatchEvent> kickOff =
                 List.of(new org.tasktelemetry.matchsimulator.coach.ScenarioEvents().kickOff());
 
-        assertThatThrownBy(() -> coach.decide(kickOff)).isInstanceOf(IllegalStateException.class)
+        assertThatThrownBy(() -> coach.decide(kickOff, ScenarioMoments.deadBall())).isInstanceOf(IllegalStateException.class)
                 .hasMessageContaining("no match open");
         coach.open(HOME, preMatch, away, ScenarioTeams.ALWAYS_THE_FIRST);
         coach.close();
-        assertThatThrownBy(() -> coach.decide(kickOff)).isInstanceOf(IllegalStateException.class);
+        assertThatThrownBy(() -> coach.decide(kickOff, ScenarioMoments.deadBall())).isInstanceOf(IllegalStateException.class);
     }
 
     @Test

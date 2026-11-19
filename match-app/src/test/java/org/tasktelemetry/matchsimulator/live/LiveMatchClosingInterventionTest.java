@@ -4,11 +4,11 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.coach.Coach;
 import org.tasktelemetry.matchsimulator.coach.MatchCoaches;
+import org.tasktelemetry.matchsimulator.coach.MatchMoment;
 import org.tasktelemetry.matchsimulator.coach.TieBreakDraw;
 import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
@@ -148,17 +148,17 @@ class LiveMatchClosingInterventionTest {
         }
 
         @Override
-        public Optional<Intervention> decide(List<MatchEvent> newEvents) {
+        public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment moment) {
             MatchEvent last = newEvents.get(newEvents.size() - 1);
             boolean isTime = last.time().period() == period && last.time().minute() >= fromMinute;
             boolean endsTheFirstHalf = newEvents.stream().anyMatch(event -> event.type() == EventType.FIRST_HALF_END);
             boolean isHalfTime = period == MatchPeriod.FIRST_HALF && endsTheFirstHalf;
             if ((!isTime && !isHalfTime) || next >= planned.size()) {
-                return Optional.empty();
+                return List.of();
             }
             Intervention request = planned.get(next);
             next++;
-            return Optional.of(request);
+            return List.of(request);
         }
 
         @Override

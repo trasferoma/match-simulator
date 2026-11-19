@@ -4,11 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
+import java.util.function.BiFunction;
 
 import org.junit.jupiter.api.Test;
 import org.tasktelemetry.matchsimulator.coach.Coach;
 import org.tasktelemetry.matchsimulator.coach.MatchCoaches;
+import org.tasktelemetry.matchsimulator.coach.MatchMoment;
 import org.tasktelemetry.matchsimulator.coach.TieBreakDraw;
 import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
@@ -18,7 +19,12 @@ import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.intervention.ChangeReason;
 import org.tasktelemetry.matchsimulator.engine.intervention.Intervention;
+import org.tasktelemetry.matchsimulator.engine.intervention.InterventionResult;
+import org.tasktelemetry.matchsimulator.engine.intervention.PreviewVerdict;
+import org.tasktelemetry.matchsimulator.engine.intervention.RefusalReason;
 import org.tasktelemetry.matchsimulator.engine.team.PlayStyle;
+import org.tasktelemetry.matchsimulator.engine.team.Player;
+import org.tasktelemetry.matchsimulator.engine.team.Role;
 import org.tasktelemetry.matchsimulator.engine.team.Team;
 import org.tasktelemetry.matchsimulator.narration.ReferenceChronicle;
 
@@ -96,7 +102,108 @@ class LiveMatchCoachesTest {
         assertThat(awayAgain.firstDraw()).isEqualTo(awayCoach.firstDraw());
     }
 
-    private PlayStyle styleOtherThan(PlayStyle style) {
+    @Test
+    void theMomentSaysWhetherTheBallIsLiveExactlyAsTheEngineTreatsARequestMadeAtThatMoment() {
+        PreparedMatch base = preparedMatch();
+        ProbingCoach homeCoach = new ProbingCoach(new StyleToggle(MatchSide.HOME, base.home().style()));
+        ScriptedCoach awayCoach = new ScriptedCoach(MatchSide.AWAY, PlayStyle.BALANCED, 0);
+
+        play(base, new RecordingObserver(), homeCoach, awayCoach);
+
+        List<InterventionResult> settled = homeCoach.settledResults().stream().flatMap(List::stream).toList();
+        List<Boolean> ballLiveAtEachRequest = homeCoach.ballLiveAtEachDecision();
+        assertThat(settled).hasSameSizeAs(ballLiveAtEachRequest);
+        int askedWithTheBallLive = 0;
+        int askedWithTheBallStill = 0;
+        for (int index = 0; index < settled.size(); index++) {
+            InterventionResult result = settled.get(index);
+            boolean ballLive = ballLiveAtEachRequest.get(index);
+            if (result.isRefused()) {
+                continue;
+            }
+            boolean wasKeptPending = result instanceof InterventionResult.Pending;
+            assertThat(wasKeptPending).as("request %d", index).isEqualTo(ballLive);
+            askedWithTheBallLive += ballLive ? 1 : 0;
+            askedWithTheBallStill += ballLive ? 0 : 1;
+        }
+        assertThat(askedWithTheBallLive).isPositive();
+        assertThat(askedWithTheBallStill).isPositive();
+    }
+
+    @Test
+    void thePreviewIsUsableWhileDecidingAndDoesNotChangeTheMatch() {
+        PreparedMatch base = preparedMatch();
+        PreviewBothStyles previewBothStyles = new PreviewBothStyles(MatchSide.HOME, base.home().style());
+        ProbingCoach previewing = new ProbingCoach(previewBothStyles);
+        ScriptedCoach awayCoach = new ScriptedCoach(MatchSide.AWAY, PlayStyle.BALANCED, 0);
+        ScriptedCoach passiveHome = new ScriptedCoach(MatchSide.HOME, PlayStyle.BALANCED, 0);
+        ScriptedCoach passiveAway = new ScriptedCoach(MatchSide.AWAY, PlayStyle.BALANCED, 0);
+
+        List<MatchEvent> withThePreview = play(base, new RecordingObserver(), previewing, awayCoach);
+        List<MatchEvent> withoutThePreview = play(base, new RecordingObserver(), passiveHome, passiveAway);
+
+        PreviewVerdict alreadyInUse = PreviewVerdict.refused(RefusalReason.STYLE_ALREADY_IN_USE);
+        assertThat(previewBothStyles.verdictsOfTheCurrentStyle()).isNotEmpty().containsOnly(alreadyInUse);
+        assertThat(previewBothStyles.verdictsOfAnotherStyle()).isNotEmpty().containsOnly(PreviewVerdict.accepted());
+        assertThat(withThePreview).isEqualTo(withoutThePreview);
+    }
+
+    @Test
+    void theRequestsOfTheSameCoachAreAppliedInOrderSoTheSecondCanUseTheEffectOfTheFirst() {
+        PreparedMatch base = preparedMatch();
+        ScriptedCoach homeCoach = new ScriptedCoach(FIRST_DELIVERY, LiveMatchCoachesTest::substitutionThenShift);
+        ScriptedCoach awayCoach = new ScriptedCoach(MatchSide.AWAY, PlayStyle.BALANCED, 0);
+        RecordingObserver observer = new RecordingObserver();
+
+        play(base, observer, homeCoach, awayCoach);
+
+        List<InterventionResult> executedBoth = List.of(InterventionResult.executed(),
+                InterventionResult.executed());
+        assertThat(homeCoach.settledResults()).containsExactly(executedBoth);
+        List<EventType> typesOfTheSecondDelivery = observer.deliveries().get(1).stream()
+                .map(MatchEvent::type)
+                .toList();
+        assertThat(typesOfTheSecondDelivery).containsSubsequence(EventType.SUBSTITUTION, EventType.PLAYER_MOVED);
+        assertThat(awayCoach.settledResults()).isEmpty();
+    }
+
+    @Test
+    void eachCoachReceivesTheResultsOfItsOwnRequestsIncludingARefusal() {
+        PreparedMatch base = preparedMatch();
+        PlayStyle homeNewStyle = styleOtherThan(base.home().style());
+        ScriptedCoach homeCoach = new ScriptedCoach(MatchSide.HOME, homeNewStyle, FIRST_DELIVERY);
+        ScriptedCoach awayCoach = new ScriptedCoach(MatchSide.AWAY, base.away().style(), FIRST_DELIVERY);
+
+        play(base, new RecordingObserver(), homeCoach, awayCoach);
+
+        InterventionResult refused = InterventionResult.refused(RefusalReason.STYLE_ALREADY_IN_USE);
+        assertThat(homeCoach.settledResults()).containsExactly(List.of(InterventionResult.executed()));
+        assertThat(awayCoach.settledResults()).containsExactly(List.of(refused));
+        assertThat(homeCoach.settledRequests()).hasSize(1);
+        assertThat(homeCoach.settledRequests().get(0)).allMatch(request -> request.side() == MatchSide.HOME);
+        assertThat(awayCoach.settledRequests()).hasSize(1);
+        assertThat(awayCoach.settledRequests().get(0)).allMatch(request -> request.side() == MatchSide.AWAY);
+    }
+
+    private static List<Intervention> substitutionThenShift(MatchSide side, Team own) {
+        Player leaving = firstOf(own.starters(), Role.MIDFIELDER);
+        Player entering = firstOf(own.bench(), Role.MIDFIELDER);
+        Intervention substitution = new Intervention.VoluntarySubstitution(side, leaving, entering,
+                ChangeReason.CHASE_GAME);
+        Intervention.SectorShift shift = new Intervention.SectorShift(entering, Role.FORWARD);
+        Intervention formationChange = new Intervention.FormationChange(side, List.of(shift),
+                ChangeReason.CHASE_GAME);
+        return List.of(substitution, formationChange);
+    }
+
+    private static Player firstOf(List<Player> players, Role role) {
+        return players.stream()
+                .filter(player -> player.role() == role)
+                .findFirst()
+                .orElseThrow();
+    }
+
+    private static PlayStyle styleOtherThan(PlayStyle style) {
         return style == PlayStyle.BALANCED ? PlayStyle.ATTACKING : PlayStyle.BALANCED;
     }
 
@@ -104,33 +211,40 @@ class LiveMatchCoachesTest {
         return ReferenceChronicle.prepare(ReferenceChronicle.homeTeamFile(), ReferenceChronicle.awayTeamFile());
     }
 
-    private void play(PreparedMatch prepared, MatchObserver observer, Coach home, Coach away) {
+    private List<MatchEvent> play(PreparedMatch prepared, MatchObserver observer, Coach home, Coach away) {
         MatchCoaches coaches = new MatchCoaches(home, away);
         PreparedMatch withTheScriptedCoaches = new PreparedMatch(prepared.homeDecision(),
                 prepared.awayDecision(), prepared.names(), coaches);
         LiveMatch liveMatch = new LiveMatch(new MatchEngine(EngineConfig.defaults()));
-        liveMatch.play(withTheScriptedCoaches, SEED, observer);
+        return liveMatch.play(withTheScriptedCoaches, SEED, observer);
     }
 
     private static final class ScriptedCoach implements Coach {
 
-        private final MatchSide side;
-        private final PlayStyle styleToAskFor;
         private final int deliveryToAskAt;
+        private final BiFunction<MatchSide, Team, List<Intervention>> plan;
         private final List<List<MatchEvent>> deliveries = new ArrayList<>();
+        private final List<List<Intervention>> settledRequests = new ArrayList<>();
+        private final List<List<InterventionResult>> settledResults = new ArrayList<>();
+        private List<Intervention> requestsToAsk = List.of();
         private boolean open;
         private double firstDraw;
 
         ScriptedCoach(MatchSide side, PlayStyle styleToAskFor, int deliveryToAskAt) {
-            this.side = side;
-            this.styleToAskFor = styleToAskFor;
+            this(deliveryToAskAt, (ownSide, own) -> List.of(new Intervention.StyleChange(side, styleToAskFor,
+                    ChangeReason.CHASE_GAME)));
+        }
+
+        ScriptedCoach(int deliveryToAskAt, BiFunction<MatchSide, Team, List<Intervention>> plan) {
             this.deliveryToAskAt = deliveryToAskAt;
+            this.plan = plan;
         }
 
         @Override
         public void open(MatchSide ownSide, PreMatchDecision own, Team opponent, TieBreakDraw draw) {
             open = true;
             firstDraw = draw.nextDouble();
+            requestsToAsk = plan.apply(ownSide, own.team());
         }
 
         @Override
@@ -139,22 +253,129 @@ class LiveMatchCoachesTest {
         }
 
         @Override
-        public Optional<Intervention> decide(List<MatchEvent> newEvents) {
+        public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment moment) {
             assertThat(open).isTrue();
             deliveries.add(newEvents);
             if (deliveries.size() != deliveryToAskAt) {
-                return Optional.empty();
+                return List.of();
             }
-            Intervention styleChange = new Intervention.StyleChange(side, styleToAskFor, ChangeReason.CHASE_GAME);
-            return Optional.of(styleChange);
+            return requestsToAsk;
+        }
+
+        @Override
+        public void interventionsSettled(List<Intervention> requests, List<InterventionResult> results) {
+            settledRequests.add(requests);
+            settledResults.add(results);
         }
 
         List<List<MatchEvent>> deliveries() {
             return deliveries;
         }
 
+        List<List<Intervention>> settledRequests() {
+            return settledRequests;
+        }
+
+        List<List<InterventionResult>> settledResults() {
+            return settledResults;
+        }
+
         double firstDraw() {
             return firstDraw;
+        }
+    }
+
+    @FunctionalInterface
+    private interface Probe {
+
+        List<Intervention> requestsAt(MatchMoment moment);
+    }
+
+    private static final class StyleToggle implements Probe {
+
+        private final MatchSide side;
+        private final PlayStyle initialStyle;
+        private int requests;
+
+        StyleToggle(MatchSide side, PlayStyle initialStyle) {
+            this.side = side;
+            this.initialStyle = initialStyle;
+        }
+
+        @Override
+        public List<Intervention> requestsAt(MatchMoment moment) {
+            requests++;
+            PlayStyle style = requests % 2 == 1 ? styleOtherThan(initialStyle) : initialStyle;
+            return List.of(new Intervention.StyleChange(side, style, ChangeReason.CHASE_GAME));
+        }
+    }
+
+    private static final class PreviewBothStyles implements Probe {
+
+        private final MatchSide side;
+        private final PlayStyle currentStyle;
+        private final List<PreviewVerdict> verdictsOfTheCurrentStyle = new ArrayList<>();
+        private final List<PreviewVerdict> verdictsOfAnotherStyle = new ArrayList<>();
+
+        PreviewBothStyles(MatchSide side, PlayStyle currentStyle) {
+            this.side = side;
+            this.currentStyle = currentStyle;
+        }
+
+        @Override
+        public List<Intervention> requestsAt(MatchMoment moment) {
+            Intervention sameStyle = new Intervention.StyleChange(side, currentStyle, ChangeReason.CHASE_GAME);
+            Intervention otherStyle = new Intervention.StyleChange(side, styleOtherThan(currentStyle),
+                    ChangeReason.CHASE_GAME);
+            verdictsOfTheCurrentStyle.addAll(moment.preview().preview(List.of(sameStyle)));
+            verdictsOfAnotherStyle.addAll(moment.preview().preview(List.of(otherStyle)));
+            return List.of();
+        }
+
+        List<PreviewVerdict> verdictsOfTheCurrentStyle() {
+            return verdictsOfTheCurrentStyle;
+        }
+
+        List<PreviewVerdict> verdictsOfAnotherStyle() {
+            return verdictsOfAnotherStyle;
+        }
+    }
+
+    private static final class ProbingCoach implements Coach {
+
+        private final Probe probe;
+        private final List<Boolean> ballLiveAtEachDecision = new ArrayList<>();
+        private final List<List<InterventionResult>> settledResults = new ArrayList<>();
+
+        ProbingCoach(Probe probe) {
+            this.probe = probe;
+        }
+
+        @Override
+        public void open(MatchSide ownSide, PreMatchDecision own, Team opponent, TieBreakDraw draw) {
+        }
+
+        @Override
+        public void close() {
+        }
+
+        @Override
+        public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment moment) {
+            ballLiveAtEachDecision.add(moment.ballLive());
+            return probe.requestsAt(moment);
+        }
+
+        @Override
+        public void interventionsSettled(List<Intervention> requests, List<InterventionResult> results) {
+            settledResults.add(results);
+        }
+
+        List<Boolean> ballLiveAtEachDecision() {
+            return ballLiveAtEachDecision;
+        }
+
+        List<List<InterventionResult>> settledResults() {
+            return settledResults;
         }
     }
 

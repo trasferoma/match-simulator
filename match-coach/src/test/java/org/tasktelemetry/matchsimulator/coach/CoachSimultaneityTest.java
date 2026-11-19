@@ -4,7 +4,6 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.Optional;
 import java.util.stream.LongStream;
 
 import org.junit.jupiter.api.Test;
@@ -123,11 +122,11 @@ class CoachSimultaneityTest {
         }
 
         @Override
-        public Optional<Intervention> decide(List<MatchEvent> newEvents) {
+        public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment moment) {
             PlayStyle style = requests % 2 == 0 ? first : second;
             requests++;
             Intervention request = new Intervention.StyleChange(side, style, ChangeReason.CHASE_GAME);
-            return Optional.of(request);
+            return List.of(request);
         }
     }
 
@@ -151,13 +150,13 @@ class CoachSimultaneityTest {
         }
 
         @Override
-        public Optional<Intervention> decide(List<MatchEvent> newEvents) {
+        public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment moment) {
             deliveries.add(newEvents);
             if (deliveries.size() != 1) {
-                return Optional.empty();
+                return List.of();
             }
             Intervention request = new Intervention.StyleChange(side, styleToAskFor, ChangeReason.CHASE_GAME);
-            return Optional.of(request);
+            return List.of(request);
         }
 
         List<List<MatchEvent>> deliveries() {

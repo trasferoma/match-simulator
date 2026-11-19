@@ -16,6 +16,7 @@ import org.tasktelemetry.matchsimulator.engine.event.MatchTime;
 import org.tasktelemetry.matchsimulator.engine.event.Participants;
 import org.tasktelemetry.matchsimulator.engine.intervention.Intervention;
 import org.tasktelemetry.matchsimulator.engine.intervention.InterventionResult;
+import org.tasktelemetry.matchsimulator.engine.intervention.PreviewVerdict;
 import org.tasktelemetry.matchsimulator.engine.intervention.RefusalReason;
 import org.tasktelemetry.matchsimulator.engine.pitch.PitchLayout;
 import org.tasktelemetry.matchsimulator.engine.pitch.Zone;
@@ -25,7 +26,6 @@ import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.FatigueUpdate;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.LineupOutcome;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.PlayerMove;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.Substitution;
-import org.tasktelemetry.matchsimulator.engine.resolution.lineup.VoluntarySubstitutionRule;
 import org.tasktelemetry.matchsimulator.engine.state.MatchClock;
 import org.tasktelemetry.matchsimulator.engine.state.MatchPeriod;
 import org.tasktelemetry.matchsimulator.engine.state.MatchState;
@@ -80,7 +80,8 @@ public final class Match {
 
     public InterventionResult apply(Intervention intervention) {
         Objects.requireNonNull(intervention, "intervention must not be null");
-        Optional<RefusalReason> refusal = findRefusalToRequest(intervention);
+        TeamOnPitch team = teams.get(intervention.side());
+        Optional<RefusalReason> refusal = findRefusalToRequest(team, intervention);
         if (refusal.isPresent()) {
             return InterventionResult.refused(refusal.get());
         }
@@ -91,8 +92,32 @@ public final class Match {
         return InterventionResult.executed();
     }
 
+    public List<PreviewVerdict> previewInterventions(List<Intervention> requests) {
+        Objects.requireNonNull(requests, "requests must not be null");
+        if (requests.isEmpty()) {
+            return List.of();
+        }
+        MatchSide side = sideOfTheRequests(requests);
+        TeamOnPitch projected = teams.get(side);
+        List<PreviewVerdict> verdicts = new ArrayList<>();
+        for (Intervention request : requests) {
+            Optional<RefusalReason> refusal = findRefusalToRequest(projected, request);
+            PreviewVerdict verdict = verdictOf(refusal);
+            verdicts.add(verdict);
+            if (refusal.isEmpty()) {
+                projected = teamAfter(projected, request);
+            }
+        }
+        return verdicts;
+    }
+
     public boolean isFinished() {
         return clock.period().isOver();
+    }
+
+    public boolean isBallLive() {
+        boolean isPlayed = clock.period().isPlayed();
+        return isPlayed && (state.hasCrossInFlight() || state.isAwaitingPenalty());
     }
 
     public List<MatchEvent> events() {
@@ -107,24 +132,43 @@ public final class Match {
         return state;
     }
 
-    private Optional<RefusalReason> findRefusalToRequest(Intervention intervention) {
+    private MatchSide sideOfTheRequests(List<Intervention> requests) {
+        MatchSide side = requests.get(0).side();
+        boolean areAllForTheSameSide = requests.stream().allMatch(request -> request.side() == side);
+        if (!areAllForTheSameSide) {
+            throw new IllegalArgumentException("all the requests of a preview must be for the same side");
+        }
+        return side;
+    }
+
+    private PreviewVerdict verdictOf(Optional<RefusalReason> refusal) {
+        if (refusal.isPresent()) {
+            return PreviewVerdict.refused(refusal.get());
+        }
+        return PreviewVerdict.accepted();
+    }
+
+    private Optional<RefusalReason> findRefusalToRequest(TeamOnPitch team, Intervention intervention) {
+        Optional<RefusalReason> refusalOfTheMatch = findRefusalOfTheMatchFor(intervention.side());
+        if (refusalOfTheMatch.isPresent()) {
+            return refusalOfTheMatch;
+        }
+        return findRefusalOf(team, intervention);
+    }
+
+    private Optional<RefusalReason> findRefusalOfTheMatchFor(MatchSide side) {
         if (!clock.period().isInProgress()) {
             return Optional.of(RefusalReason.MATCH_NOT_IN_PLAY);
         }
-        if (pendingInterventions.containsKey(intervention.side())) {
+        if (pendingInterventions.containsKey(side)) {
             return Optional.of(RefusalReason.INTERVENTION_ALREADY_PENDING);
         }
-        return findRefusalOf(intervention);
+        return Optional.empty();
     }
 
     private InterventionResult keepPending(Intervention intervention) {
         pendingInterventions.put(intervention.side(), new PendingIntervention(intervention, score));
         return InterventionResult.pending();
-    }
-
-    private boolean isBallLive() {
-        boolean isPlayed = clock.period().isPlayed();
-        return isPlayed && (state.hasCrossInFlight() || state.isAwaitingPenalty());
     }
 
     private void settlePendingInterventions() {
@@ -144,19 +188,35 @@ public final class Match {
     private void executeIfStillValid(PendingIntervention pending) {
         Intervention intervention = pending.intervention();
         boolean isOutdatedByAGoal = !score.equals(pending.scoreAtRequest());
-        if (isOutdatedByAGoal || findRefusalOf(intervention).isPresent()) {
+        TeamOnPitch team = teams.get(intervention.side());
+        if (isOutdatedByAGoal || findRefusalOf(team, intervention).isPresent()) {
             return;
         }
         execute(intervention);
     }
 
-    private Optional<RefusalReason> findRefusalOf(Intervention intervention) {
-        TeamOnPitch team = teams.get(intervention.side());
+    private Optional<RefusalReason> findRefusalOf(TeamOnPitch team, Intervention intervention) {
         return switch (intervention) {
             case Intervention.StyleChange change -> findStyleRefusalOf(team, change);
             case Intervention.VoluntarySubstitution request -> findSubstitutionRefusalOf(team, request);
             case Intervention.SectorMove request -> findMoveRefusalOf(team, request);
+            case Intervention.FormationChange request -> findFormationChangeRefusalOf(team, request);
         };
+    }
+
+    private TeamOnPitch teamAfter(TeamOnPitch team, Intervention intervention) {
+        return switch (intervention) {
+            case Intervention.StyleChange change -> team.withStyle(change.style());
+            case Intervention.VoluntarySubstitution request ->
+                    resolvers.voluntarySubstitution().substitute(team, request);
+            case Intervention.SectorMove request -> resolvers.sectorMove().move(team, request);
+            case Intervention.FormationChange request -> resolvers.formationChange().change(team, request);
+        };
+    }
+
+    private Optional<RefusalReason> findFormationChangeRefusalOf(TeamOnPitch team,
+            Intervention.FormationChange request) {
+        return resolvers.formationChange().refusalOf(team, request);
     }
 
     private Optional<RefusalReason> findSubstitutionRefusalOf(TeamOnPitch team,
@@ -180,6 +240,7 @@ public final class Match {
             case Intervention.StyleChange change -> changeStyle(change);
             case Intervention.VoluntarySubstitution request -> substituteVoluntarily(request);
             case Intervention.SectorMove request -> moveToSector(request);
+            case Intervention.FormationChange request -> changeFormation(request);
         }
     }
 
@@ -187,7 +248,7 @@ public final class Match {
         MatchSide side = change.side();
         TeamOnPitch beforeChange = teams.get(side);
         PlayStyle previousStyle = beforeChange.style();
-        TeamOnPitch restyled = beforeChange.withStyle(change.style());
+        TeamOnPitch restyled = teamAfter(beforeChange, change);
         teams.put(side, restyled);
         recordStyleChange(side, previousStyle, change);
     }
@@ -204,18 +265,32 @@ public final class Match {
     private void moveToSector(Intervention.SectorMove request) {
         MatchSide side = request.side();
         TeamOnPitch beforeMove = teams.get(side);
-        TeamOnPitch moved = resolvers.sectorMove().move(beforeMove, request);
+        TeamOnPitch moved = teamAfter(beforeMove, request);
         teams.put(side, moved);
         PlayerMove move = new PlayerMove(request.player(), request.sector(), request.reason());
         DeploymentShift shift = DeploymentShift.between(beforeMove, moved);
         recordMove(side, move, shift);
     }
 
+    private void changeFormation(Intervention.FormationChange request) {
+        MatchSide side = request.side();
+        TeamOnPitch beforeChange = teams.get(side);
+        TeamOnPitch reformed = teamAfter(beforeChange, request);
+        teams.put(side, reformed);
+        List<PlayerMove> moves = movesOf(request);
+        recordMoves(side, beforeChange, moves);
+    }
+
+    private List<PlayerMove> movesOf(Intervention.FormationChange request) {
+        return request.shifts().stream()
+                .map(shift -> new PlayerMove(shift.player(), shift.sector(), request.reason()))
+                .toList();
+    }
+
     private Substitution bringInTheSubstitute(Intervention.VoluntarySubstitution request) {
         MatchSide side = request.side();
         TeamOnPitch beforeChange = teams.get(side);
-        VoluntarySubstitutionRule rule = resolvers.voluntarySubstitution();
-        TeamOnPitch changed = rule.substitute(beforeChange, request);
+        TeamOnPitch changed = teamAfter(beforeChange, request);
         teams.put(side, changed);
         Role sector = changed.roleOf(request.entering());
         return new Substitution(request.leaving(), request.entering(), sector, request.reason());

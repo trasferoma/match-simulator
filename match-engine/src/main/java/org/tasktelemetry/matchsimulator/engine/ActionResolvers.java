@@ -5,6 +5,7 @@ import org.tasktelemetry.matchsimulator.engine.resolution.PossessionActionResolv
 import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.EnergyDrain;
 import org.tasktelemetry.matchsimulator.engine.resolution.fatigue.HalfTimeRecovery;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.DismissalResolver;
+import org.tasktelemetry.matchsimulator.engine.resolution.lineup.FormationChangeRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.InjuryResolver;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.MinimumPlayersRule;
 import org.tasktelemetry.matchsimulator.engine.resolution.lineup.SectorMoveRule;
@@ -29,6 +30,7 @@ record ActionResolvers(
         SubstitutionTimer substitutionTimer,
         VoluntarySubstitutionRule voluntarySubstitution,
         SectorMoveRule sectorMove,
+        FormationChangeRule formationChange,
         StoppageTime stoppage,
         EnergyDrain energyDrain,
         HalfTimeRecovery halfTimeRecovery) {

@@ -1,9 +1,11 @@
 package org.tasktelemetry.matchsimulator.live;
 
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Objects;
 
 import org.tasktelemetry.matchsimulator.coach.MatchCoaches;
+import org.tasktelemetry.matchsimulator.coach.MatchMoment;
 import org.tasktelemetry.matchsimulator.coach.TieBreakDraw;
 import org.tasktelemetry.matchsimulator.engine.Match;
 import org.tasktelemetry.matchsimulator.engine.MatchEngine;
@@ -12,6 +14,7 @@ import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.engine.event.EventType;
 import org.tasktelemetry.matchsimulator.engine.event.MatchEvent;
 import org.tasktelemetry.matchsimulator.engine.intervention.Intervention;
+import org.tasktelemetry.matchsimulator.engine.intervention.InterventionResult;
 
 public final class LiveMatch {
 
@@ -97,10 +100,33 @@ public final class LiveMatch {
         if (newEvents.isEmpty() || match.isFinished()) {
             return false;
         }
-        List<Intervention> requests = coaches.decide(newEvents);
-        for (Intervention request : requests) {
-            match.apply(request);
-        }
+        MatchMoment moment = momentOf(match);
+        List<Intervention> requests = askCoaches(coaches, newEvents, moment);
+        List<InterventionResult> results = applyInOrder(match, requests);
+        tellCoachesTheResults(coaches, requests, results);
         return !requests.isEmpty();
+    }
+
+    private List<Intervention> askCoaches(MatchCoaches coaches, List<MatchEvent> newEvents, MatchMoment moment) {
+        return coaches.decide(newEvents, moment);
+    }
+
+    private void tellCoachesTheResults(MatchCoaches coaches, List<Intervention> requests,
+            List<InterventionResult> results) {
+        coaches.settle(requests, results);
+    }
+
+    private MatchMoment momentOf(Match match) {
+        boolean ballLive = match.isBallLive();
+        return new MatchMoment(ballLive, match::previewInterventions);
+    }
+
+    private List<InterventionResult> applyInOrder(Match match, List<Intervention> requests) {
+        List<InterventionResult> results = new ArrayList<>();
+        for (Intervention request : requests) {
+            InterventionResult result = match.apply(request);
+            results.add(result);
+        }
+        return results;
     }
 }

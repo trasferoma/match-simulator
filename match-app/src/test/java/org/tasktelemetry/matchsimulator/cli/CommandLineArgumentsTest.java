@@ -7,6 +7,7 @@ import java.nio.file.Path;
 import java.util.List;
 
 import org.junit.jupiter.api.Test;
+import org.tasktelemetry.matchsimulator.engine.MatchSide;
 import org.tasktelemetry.matchsimulator.narration.ChronicleMode;
 
 class CommandLineArgumentsTest {
@@ -205,6 +206,67 @@ class CommandLineArgumentsTest {
     @Test
     void theAnimateOptionWithoutHighlightsIsRefused() {
         assertProblem(List.of("a.json", "b.json", "--animate"), CommandLineProblem.ANIMATE_WITHOUT_HIGHLIGHTS);
+    }
+
+    @Test
+    void withoutTheControlOptionNoSideIsControlled() {
+        CommandLineArguments arguments = CommandLineArguments.parse(List.of("a.json", "b.json", "--highlights"));
+
+        assertThat(arguments.controlledSide()).isEmpty();
+    }
+
+    @Test
+    void theControlOptionTakesTheHomeOrTheAwaySide() {
+        CommandLineArguments home = CommandLineArguments.parse(
+                List.of("a.json", "b.json", "--highlights", "--control", "casa"));
+        CommandLineArguments away = CommandLineArguments.parse(
+                List.of("a.json", "b.json", "--highlights", "--control", "ospite"));
+
+        assertThat(home.controlledSide()).contains(MatchSide.HOME);
+        assertThat(away.controlledSide()).contains(MatchSide.AWAY);
+    }
+
+    @Test
+    void theControlOptionWorksInAnyPositionTogetherWithTheOtherOptions() {
+        CommandLineArguments before = CommandLineArguments.parse(
+                List.of("--control", "ospite", "a.json", "--highlights", "b.json"));
+        CommandLineArguments combined = CommandLineArguments.parse(
+                List.of("a.json", "--seed", "5", "--highlights", "--animate", "--control", "casa", "b.json"));
+
+        assertThat(before.controlledSide()).contains(MatchSide.AWAY);
+        assertThat(before.homeFile()).isEqualTo(Path.of("a.json"));
+        assertThat(combined.controlledSide()).contains(MatchSide.HOME);
+        assertThat(combined.animate()).isTrue();
+        assertThat(combined.seed()).contains(5L);
+    }
+
+    @Test
+    void theControlOptionWithoutValueIsRefused() {
+        assertProblem(List.of("a.json", "b.json", "--highlights", "--control"),
+                CommandLineProblem.CONTROL_MISSING_VALUE);
+    }
+
+    @Test
+    void theControlOptionWithAnUnknownSideIsRefusedWithTheTextGiven() {
+        assertProblem(List.of("a.json", "b.json", "--highlights", "--control", "banana"),
+                CommandLineProblem.CONTROL_UNKNOWN_SIDE, "banana");
+        assertProblem(List.of("a.json", "b.json", "--highlights", "--control", "Casa"),
+                CommandLineProblem.CONTROL_UNKNOWN_SIDE, "Casa");
+    }
+
+    @Test
+    void aRepeatedControlOptionIsRefused() {
+        assertProblem(List.of("a.json", "b.json", "--highlights", "--control", "casa", "--control", "ospite"),
+                CommandLineProblem.DUPLICATE_OPTION, "--control");
+    }
+
+    @Test
+    void theControlOptionWithoutHighlightsIsRefused() {
+        assertProblem(List.of("a.json", "b.json", "--control", "casa"), CommandLineProblem.CONTROL_WITHOUT_HIGHLIGHTS);
+        assertProblem(List.of("a.json", "b.json", "--full", "--control", "casa"),
+                CommandLineProblem.CONTROL_WITHOUT_HIGHLIGHTS);
+        assertProblem(List.of("a.json", "b.json", "--stepByStep", "--control", "ospite"),
+                CommandLineProblem.CONTROL_WITHOUT_HIGHLIGHTS);
     }
 
     private void assertProblem(List<String> arguments, CommandLineProblem problem, Object... problemArguments) {

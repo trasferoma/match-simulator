@@ -24,5 +24,6 @@ enum ReportLabel {
     RED_CARDS,
     OFFSIDES,
     SUBSTITUTIONS,
-    SEED
+    SEED,
+    SEED_NOT_ENOUGH
 }

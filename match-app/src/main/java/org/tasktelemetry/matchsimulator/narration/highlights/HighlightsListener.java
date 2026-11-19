@@ -5,4 +5,6 @@ public interface HighlightsListener {
     void segmentNarrated(NarratedSegment segment);
 
     void chronicleFinished();
+
+    void chroniclePaused();
 }

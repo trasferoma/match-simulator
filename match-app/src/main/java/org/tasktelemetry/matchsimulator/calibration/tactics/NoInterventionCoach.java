@@ -1,9 +1,9 @@
 package org.tasktelemetry.matchsimulator.calibration.tactics;
 
 import java.util.List;
-import java.util.Optional;
 
 import org.tasktelemetry.matchsimulator.coach.Coach;
+import org.tasktelemetry.matchsimulator.coach.MatchMoment;
 import org.tasktelemetry.matchsimulator.coach.TieBreakDraw;
 import org.tasktelemetry.matchsimulator.coach.lineup.PreMatchDecision;
 import org.tasktelemetry.matchsimulator.engine.MatchSide;
@@ -18,8 +18,8 @@ final class NoInterventionCoach implements Coach {
     }
 
     @Override
-    public Optional<Intervention> decide(List<MatchEvent> newEvents) {
-        return Optional.empty();
+    public List<Intervention> decide(List<MatchEvent> newEvents, MatchMoment moment) {
+        return List.of();
     }
 
     @Override
